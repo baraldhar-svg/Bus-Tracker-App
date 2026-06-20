@@ -175,11 +175,17 @@ function ProfilePanel({
                 <img src={avatarSrc} alt={user.name}
                   className="h-20 w-20 rounded-full border-4 border-amber-500 object-cover shadow-lg" />
                 {editing && (
-                  <div className="absolute -bottom-1 -right-1 flex gap-1">
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
                     <button onClick={() => galleryRef.current?.click()}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📁</button>
+                      title="Upload from gallery"
+                      className="flex items-center gap-1 rounded-lg bg-card border border-border shadow px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                      📁 <span>Gallery</span>
+                    </button>
                     <button onClick={() => cameraRef.current?.click()}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📷</button>
+                      title="Take a photo"
+                      className="flex items-center gap-1 rounded-lg bg-card border border-border shadow px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                      📷 <span>Camera</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -276,7 +282,9 @@ function ProfilePanel({
                 onClick={() => { logout(); navigate("/"); }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 py-3 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
               >
-                <span>⬅️</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+                </svg>
                 {t.signOut}
               </button>
             </div>

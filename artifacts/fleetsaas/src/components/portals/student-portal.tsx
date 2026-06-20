@@ -91,11 +91,11 @@ export default function StudentPortal() {
       setSentMsg("Staying home today");
       await updatePassenger.mutateAsync({
         id: DEMO_PASSENGER_ID,
-        data: { liveToday: 0, quickMessage: "Staying home today" },
+        data: { liveToday: 0, quickMessage: "Staying home today", status: "leave" },
       });
     } else {
       setSentMsg(null);
-      await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: 0 } });
+      await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: 0, status: "pending" } });
     }
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [onLeave, updatePassenger, queryClient]);
