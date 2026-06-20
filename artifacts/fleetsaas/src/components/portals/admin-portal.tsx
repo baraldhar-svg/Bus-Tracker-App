@@ -2042,7 +2042,7 @@ export default function AdminPortal() {
             + Add Student/Staff
           </button>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {passengers?.map((p) => (
             <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
               <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
@@ -2076,7 +2076,7 @@ export default function AdminPortal() {
             + Add Driver
           </button>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {drivers?.map((d) => (
             <button key={d.id}
               onClick={() => setSelectedDriver({ id: d.id, name: d.name, phone: d.phone, vehicleNumber: d.vehicleNumber, isActive: d.isActive ?? false, photoUrl: d.photoUrl })}
@@ -2106,7 +2106,7 @@ export default function AdminPortal() {
           <h2 className="font-semibold text-primary">Fleet Status</h2>
           <span className="text-xs text-muted-foreground">{onRouteCount} of {FLEET_VEHICLES.length} on route</span>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {FLEET_VEHICLES.map((v) => (
             <button key={v.id}
               onClick={() => setSelectedVehicle(v)}
@@ -2147,7 +2147,7 @@ export default function AdminPortal() {
           <h2 className="font-semibold text-primary">Driver Safety Scores</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Monthly AI-analyzed driving behavior</p>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {DRIVER_SCORES.map((d) => (
             <div key={d.name} className="flex items-center gap-4 px-5 py-3">
               <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`} alt={d.name} className="h-9 w-9 rounded-full shrink-0" />
@@ -2168,7 +2168,7 @@ export default function AdminPortal() {
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Maintenance & Fuel Reminders</h2>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {FLEET_VEHICLES.map((v) => (
             <div key={v.id} className="flex items-center gap-4 px-5 py-3">
               <span className="shrink-0 text-muted-foreground">{v.nextService < 1000 ? <Wrench size={18} className="text-red-500" /> : <Bus size={18} />}</span>
