@@ -275,8 +275,8 @@ export default function StudentPortal() {
           </div>
         </div>
 
-        <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 220 }}>
-          <BusMap lat={pos.lat} lng={pos.lng} />
+        <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 280 }}>
+          <BusMap route={BUS_POSITIONS} posIdx={posIdx} />
         </div>
         <p className="text-xs text-muted-foreground text-center">Next stop: Kalanki Chowk</p>
       </div>
