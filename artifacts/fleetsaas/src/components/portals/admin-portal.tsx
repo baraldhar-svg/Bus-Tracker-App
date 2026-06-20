@@ -1500,6 +1500,80 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   );
 }
 
+type StationItem = { id: number; name: string; lat?: number | null; lng?: number | null; radius?: number | null };
+
+function StationManager({ stations, onCreated }: { stations: StationItem[] | undefined; onCreated: () => void }) {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const selected = stations?.find((s) => s.id === selectedId);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2"><MapPin size={14} />Geofence Stations</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations · OSM address lookup</p>
+        </div>
+        <button
+          onClick={() => setShowAdd((v) => !v)}
+          className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          <Plus size={12} />{showAdd ? "Cancel" : "Add Station"}
+        </button>
+      </div>
+
+      {/* Scrollable station list */}
+      <div className="max-h-56 overflow-y-auto divide-y divide-border">
+        {stations?.length === 0 && (
+          <p className="px-4 py-5 text-xs text-muted-foreground text-center italic">No stations yet — add one using the button above</p>
+        )}
+        {stations?.map((s) => {
+          const isSelected = s.id === selectedId;
+          return (
+            <button
+              key={s.id}
+              onClick={() => setSelectedId(isSelected ? null : s.id)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-amber-500/10" : "hover:bg-muted/50"}`}
+            >
+              <MapPin size={13} className={`shrink-0 ${isSelected ? "text-amber-500" : "text-amber-400/60"}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${isSelected ? "text-amber-500" : "text-foreground"}`}>{s.name}</p>
+                {s.lat != null && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {(s.lat as number).toFixed(4)}, {(s.lng as number)?.toFixed(4)} · {s.radius ?? 200}m
+                  </p>
+                )}
+              </div>
+              {isSelected && <span className="shrink-0 text-amber-500 text-sm">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected station detail */}
+      {selected && (
+        <div className="mx-4 my-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3">
+          <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wide mb-1">Selected Station</p>
+          <p className="text-sm font-semibold text-foreground">{selected.name}</p>
+          {selected.lat != null && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {(selected.lat as number).toFixed(5)}, {(selected.lng as number)?.toFixed(5)} · Radius: {selected.radius ?? 200}m
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Add station form (toggleable) */}
+      {showAdd && (
+        <div className="px-5 pb-5 pt-2">
+          <GeocodeStationCreator onCreated={() => { onCreated(); setShowAdd(false); }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GeocodeStationCreator({ onCreated }: { onCreated: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeocodeResult[]>([]);
@@ -2111,33 +2185,10 @@ export default function AdminPortal() {
         </div>
       </div>
       {/* Geofence Stations */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-primary flex items-center gap-2"><MapPin size={14} />Geofence Stations</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations · OSM address lookup</p>
-        </div>
-        <div className="divide-y divide-border">
-          {stations?.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-              <MapPin size={14} className="text-amber-500 shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm text-foreground">{s.name}</p>
-                {(s as unknown as { lat?: number; radius?: number }).lat && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {(s as unknown as { lat: number }).lat.toFixed(4)}, {(s as unknown as { lng: number }).lng?.toFixed(4)} · {(s as unknown as { radius?: number }).radius ?? 200}m
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-          {stations?.length === 0 && (
-            <p className="px-4 py-4 text-xs text-muted-foreground text-center italic">No stations yet — add one below</p>
-          )}
-        </div>
-        <div className="px-5 pb-5">
-          <GeocodeStationCreator onCreated={() => { refetchStations(); queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() }); }} />
-        </div>
-      </div>
+      <StationManager
+        stations={stations}
+        onCreated={() => { refetchStations(); queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() }); }}
+      />
       {/* Vehicle Asset Grid */}
       <VehicleTagGrid
         vehicles={vehicles as VehicleRow[] | undefined}
