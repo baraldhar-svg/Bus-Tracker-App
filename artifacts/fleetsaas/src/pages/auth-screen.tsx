@@ -202,7 +202,6 @@ export default function AuthScreen() {
         onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerUrl(await fileToDataUrl(f)); }} />
       <input ref={bannerCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
         onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerUrl(await fileToDataUrl(f)); }} />
-
       <div className="w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
         <div className="mb-6 flex flex-col items-center gap-2">
           <span className="text-5xl bus-float">🚌</span>
@@ -276,7 +275,7 @@ export default function AuthScreen() {
                 <div className="grid grid-cols-2 gap-2">
                   {ROLES.map((r) => (
                     <button key={r.value} onClick={() => setRole(r.value)}
-                      className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${role === r.value ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-slate-600 text-slate-300 hover:border-slate-500"}`}>
+                      className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${role === r.value ? "border-amber-500 bg-amber-500/10 text-[#ffee47]" : "border-slate-600 text-slate-300 hover:border-slate-500"}`}>
                       {r.label}
                     </button>
                   ))}
@@ -340,14 +339,14 @@ export default function AuthScreen() {
                     </button>
                   </div>
                 )}
-                <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
+                <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-[#ffee47]">
                   {getUniformHint()}
                 </div>
               </div>
             </div>
             {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
             <button onClick={handleRegister} disabled={!name || loading}
-              className="mt-5 w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
+              className="mt-5 w-full rounded-xl py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors bg-[#ffee47]">
               {loading ? "Creating account…" : role === "admin" ? "Continue →" : "Join OrbitTrack →"}
             </button>
           </>
@@ -437,10 +436,9 @@ export default function AuthScreen() {
           </>
         )}
       </div>
-
       <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-center">
         <p className="text-xs text-slate-400">
-          <span className="text-amber-400 font-semibold">Demo mode:</span> Use any Nepal number (98XXXXXXXX) — OTP is auto-filled
+          <span className="font-semibold text-[#ffee47]">Demo mode:</span> Use any Nepal number (98XXXXXXXX) — OTP is auto-filled
         </p>
       </div>
     </div>
