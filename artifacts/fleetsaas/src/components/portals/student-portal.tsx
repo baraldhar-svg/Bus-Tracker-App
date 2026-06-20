@@ -303,7 +303,7 @@ export default function StudentPortal() {
           <div className="flex-1 mx-2">
             <div className="h-2 rounded-full bg-border overflow-hidden">
               <div
-                className="h-full rounded-full bg-amber-500 transition-all duration-[3500ms] ease-linear"
+                className="h-full rounded-full transition-all duration-[3500ms] ease-linear bg-[#47FF69]"
                 style={{ width: `${etaProgress}%` }}
               />
             </div>
