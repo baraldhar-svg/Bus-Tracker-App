@@ -171,25 +171,13 @@ export default function DriverPortal() {
 
               {/* Journey Completed — locked until bus is within 200 m of school */}
               {!journeyCompleted ? (
-                <div className="space-y-1">
-                  <button
-                    onClick={handleJourneyComplete}
-                    disabled={!nearSchool}
-                    className={`w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
-                      nearSchool
-                        ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-900/40"
-                        : "bg-slate-700 cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    <span className="text-xl mr-2">🏁</span>
-                    Journey Completed
-                  </button>
-                  {!nearSchool && (
-                    <p className="text-center text-[10px] text-slate-500">
-                      🔒 Unlocks within 200 m of school — navigate to the last stop
-                    </p>
-                  )}
-                </div>
+                <button
+                  onClick={handleJourneyComplete}
+                  className="w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg shadow-red-900/40 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all active:scale-[0.98]"
+                >
+                  <span className="text-xl mr-2">🏁</span>
+                  Journey Completed
+                </button>
               ) : (
                 /* Completion confirmed card */
                 <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
