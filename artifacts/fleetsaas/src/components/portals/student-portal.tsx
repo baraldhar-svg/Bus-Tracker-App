@@ -366,11 +366,7 @@ export default function StudentPortal() {
             <button
               key={msg.value}
               onClick={() => handleQuickMessage(msg.value)}
-              className={`rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition-all ${
-                sentMsg === msg.value
-                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 shadow-sm"
-                  : "border-border bg-card hover:bg-muted text-foreground"
-              }`}
+              className="rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition-all border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 shadow-sm text-[#ffcd28] border-t-[#ffee47] border-r-[#ffee47] border-b-[#ffee47] border-l-[#ffee47]"
             >
               <span className="flex items-center gap-1.5"><msg.Icon size={13} className="shrink-0" />{msg.label}</span>
             </button>
