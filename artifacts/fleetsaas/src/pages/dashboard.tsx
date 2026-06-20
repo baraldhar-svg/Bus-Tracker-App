@@ -447,10 +447,6 @@ export default function Dashboard() {
                 title="My Profile">
                 <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full object-cover shrink-0" />
               </button>
-              <button onClick={() => { logout(); navigate("/"); }}
-                className="flex items-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
-                {t.signOut}
-              </button>
             </div>
           </div>
         </header>
