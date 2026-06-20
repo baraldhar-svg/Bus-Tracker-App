@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
@@ -93,12 +93,35 @@ function CalendarManager() {
   const [adYear, setAdYear] = useState(todayAd.getFullYear());
   const [adMonth, setAdMonth] = useState(todayAd.getMonth() + 1);
 
-  // API month query (always in AD YYYY-MM format)
-  const queryMonthStr = calSystem === "bs"
-    ? (() => { const d = bsToAd(bsYear, bsMonth, 1); return `${d.year}-${String(d.month).padStart(2, "0")}`; })()
-    : `${adYear}-${String(adMonth).padStart(2, "0")}`;
+  // API month query (always in AD YYYY-MM format).
+  // A BS month always spans TWO AD months (e.g. Ashadh 2083 = Jun 15–Jul 16).
+  // We fetch both AD months and merge so no events are missed.
+  const adMonthStart = useMemo(() => {
+    if (calSystem === "bs") return bsToAd(bsYear, bsMonth, 1);
+    return { year: adYear, month: adMonth, day: 1 };
+  }, [calSystem, bsYear, bsMonth, adYear, adMonth]);
 
-  const { data: events, refetch } = useListCalendarEvents({ month: queryMonthStr });
+  const adMonthEnd = useMemo(() => {
+    if (calSystem === "bs") return bsToAd(bsYear, bsMonth, getDaysInBsMonth(bsYear, bsMonth));
+    return { year: adYear, month: adMonth, day: 1 };
+  }, [calSystem, bsYear, bsMonth, adYear, adMonth]);
+
+  const queryMonth1 = `${adMonthStart.year}-${String(adMonthStart.month).padStart(2, "0")}`;
+  const queryMonth2 = (calSystem === "bs" && adMonthEnd.month !== adMonthStart.month)
+    ? `${adMonthEnd.year}-${String(adMonthEnd.month).padStart(2, "0")}`
+    : null;
+
+  const { data: eventsA, refetch: refetchA } = useListCalendarEvents({ month: queryMonth1 });
+  // Always call the hook (React rules); when no second month is needed pass month1 again (deduped by cache)
+  const { data: eventsB, refetch: refetchB } = useListCalendarEvents({ month: queryMonth2 ?? queryMonth1 });
+
+  const events = useMemo(() => {
+    const all = [...(eventsA ?? []), ...(queryMonth2 ? (eventsB ?? []) : [])];
+    const seen = new Set<number>();
+    return all.filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; });
+  }, [eventsA, eventsB, queryMonth2]);
+
+  function refetch() { void refetchA(); if (queryMonth2) void refetchB(); }
 
   const [showForm, setShowForm] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -176,7 +199,7 @@ function CalendarManager() {
     ? `${BS_MONTH_NAMES_NE[bsMonth - 1]} ${bsYear}`
     : `${AD_MONTH_NAMES[adMonth - 1]} ${adYear}`;
   const headerSubtitle = calSystem === "bs"
-    ? `${queryMonthStr.replace("-", " / ")} AD`
+    ? `${queryMonth1.replace("-", " / ")} AD`
     : (() => { const bs = adToBs(adYear, adMonth, 1); return `${BS_MONTH_NAMES_NE[bs.month - 1]} ${bs.year} BS`; })();
 
   const selectedDayLabel = selectedDay
