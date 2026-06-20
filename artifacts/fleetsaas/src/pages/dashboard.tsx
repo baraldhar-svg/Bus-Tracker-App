@@ -449,6 +449,18 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* School Banner — shown for all users with a tenant */}
+        {(tenant?.bannerUrl || user?.tenant?.bannerUrl) && (
+          <SchoolBanner tenant={tenant ?? user!.tenant!} />
+        )}
+
+        {/* Ad Carousel — only for students/staff and superadmin */}
+        {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
+          <div className="border-b border-border bg-card overflow-hidden">
+            <AdCarousel ads={ads} onAdClick={handleAdClick} />
+          </div>
+        )}
+
         {/* Welcome bar */}
         {user && (
           <div className="border-b border-border bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-2 flex items-center gap-2">
@@ -461,18 +473,6 @@ export default function Dashboard() {
             {(tenant?.name || user.tenant?.name) && (
               <span className="text-xs text-muted-foreground">· {tenant?.name ?? user.tenant?.name}</span>
             )}
-          </div>
-        )}
-
-        {/* School Banner — shown for all users with a tenant */}
-        {(tenant?.bannerUrl || user?.tenant?.bannerUrl) && (
-          <SchoolBanner tenant={tenant ?? user!.tenant!} />
-        )}
-
-        {/* Ad Carousel — only for students/staff and superadmin */}
-        {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
-          <div className="border-b border-border bg-card overflow-hidden">
-            <AdCarousel ads={ads} onAdClick={handleAdClick} />
           </div>
         )}
 
