@@ -111,6 +111,7 @@ export default function StudentPortal() {
       });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       setTransportSaved(true);
+      setTransportOpen(false);
       setTimeout(() => setTransportSaved(false), 3000);
     } catch { /* ignore */ }
     finally { setTransportSaving(false); }
