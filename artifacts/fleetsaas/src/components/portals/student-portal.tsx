@@ -173,17 +173,40 @@ export default function StudentPortal() {
           </div>
         )}
       </div>
-      {/* Announcements */}
-      {announcements?.length ? (
-        <div className="space-y-2">
-          <h2 className="font-semibold text-primary text-sm">📢 Notices</h2>
-          {announcements.map((a) => (
-            <div key={a.id} className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3 text-red-900 dark:text-red-300 text-[18px] font-bold">
-              <p className="text-sm">{a.message}</p>
-            </div>
-          ))}
+      {/* Notice Board */}
+      <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 overflow-hidden shadow-sm">
+        {/* Board header */}
+        <div className="flex items-center gap-2 bg-amber-500 px-4 py-3">
+          <span className="text-lg">📋</span>
+          <div className="flex-1">
+            <p className="font-bold text-slate-900 text-sm leading-tight">Notice Board</p>
+            <p className="text-[10px] text-amber-900/70">From your school administration</p>
+          </div>
+          {announcements?.length ? (
+            <span className="rounded-full bg-slate-900/20 px-2 py-0.5 text-[10px] font-bold text-slate-900">
+              {announcements.length} notice{announcements.length > 1 ? "s" : ""}
+            </span>
+          ) : null}
         </div>
-      ) : null}
+        {/* Notices list */}
+        <div className="divide-y divide-amber-200 dark:divide-amber-800/30">
+          {announcements?.length ? (
+            announcements.map((a, idx) => (
+              <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-900">
+                  {idx + 1}
+                </span>
+                <p className="text-sm text-amber-900 dark:text-amber-200 leading-snug">{a.message}</p>
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-amber-700 dark:text-amber-400">No notices at this time</p>
+              <p className="text-xs text-amber-600/60 dark:text-amber-500/50 mt-0.5">Check back later for updates from your school</p>
+            </div>
+          )}
+        </div>
+      </div>
       {/* Live Bus Map */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
