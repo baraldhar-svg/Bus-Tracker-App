@@ -367,6 +367,19 @@ paths:
                 $ref: "#/components/schemas/Passenger"
 
   /passengers/{id}:
+    delete:
+      operationId: deletePassenger
+      tags: [passengers]
+      summary: Remove a passenger
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
     get:
       operationId: getPassenger
       tags: [passengers]
@@ -1134,6 +1147,8 @@ components:
           type: integer
         name:
           type: string
+        phone:
+          type: ["string", "null"]
         photoUrl:
           type: ["string", "null"]
         role:
@@ -1164,6 +1179,8 @@ components:
       properties:
         name:
           type: string
+        phone:
+          type: string
         photoUrl:
           type: string
         role:
@@ -1176,6 +1193,8 @@ components:
       type: object
       properties:
         name:
+          type: string
+        phone:
           type: string
         photoUrl:
           type: string

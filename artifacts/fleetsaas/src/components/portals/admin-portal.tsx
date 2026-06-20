@@ -493,8 +493,8 @@ type Tenant = { id: number; name: string; address?: string | null; contactPhone?
 type FleetVehicle = typeof FLEET_VEHICLES[number];
 
 type Passenger = {
-  id: number; name: string; role: string; status: string;
-  liveToday: number; stationName?: string | null; quickMessage?: string | null; photoUrl?: string | null;
+  id: number; name: string; phone?: string | null; role: string; status: string;
+  liveToday: number; stationId: number; stationName?: string | null; quickMessage?: string | null; photoUrl?: string | null;
 };
 
 function StatsDetailPanel({
@@ -856,6 +856,134 @@ function DriverDetailPanel({
           <button onClick={handleDelete}
             className="w-full rounded-xl border border-red-300 dark:border-red-800 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-2">
             <Trash2 size={13} />Remove Driver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PassengerRow = { id: number; name: string; phone?: string | null; photoUrl?: string | null; role: string; stationId: number; stationName?: string | null };
+type StationOption = { id: number; name: string };
+
+function PassengerDetailPanel({
+  passenger, stations, onClose, onRefresh,
+}: {
+  passenger: PassengerRow;
+  stations: StationOption[] | undefined;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [editName, setEditName] = useState(passenger.name);
+  const [editPhone, setEditPhone] = useState(passenger.phone ?? "");
+  const [editStationId, setEditStationId] = useState(String(passenger.stationId));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!editName.trim()) return;
+    setSaving(true); setErr("");
+    try {
+      await apiPatch(`/passengers/${passenger.id}`, {
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+        stationId: Number(editStationId),
+      });
+      onRefresh();
+      onClose();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed to save"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Remove ${passenger.name} from the system?`)) return;
+    try {
+      await fetch(`${BASE}/api/passengers/${passenger.id}`, { method: "DELETE" });
+      onRefresh();
+      onClose();
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl flex flex-col">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <img
+              src={passenger.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(passenger.name)}&backgroundColor=0F172A&textColor=D97706`}
+              alt={passenger.name}
+              className="h-10 w-10 rounded-full border-2 border-amber-500 object-cover shrink-0"
+            />
+            <div>
+              <h2 className="text-base font-bold text-foreground">{passenger.name}</h2>
+              <span className="text-[10px] font-semibold text-muted-foreground capitalize">{passenger.role}</span>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5 space-y-4 overflow-y-auto">
+          {err && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded-xl px-3 py-2">{err}</p>}
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Full name"
+                className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact Number</label>
+              <input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+977 98XXXXXXXX"
+                className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Route / Stop</label>
+              <select
+                value={editStationId}
+                onChange={(e) => setEditStationId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
+              >
+                {(stations ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Remove (left) + Save (right) */}
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-border shrink-0">
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-1.5 rounded-xl border border-red-300 dark:border-red-800 px-4 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
+            <Trash2 size={13} />Remove
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!editName.trim() || saving}
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
+            {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
@@ -1705,6 +1833,7 @@ export default function AdminPortal() {
   const [err, setErr] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
+  const [selectedPassenger, setSelectedPassenger] = useState<PassengerRow | null>(null);
   const [statsFilter, setStatsFilter] = useState<StatsFilter>(null);
 
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
@@ -2067,7 +2196,8 @@ export default function AdminPortal() {
         </div>
         <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {passengers?.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+            <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
+              onClick={() => setSelectedPassenger(p as PassengerRow)}>
               <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -2227,6 +2357,18 @@ export default function AdminPortal() {
           filter={statsFilter}
           passengers={(passengers ?? []) as Passenger[]}
           onClose={() => setStatsFilter(null)}
+        />
+      )}
+      {/* Passenger Detail Panel */}
+      {selectedPassenger && (
+        <PassengerDetailPanel
+          passenger={selectedPassenger}
+          stations={stations as StationOption[] | undefined}
+          onClose={() => setSelectedPassenger(null)}
+          onRefresh={() => {
+            refetchPassengers();
+            queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+          }}
         />
       )}
       {/* Driver Detail Panel */}

@@ -17,6 +17,7 @@ const DEFAULT_TENANT_ID = 1;
 const PASSENGER_SELECT = {
   id: passengersTable.id,
   name: passengersTable.name,
+  phone: passengersTable.phone,
   photoUrl: passengersTable.photoUrl,
   role: passengersTable.role,
   status: passengersTable.status,
@@ -75,6 +76,7 @@ router.patch("/:id", async (req, res) => {
   if (!bodyParsed.success) return res.status(400).json({ error: bodyParsed.error.message });
   const updates: Record<string, unknown> = {};
   if (bodyParsed.data.name) updates.name = bodyParsed.data.name;
+  if ("phone" in bodyParsed.data) updates.phone = bodyParsed.data.phone;
   if (bodyParsed.data.photoUrl) updates.photoUrl = bodyParsed.data.photoUrl;
   if (bodyParsed.data.stationId) updates.stationId = bodyParsed.data.stationId;
   if ("routeId" in bodyParsed.data) updates.routeId = bodyParsed.data.routeId;
@@ -90,6 +92,13 @@ router.patch("/:id", async (req, res) => {
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, paramsParsed.data.id));
   res.json(row);
+});
+
+router.delete("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  await db.delete(passengersTable).where(eq(passengersTable.id, id));
+  res.status(204).end();
 });
 
 router.post("/:id/board", async (req, res) => {

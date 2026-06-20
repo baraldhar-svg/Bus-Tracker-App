@@ -1536,6 +1536,76 @@ export const useCreatePassenger = <TError = ErrorType<unknown>,
       return useMutation(getCreatePassengerMutationOptions(options));
     }
 
+export const getDeletePassengerUrl = (id: number,) => {
+
+
+
+
+  return `/api/passengers/${id}`
+}
+
+/**
+ * @summary Remove a passenger
+ */
+export const deletePassenger = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePassengerUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeletePassengerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePassenger>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deletePassenger'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePassenger>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePassenger(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePassengerMutationResult = NonNullable<Awaited<ReturnType<typeof deletePassenger>>>
+
+    export type DeletePassengerMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a passenger
+ */
+export const useDeletePassenger = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePassenger>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeletePassengerMutationOptions(options));
+    }
+
 export const getGetPassengerUrl = (id: number,) => {
 
 

@@ -226,6 +226,8 @@ export interface Passenger {
   id: number;
   name: string;
   /** @nullable */
+  phone?: string | null;
+  /** @nullable */
   photoUrl?: string | null;
   role: PassengerRole;
   status: PassengerStatus;
@@ -255,6 +257,7 @@ export const PassengerInputRole = {
 
 export interface PassengerInput {
   name: string;
+  phone?: string;
   photoUrl?: string;
   role: PassengerInputRole;
   stationId: number;
@@ -262,6 +265,7 @@ export interface PassengerInput {
 
 export interface PassengerUpdate {
   name?: string;
+  phone?: string;
   photoUrl?: string;
   stationId?: number;
   /** @nullable */

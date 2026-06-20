@@ -245,6 +245,7 @@ export const SwapFleetResponse = zod.object({
 export const ListPassengersResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
@@ -263,9 +264,18 @@ export const ListPassengersResponse = zod.array(ListPassengersResponseItem)
  */
 export const CreatePassengerBody = zod.object({
   "name": zod.string(),
+  "phone": zod.string().optional(),
   "photoUrl": zod.string().optional(),
   "role": zod.enum(['student', 'staff']),
   "stationId": zod.number()
+})
+
+
+/**
+ * @summary Remove a passenger
+ */
+export const DeletePassengerParams = zod.object({
+  "id": zod.coerce.number()
 })
 
 
@@ -279,6 +289,7 @@ export const GetPassengerParams = zod.object({
 export const GetPassengerResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
@@ -300,6 +311,7 @@ export const UpdatePassengerParams = zod.object({
 
 export const UpdatePassengerBody = zod.object({
   "name": zod.string().optional(),
+  "phone": zod.string().optional(),
   "photoUrl": zod.string().optional(),
   "stationId": zod.number().optional(),
   "routeId": zod.number().nullish(),
@@ -310,6 +322,7 @@ export const UpdatePassengerBody = zod.object({
 export const UpdatePassengerResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
@@ -332,6 +345,7 @@ export const BoardPassengerParams = zod.object({
 export const BoardPassengerResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
@@ -354,6 +368,7 @@ export const UnboardPassengerParams = zod.object({
 export const UnboardPassengerResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
@@ -376,6 +391,7 @@ export const MarkPassengerLeaveParams = zod.object({
 export const MarkPassengerLeaveResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "phone": zod.string().nullish(),
   "photoUrl": zod.string().nullish(),
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),

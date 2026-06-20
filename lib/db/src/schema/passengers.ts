@@ -8,6 +8,7 @@ export const passengersTable = pgTable("passengers", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
   name: text("name").notNull(),
+  phone: text("phone"),
   photoUrl: text("photo_url"),
   role: text("role").notNull().default("student"),
   status: text("status").notNull().default("pending"),
