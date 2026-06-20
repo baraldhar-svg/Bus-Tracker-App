@@ -5,13 +5,11 @@ import { eq } from "drizzle-orm";
 import { CreateStationBody, DeleteStationParams } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 router.get("/", async (req, res) => {
   const rows = await db
     .select()
     .from(stationsTable)
-    .where(eq(stationsTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(stationsTable.tenantId, req.tenantId));
   res.json(rows);
 });
 
@@ -23,7 +21,7 @@ router.post("/", async (req, res) => {
   const { name, lat, lng, radius } = parsed.data as { name: string; lat: number; lng: number; radius?: number };
   const [row] = await db
     .insert(stationsTable)
-    .values({ tenantId: DEFAULT_TENANT_ID, name, lat, lng, radius: radius ?? 200 })
+    .values({ tenantId: req.tenantId, name, lat, lng, radius: radius ?? 200 })
     .returning();
   res.status(201).json(row);
 });

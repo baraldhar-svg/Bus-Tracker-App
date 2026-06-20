@@ -12,8 +12,6 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 const PASSENGER_SELECT = {
   id: passengersTable.id,
   name: passengersTable.name,
@@ -35,7 +33,7 @@ router.get("/", async (req, res) => {
     .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
-    .where(eq(passengersTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(passengersTable.tenantId, req.tenantId));
   res.json(rows);
 });
 
@@ -47,7 +45,7 @@ router.post("/", async (req, res) => {
   const { name, photoUrl, role, stationId } = parsed.data;
   const [row] = await db
     .insert(passengersTable)
-    .values({ tenantId: DEFAULT_TENANT_ID, name, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, status: "pending" })
+    .values({ tenantId: req.tenantId, name, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, status: "pending" })
     .returning();
   const [withStation] = await db
     .select(PASSENGER_SELECT)

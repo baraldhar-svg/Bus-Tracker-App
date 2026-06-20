@@ -5,8 +5,6 @@ import { eq } from "drizzle-orm";
 import { SwapFleetBody } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 router.post("/swap", async (req, res) => {
   const parsed = SwapFleetBody.safeParse(req.body);
   if (!parsed.success) {
@@ -18,7 +16,7 @@ router.post("/swap", async (req, res) => {
   await db
     .update(driversTable)
     .set({ isActive: false })
-    .where(eq(driversTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(driversTable.tenantId, req.tenantId));
 
   // Activate the new driver
   const [driver] = await db
@@ -35,7 +33,7 @@ router.post("/swap", async (req, res) => {
   await db
     .update(vehiclesTable)
     .set({ isActive: false })
-    .where(eq(vehiclesTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(vehiclesTable.tenantId, req.tenantId));
   await db
     .update(vehiclesTable)
     .set({ isActive: true })

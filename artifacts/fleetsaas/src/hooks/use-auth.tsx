@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { setTenantId } from "@workspace/api-client-react";
 
 export type AuthUser = {
   id: number;
@@ -17,7 +18,9 @@ const SESSION_KEY = "orbittrack_user";
 function readSession(): AuthUser | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
+    const u = raw ? (JSON.parse(raw) as AuthUser) : null;
+    if (u?.tenantId) setTenantId(u.tenantId);
+    return u;
   } catch {
     return null;
   }
@@ -45,11 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback((u: AuthUser) => {
     writeSession(u);
     setUser(u);
+    setTenantId(u.tenantId ?? null);
   }, []);
 
   const logout = useCallback(() => {
     writeSession(null);
     setUser(null);
+    setTenantId(null);
   }, []);
 
   return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;

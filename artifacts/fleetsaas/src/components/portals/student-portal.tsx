@@ -19,8 +19,6 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const DEMO_PASSENGER_ID = 1;
-
 const QUICK_MESSAGES = [
   { Icon: User,       label: "I'm on my way",      value: "I'm on my way" },
   { Icon: Timer,      label: "Wait, I'm coming!",   value: "Wait, I'm coming!" },
@@ -51,7 +49,7 @@ export default function StudentPortal() {
   const t = useT();
   const { user } = useAuth();
   const { data: announcements } = useListAnnouncements();
-  const { data: timeline } = useGetTripTimeline(1);
+  const { data: timeline } = useGetTripTimeline();
   const { data: passengers } = useListPassengers();
   const { data: routes } = useListRoutes();
   const updatePassenger = useUpdatePassenger();
@@ -78,7 +76,8 @@ export default function StudentPortal() {
   const { data: calEvents } = useListCalendarEvents({ month: todayAdStr.slice(0, 7) });
   const upcomingEvents = (calEvents ?? []).filter(e => e.eventDate === todayAdStr || e.eventDate === tmrAdStr);
 
-  const me = passengers?.find((p) => p.id === DEMO_PASSENGER_ID);
+  // Find this student's passenger record by phone; fall back to first if not yet linked
+  const me = passengers?.find((p) => p.phone === user?.phone) ?? passengers?.[0];
 
   useEffect(() => {
     if (me?.liveToday === 1) setLiveToday(true);
@@ -103,7 +102,7 @@ export default function StudentPortal() {
     setTransportSaved(false);
     try {
       await updatePassenger.mutateAsync({
-        id: DEMO_PASSENGER_ID,
+        id: me?.id ?? 1,
         data: {
           routeId: selectedRouteId ? Number(selectedRouteId) : undefined,
           stationId: selectedStationId ? Number(selectedStationId) : undefined,
@@ -133,7 +132,7 @@ export default function StudentPortal() {
     if (onLeave) return;
     const next = !liveToday;
     setLiveToday(next);
-    await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: next ? 1 : 0 } });
+    await updatePassenger.mutateAsync({ id: me?.id ?? 1, data: { liveToday: next ? 1 : 0 } });
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [liveToday, onLeave, updatePassenger, queryClient]);
 
@@ -144,12 +143,12 @@ export default function StudentPortal() {
       setLiveToday(false);
       setSentMsg("Staying home today");
       await updatePassenger.mutateAsync({
-        id: DEMO_PASSENGER_ID,
-        data: { liveToday: 0, quickMessage: "Staying home today", status: "leave" },
+        id: me?.id ?? 1,
+        data: { liveToday: 0, quickMessage: "Staying home today" },
       });
     } else {
       setSentMsg(null);
-      await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: 0, status: "pending" } });
+      await updatePassenger.mutateAsync({ id: me?.id ?? 1, data: { liveToday: 0 } });
     }
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [onLeave, updatePassenger, queryClient]);
@@ -160,7 +159,7 @@ export default function StudentPortal() {
 
   const handleQuickMessage = useCallback(async (msg: string) => {
     setSentMsg(msg);
-    await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { quickMessage: msg } });
+    await updatePassenger.mutateAsync({ id: me?.id ?? 1, data: { quickMessage: msg } });
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [updatePassenger, queryClient]);
 

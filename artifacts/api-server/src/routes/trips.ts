@@ -4,8 +4,6 @@ import { driversTable, passengersTable, stationsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 router.get("/active", async (req, res) => {
   const [driver] = await db
     .select()
@@ -16,7 +14,7 @@ router.get("/active", async (req, res) => {
   const [allCount] = await db
     .select({ count: count() })
     .from(passengersTable)
-    .where(eq(passengersTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(passengersTable.tenantId, req.tenantId));
 
   const [boardedCount] = await db
     .select({ count: count() })
@@ -26,7 +24,7 @@ router.get("/active", async (req, res) => {
   const [nextStation] = await db
     .select()
     .from(stationsTable)
-    .where(eq(stationsTable.tenantId, DEFAULT_TENANT_ID))
+    .where(eq(stationsTable.tenantId, req.tenantId))
     .limit(1);
 
   res.json({
@@ -45,7 +43,7 @@ router.get("/active", async (req, res) => {
       photoUrl: null,
       vehicleNumber: "BA 3 CHA 4567",
       isActive: true,
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: req.tenantId,
     },
   });
 });

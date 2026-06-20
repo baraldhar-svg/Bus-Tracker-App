@@ -4,8 +4,6 @@ import { calendarEventsTable, announcementsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 // GET /calendar-events?month=YYYY-MM
 router.get("/", async (req, res) => {
   const { month } = req.query as { month?: string };
@@ -15,7 +13,7 @@ router.get("/", async (req, res) => {
         .from(calendarEventsTable)
         .where(
           and(
-            eq(calendarEventsTable.tenantId, DEFAULT_TENANT_ID),
+            eq(calendarEventsTable.tenantId, req.tenantId),
             sql`${calendarEventsTable.eventDate} LIKE ${month + "-%"}`
           )
         )
@@ -23,7 +21,7 @@ router.get("/", async (req, res) => {
     : await db
         .select()
         .from(calendarEventsTable)
-        .where(eq(calendarEventsTable.tenantId, DEFAULT_TENANT_ID))
+        .where(eq(calendarEventsTable.tenantId, req.tenantId))
         .orderBy(calendarEventsTable.eventDate);
   res.json(rows);
 });
@@ -43,7 +41,7 @@ router.post("/", async (req, res) => {
   const [row] = await db
     .insert(calendarEventsTable)
     .values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: req.tenantId,
       title,
       description: description ?? null,
       type,
@@ -184,7 +182,7 @@ export async function seedNepalHolidays() {
       .from(calendarEventsTable)
       .where(
         and(
-          eq(calendarEventsTable.tenantId, DEFAULT_TENANT_ID),
+          eq(calendarEventsTable.tenantId, 1),
           eq(calendarEventsTable.eventDate, "2025-04-14")
         )
       )
@@ -193,7 +191,7 @@ export async function seedNepalHolidays() {
     if (existing.length > 0) return; // Already seeded
 
     const rows = NEPAL_HOLIDAYS.map(h => ({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: 1,
       title: h.title,
       description: h.description,
       type: "holiday" as const,

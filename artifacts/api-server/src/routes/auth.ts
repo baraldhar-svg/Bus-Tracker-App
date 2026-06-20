@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, otpCodesTable, tenantsTable } from "@workspace/db";
+import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 
 const router = Router();
@@ -75,6 +75,21 @@ router.post("/register", async (req, res) => {
   if (user.tenantId) {
     const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
     tenant = t ?? null;
+
+    // Auto-create a passenger record so the student appears in driver/admin panels
+    const [station] = await db.select().from(stationsTable)
+      .where(eq(stationsTable.tenantId, user.tenantId)).limit(1);
+    if (station) {
+      await db.insert(passengersTable).values({
+        tenantId: user.tenantId,
+        name: user.name,
+        phone: user.phone,
+        photoUrl: user.photoUrl ?? null,
+        role: user.role ?? "student",
+        stationId: station.id,
+        status: "pending",
+      });
+    }
   }
 
   return res.status(201).json({ ...user, tenant });
@@ -98,6 +113,15 @@ router.post("/register-school", async (req, res) => {
     bannerUrl: bannerUrl ?? null,
     schoolCode,
   }).returning();
+
+  // Seed a default bus stop for the new school so students can be assigned
+  await db.insert(stationsTable).values({
+    tenantId: tenant.id,
+    name: "School Main Stop",
+    lat: 27.7172,
+    lng: 85.3240,
+    radius: 200,
+  });
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
   let user;

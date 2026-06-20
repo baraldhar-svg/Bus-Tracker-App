@@ -8,13 +8,12 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
 
 router.get("/", async (req, res) => {
   const rows = await db
     .select()
     .from(announcementsTable)
-    .where(eq(announcementsTable.tenantId, DEFAULT_TENANT_ID))
+    .where(eq(announcementsTable.tenantId, req.tenantId))
     .orderBy(desc(announcementsTable.createdAt));
   res.json(rows);
 });
@@ -27,7 +26,7 @@ router.post("/", async (req, res) => {
   const { message, messageNe, severity } = parsed.data;
   const [row] = await db
     .insert(announcementsTable)
-    .values({ tenantId: DEFAULT_TENANT_ID, message, messageNe: messageNe ?? null, severity: severity ?? "info" })
+    .values({ tenantId: req.tenantId, message, messageNe: messageNe ?? null, severity: severity ?? "info" })
     .returning();
   res.status(201).json(row);
 });

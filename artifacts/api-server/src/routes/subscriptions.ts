@@ -5,13 +5,11 @@ import { eq } from "drizzle-orm";
 import { ActivateSubscriptionBody } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 router.get("/me", async (req, res) => {
   const [sub] = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.tenantId, DEFAULT_TENANT_ID))
+    .where(eq(subscriptionsTable.tenantId, req.tenantId))
     .limit(1);
 
   if (!sub) {
@@ -56,7 +54,7 @@ router.post("/activate", async (req, res) => {
   const [existing] = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.tenantId, DEFAULT_TENANT_ID))
+    .where(eq(subscriptionsTable.tenantId, req.tenantId))
     .limit(1);
 
   let sub;
@@ -69,7 +67,7 @@ router.post("/activate", async (req, res) => {
   } else {
     [sub] = await db
       .insert(subscriptionsTable)
-      .values({ tenantId: DEFAULT_TENANT_ID, userRole: "admin", tier, isActive: true, expiresAt })
+      .values({ tenantId: req.tenantId, userRole: "admin", tier, isActive: true, expiresAt })
       .returning();
   }
 

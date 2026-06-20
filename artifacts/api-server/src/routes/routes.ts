@@ -16,8 +16,6 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
-const DEFAULT_TENANT_ID = 1;
-
 const ROUTE_SELECT = {
   id: routesTable.id,
   tenantId: routesTable.tenantId,
@@ -47,7 +45,7 @@ router.get("/", async (req, res) => {
     .from(routesTable)
     .leftJoin(driversTable, eq(routesTable.driverId, driversTable.id))
     .leftJoin(vehiclesTable, eq(routesTable.vehicleId, vehiclesTable.id))
-    .where(eq(routesTable.tenantId, DEFAULT_TENANT_ID));
+    .where(eq(routesTable.tenantId, req.tenantId));
   res.json(rows);
 });
 
@@ -58,7 +56,7 @@ router.post("/", async (req, res) => {
   const { name, driverId, vehicleId } = parsed.data;
   const [row] = await db
     .insert(routesTable)
-    .values({ tenantId: DEFAULT_TENANT_ID, name, driverId: driverId ?? null, vehicleId: vehicleId ?? null })
+    .values({ tenantId: req.tenantId, name, driverId: driverId ?? null, vehicleId: vehicleId ?? null })
     .returning();
   const [enriched] = await db
     .select(ROUTE_SELECT)

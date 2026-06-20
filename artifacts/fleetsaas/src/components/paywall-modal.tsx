@@ -1,4 +1,4 @@
-import { Subscription } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type Subscription } from "@workspace/api-client-react";
 
 export default function PaywallModal({ subscription }: { subscription: Subscription }) {
   return (

@@ -17,6 +17,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _tenantId: number | null = null;
+
+/**
+ * Set the active tenant ID. When set, every request will carry an
+ * `X-Tenant-Id` header so the API server can scope data correctly.
+ * Pass `null` to clear (falls back to server default).
+ */
+export function setTenantId(id: number | null): void {
+  _tenantId = id;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -347,6 +357,11 @@ export async function customFetch<T = unknown>(
 
   if (responseType === "json" && !headers.has("accept")) {
     headers.set("accept", DEFAULT_JSON_ACCEPT);
+  }
+
+  // Attach tenant ID when set
+  if (_tenantId !== null && !headers.has("x-tenant-id")) {
+    headers.set("x-tenant-id", String(_tenantId));
   }
 
   // Attach bearer token when an auth getter is configured and no

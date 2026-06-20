@@ -100,6 +100,10 @@ export default function AuthScreen() {
   const [generatedCode, setGeneratedCode] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
 
+  // School picker for non-admin registration
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [schoolDropdown, setSchoolDropdown] = useState("");
+
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +113,15 @@ export default function AuthScreen() {
   useEffect(() => {
     if (demoCode && step === "otp") setOtp(demoCode.split(""));
   }, [demoCode, step]);
+
+  // Fetch existing schools for the dropdown when the register step is reached
+  useEffect(() => {
+    if (step !== "register") return;
+    fetch(`${BASE}/api/tenants`)
+      .then((r) => r.json())
+      .then((data: { id: number; name: string }[]) => setSchools(data))
+      .catch(() => setSchools([]));
+  }, [step]);
 
   async function handlePhotoFile(file: File | null) {
     if (!file) return;
@@ -301,8 +314,37 @@ export default function AuthScreen() {
                 <>
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-300">School / College Name</label>
-                    <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Himalayan Public School"
-                      className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                    {schools.length > 0 ? (
+                      <div className="space-y-2">
+                        <select
+                          value={schoolDropdown}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSchoolDropdown(val);
+                            if (val !== "__other__") setSchoolName(val);
+                            else setSchoolName("");
+                          }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500 appearance-none"
+                        >
+                          <option value="" disabled>Select your school…</option>
+                          {schools.map((s) => (
+                            <option key={s.id} value={s.name}>{s.name}</option>
+                          ))}
+                          <option value="__other__">Other (type manually)</option>
+                        </select>
+                        {schoolDropdown === "__other__" && (
+                          <input
+                            value={schoolName}
+                            onChange={(e) => setSchoolName(e.target.value)}
+                            placeholder="Himalayan Public School"
+                            className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Himalayan Public School"
+                        className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-300">
