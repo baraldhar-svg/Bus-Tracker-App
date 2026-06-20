@@ -209,6 +209,10 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
   const messages = useDriverMessages(vehicle.plate);
   const score = DRIVER_SCORES.find((d) => d.name === vehicle.driver);
   const avatarSrc = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vehicle.driver)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`;
+  const [zoomLevel, setZoomLevel] = useState(0);
+  const bboxFactor = Math.pow(1.6, -zoomLevel);
+  const bboxLng = 0.012 * bboxFactor;
+  const bboxLat = 0.008 * bboxFactor;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
@@ -272,10 +276,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
           </div>
 
           {/* Live Map Location */}
-          <div
-            className="rounded-2xl border border-border overflow-hidden shadow-sm cursor-pointer group"
-            onClick={() => window.open(`https://www.google.com/maps?q=${vehicle.lat},${vehicle.lng}`, "_blank", "noopener,noreferrer")}
-          >
+          <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
             {/* Map header */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border">
               <div className="flex items-center gap-2">
@@ -289,41 +290,60 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
                   </p>
                 </div>
               </div>
-              <span className="flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-950/60 transition-colors">
+              <button
+                onClick={() => window.open(`https://www.google.com/maps?q=${vehicle.lat},${vehicle.lng}`, "_blank", "noopener,noreferrer")}
+                className="flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors"
+              >
                 Open in Maps ↗
-              </span>
+              </button>
             </div>
 
             {/* OpenStreetMap embedded iframe */}
-            <div className="relative w-full" style={{ height: 160 }}>
+            <div className="relative w-full" style={{ height: 180 }}>
               <iframe
                 title="Bus location map"
                 width="100%"
-                height="160"
+                height="180"
                 style={{ border: 0, display: "block" }}
                 loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - 0.012},${vehicle.lat - 0.008},${vehicle.lng + 0.012},${vehicle.lat + 0.008}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - bboxLng},${vehicle.lat - bboxLat},${vehicle.lng + bboxLng},${vehicle.lat + bboxLat}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
               />
-              {/* Click overlay — captures tap to open Google Maps */}
-              <div className="absolute inset-0" />
+
               {/* Live pulse indicator */}
-              {vehicle.status === "on-route" && (
-                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow">
+              {vehicle.status === "on-route" ? (
+                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                   LIVE GPS
                 </div>
-              )}
-              {vehicle.status !== "on-route" && (
-                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow">
+              ) : (
+                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
                   DEPOT
                 </div>
               )}
+
+              {/* Zoom controls */}
+              <div className="absolute bottom-2 right-2 flex flex-col gap-1">
+                <button
+                  onClick={() => setZoomLevel((z) => Math.min(z + 1, 5))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                  title="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => setZoomLevel((z) => Math.max(z - 1, -3))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                  title="Zoom out"
+                >
+                  −
+                </button>
+              </div>
             </div>
 
             {/* Coords footer */}
             <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
               <p className="text-[10px] font-mono text-muted-foreground">{vehicle.lat.toFixed(4)}°N, {vehicle.lng.toFixed(4)}°E</p>
-              <p className="text-[10px] text-muted-foreground">Tap to open Google Maps</p>
+              <p className="text-[10px] text-muted-foreground">Use +/− to zoom</p>
             </div>
           </div>
 
