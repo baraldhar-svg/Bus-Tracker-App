@@ -115,6 +115,9 @@ export default function AdminPortal() {
 
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
   const [editingSchool, setEditingSchool] = useState(false);
+  const bannerGalleryRef = useRef<HTMLInputElement>(null);
+  const bannerCameraRef = useRef<HTMLInputElement>(null);
+
   const [sName, setSName] = useState("");
   const [sAddress, setSAddress] = useState("");
   const [sPhone, setSPhone] = useState("");
@@ -291,12 +294,39 @@ export default function AdminPortal() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Banner Image URL (shown at the top of all dashboards)</label>
-              <input value={sBanner} onChange={(e) => setSBanner(e.target.value)} placeholder="https://your-school-banner.jpg"
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
-              {sBanner && (
-                <img src={sBanner} alt="preview" className="mt-2 h-20 w-full rounded-xl object-cover border border-border"
-                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">School Banner (shown at the top of all dashboards)</label>
+              {sBanner ? (
+                <div className="space-y-2">
+                  <img src={sBanner} alt="banner preview" className="h-24 w-full rounded-xl object-cover border border-border"
+                    onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                  <button onClick={() => setSBanner("")}
+                    className="text-xs text-red-500 hover:text-red-400 transition-colors">
+                    Remove banner
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input ref={bannerGalleryRef} type="file" accept="image/*" className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setSBanner(await fileToDataUrl(file));
+                    }} />
+                  <input ref={bannerCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setSBanner(await fileToDataUrl(file));
+                    }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => bannerGalleryRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+                      📁 Upload Photo
+                    </button>
+                    <button onClick={() => bannerCameraRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+                      📷 Take Photo
+                    </button>
+                  </div>
+                </>
               )}
             </div>
             {schoolErr && <p className="text-xs text-red-500">{schoolErr}</p>}

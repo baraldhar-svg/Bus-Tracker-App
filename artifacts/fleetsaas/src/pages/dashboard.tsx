@@ -209,8 +209,8 @@ export default function Dashboard() {
           <SchoolBanner tenant={tenant ?? user!.tenant!} />
         )}
 
-        {/* Ad Carousel */}
-        {ads.length > 0 && (
+        {/* Ad Carousel — only for students/staff and superadmin */}
+        {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
           <div className="border-b border-border bg-card overflow-hidden">
             <AdCarousel ads={ads} onAdClick={handleAdClick} />
           </div>
