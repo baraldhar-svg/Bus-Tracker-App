@@ -91,11 +91,13 @@ function fileToDataUrl(file: File): Promise<string> {
 const TITLES = ["", "Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
 
 function ProfilePanel({
-  user, onClose, onSave,
+  user, onClose, onSave, dark, onToggleDark,
 }: {
   user: AuthUser;
   onClose: () => void;
   onSave: (updated: AuthUser) => void;
+  dark: boolean;
+  onToggleDark: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.name);
@@ -241,6 +243,22 @@ function ProfilePanel({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Dark Mode toggle */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{dark ? "Switch to light theme" : "Switch to dark theme"}</p>
+              </div>
+              <button
+                onClick={onToggleDark}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${dark ? "bg-amber-500" : "bg-muted"}`}
+                role="switch"
+                aria-checked={dark}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${dark ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
             </div>
 
             {/* Language picker — compact trigger */}
@@ -482,6 +500,8 @@ export default function Dashboard() {
               login(updated);
               setProfileOpen(false);
             }}
+            dark={dark}
+            onToggleDark={() => setDark((d) => !d)}
           />
         )}
       </div>
