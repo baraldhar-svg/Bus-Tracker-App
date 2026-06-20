@@ -23,7 +23,7 @@ router.post("/", async (req, res) => {
     .insert(stationsTable)
     .values({ tenantId: req.tenantId, name, lat, lng, radius: radius ?? 200 })
     .returning();
-  res.status(201).json(row);
+  return res.status(201).json(row);
 });
 
 router.delete("/:id", async (req, res) => {
@@ -32,7 +32,7 @@ router.delete("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid id" });
   }
   await db.delete(stationsTable).where(eq(stationsTable.id, parsed.data.id));
-  res.status(204).send();
+  return res.status(204).send();
 });
 
 export default router;

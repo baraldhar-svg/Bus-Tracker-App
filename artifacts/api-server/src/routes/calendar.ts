@@ -49,7 +49,7 @@ router.post("/", async (req, res) => {
       autoNotify: autoNotify !== false,
     })
     .returning();
-  res.status(201).json(row);
+  return res.status(201).json(row);
 });
 
 // PATCH /calendar-events/:id
@@ -72,7 +72,7 @@ router.patch("/:id", async (req, res) => {
   if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No fields to update" });
   const [row] = await db.update(calendarEventsTable).set(updates).where(eq(calendarEventsTable.id, id)).returning();
   if (!row) return res.status(404).json({ error: "Not found" });
-  res.json(row);
+  return res.json(row);
 });
 
 // DELETE /calendar-events/:id
@@ -80,7 +80,7 @@ router.delete("/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
   await db.delete(calendarEventsTable).where(eq(calendarEventsTable.id, id));
-  res.status(204).send();
+  return res.status(204).send();
 });
 
 // ── T-1 Notify Cron ──────────────────────────────────────────────────────────

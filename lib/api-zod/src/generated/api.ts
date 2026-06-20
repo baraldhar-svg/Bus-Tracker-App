@@ -267,7 +267,8 @@ export const CreatePassengerBody = zod.object({
   "phone": zod.string().optional(),
   "photoUrl": zod.string().optional(),
   "role": zod.enum(['student', 'staff']),
-  "stationId": zod.number()
+  "stationId": zod.number(),
+  "routeId": zod.number().optional()
 })
 
 

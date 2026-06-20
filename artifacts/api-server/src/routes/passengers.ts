@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.tenantId, req.tenantId));
-  res.json(rows);
+  return res.json(rows);
 });
 
 router.post("/", async (req, res) => {
@@ -42,17 +42,17 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
-  const { name, photoUrl, role, stationId } = parsed.data;
+  const { name, phone, photoUrl, role, stationId, routeId } = parsed.data;
   const [row] = await db
     .insert(passengersTable)
-    .values({ tenantId: req.tenantId, name, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, status: "pending" })
+    .values({ tenantId: req.tenantId, name, phone: phone ?? null, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, routeId: routeId ?? null, status: "pending" })
     .returning();
   const [withStation] = await db
     .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, row.id));
-  res.status(201).json(withStation);
+  return res.status(201).json(withStation);
 });
 
 router.get("/:id", async (req, res) => {
@@ -64,7 +64,7 @@ router.get("/:id", async (req, res) => {
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
   if (!row) return res.status(404).json({ error: "Not found" });
-  res.json(row);
+  return res.json(row);
 });
 
 router.patch("/:id", async (req, res) => {
@@ -89,14 +89,14 @@ router.patch("/:id", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, paramsParsed.data.id));
-  res.json(row);
+  return res.json(row);
 });
 
 router.delete("/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid id" });
   await db.delete(passengersTable).where(eq(passengersTable.id, id));
-  res.status(204).end();
+  return res.status(204).end();
 });
 
 router.post("/:id/board", async (req, res) => {
@@ -111,7 +111,7 @@ router.post("/:id/board", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
-  res.json(row);
+  return res.json(row);
 });
 
 router.post("/:id/unboard", async (req, res) => {
@@ -126,7 +126,7 @@ router.post("/:id/unboard", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
-  res.json(row);
+  return res.json(row);
 });
 
 router.post("/:id/leave", async (req, res) => {
@@ -141,7 +141,7 @@ router.post("/:id/leave", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
-  res.json(row);
+  return res.json(row);
 });
 
 export default router;

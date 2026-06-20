@@ -17,16 +17,16 @@ router.get("/", async (req, res) => {
       },
     });
     if (!response.ok) throw new Error(`Nominatim error: ${response.status}`);
-    const data: Array<{ display_name: string; lat: string; lon: string }> = await response.json();
-    const results = data.map((r) => ({
+    const raw = await response.json() as Array<{ display_name: string; lat: string; lon: string }>;
+    const results = raw.map((r) => ({
       displayName: r.display_name,
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
     }));
-    res.json(results);
+    return res.json(results);
   } catch (err) {
     req.log.error({ err }, "Geocode lookup failed");
-    res.status(502).json({ error: "Geocode service unavailable" });
+    return res.status(502).json({ error: "Geocode service unavailable" });
   }
 });
 

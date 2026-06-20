@@ -28,7 +28,7 @@ router.post("/", async (req, res) => {
     .insert(announcementsTable)
     .values({ tenantId: req.tenantId, message, messageNe: messageNe ?? null, severity: severity ?? "info" })
     .returning();
-  res.status(201).json(row);
+  return res.status(201).json(row);
 });
 
 router.delete("/:id", async (req, res) => {
@@ -37,7 +37,7 @@ router.delete("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid id" });
   }
   await db.delete(announcementsTable).where(eq(announcementsTable.id, parsed.data.id));
-  res.status(204).send();
+  return res.status(204).send();
 });
 
 export default router;

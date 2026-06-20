@@ -1975,6 +1975,8 @@ export default function AdminPortal() {
   const [pName, setPName] = useState("");
   const [pRole, setPRole] = useState("student");
   const [pStation, setPStation] = useState("1");
+  const [pPhone, setPPhone] = useState("");
+  const [pRouteId, setPRouteId] = useState("");
   const [pPhoto, setPPhoto] = useState("");
 
   const [dName, setDName] = useState("");
@@ -2047,13 +2049,13 @@ export default function AdminPortal() {
   const handleAddPassenger = useCallback(async () => {
     setErr(""); setLoading(true);
     try {
-      await apiPost("/passengers", { name: pName, role: pRole, stationId: Number(pStation), photoUrl: pPhoto || undefined });
+      await apiPost("/passengers", { name: pName, role: pRole, stationId: Number(pStation), phone: pPhone.trim() || undefined, routeId: pRouteId ? Number(pRouteId) : undefined, photoUrl: pPhoto || undefined });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetchPassengers();
-      setModal(null); setPName(""); setPRole("student"); setPPhoto("");
+      setModal(null); setPName(""); setPRole("student"); setPPhone(""); setPRouteId(""); setPPhoto("");
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
-  }, [pName, pRole, pStation, pPhoto, queryClient, refetchPassengers]);
+  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, queryClient, refetchPassengers]);
 
   const handleAddDriver = useCallback(async () => {
     setErr(""); setLoading(true);
@@ -2512,6 +2514,17 @@ export default function AdminPortal() {
               <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Priya Maharjan"
                 className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Phone Number <span className="text-muted-foreground/60">(used to log in via OTP)</span>
+              </label>
+              <div className="flex gap-2">
+                <span className="flex items-center rounded-xl border border-border bg-muted px-3 text-sm text-muted-foreground select-none">+977</span>
+                <input value={pPhone} onChange={(e) => setPPhone(e.target.value)} placeholder="98XXXXXXXX"
+                  type="tel" inputMode="numeric"
+                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-muted-foreground">Role</label>
@@ -2528,6 +2541,18 @@ export default function AdminPortal() {
                   {stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Assigned Bus Route <span className="text-muted-foreground/60">(connects student to bus)</span>
+              </label>
+              <select value={pRouteId} onChange={(e) => setPRouteId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                <option value="">No route assigned</option>
+                {(adminRoutes as RouteRow[] ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}{r.vehiclePlate ? ` · ${r.vehiclePlate}` : ""}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">

@@ -24,7 +24,7 @@ router.get("/active", async (req, res) => {
     const all = await db.select().from(driversTable).limit(1);
     return res.json(all[0] ?? { id: 1, name: "Ram Bahadur", phone: "+977 9851012345", vehicleNumber: "BA 3 CHA 4567", isActive: true });
   }
-  res.json(rows[0]);
+  return res.json(rows[0]);
 });
 
 router.post("/", async (req, res) => {
@@ -37,7 +37,7 @@ router.post("/", async (req, res) => {
     .insert(driversTable)
     .values({ tenantId: req.tenantId, name, phone, photoUrl: photoUrl ?? null, vehicleNumber, isActive: false })
     .returning();
-  res.status(201).json(row);
+  return res.status(201).json(row);
 });
 
 router.patch("/:id", async (req, res) => {

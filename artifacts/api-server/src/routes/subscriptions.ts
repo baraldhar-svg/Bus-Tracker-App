@@ -30,7 +30,7 @@ router.get("/me", async (req, res) => {
   const trialDaysRemaining = Math.max(0, 30 - createdDaysAgo);
   const paywallActive = sub.tier === "trial" && trialDaysRemaining === 0;
 
-  res.json({
+  return res.json({
     id: sub.id,
     userRole: sub.userRole,
     tier: sub.tier,
@@ -71,7 +71,7 @@ router.post("/activate", async (req, res) => {
       .returning();
   }
 
-  res.json({
+  return res.json({
     id: sub.id,
     userRole: sub.userRole,
     tier: sub.tier,

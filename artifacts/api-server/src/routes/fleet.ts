@@ -39,7 +39,7 @@ router.post("/swap", async (req, res) => {
     .set({ isActive: true })
     .where(eq(vehiclesTable.id, vehicleId));
 
-  res.json(driver);
+  return res.json(driver);
 });
 
 export default router;

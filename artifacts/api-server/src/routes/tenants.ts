@@ -19,7 +19,7 @@ router.get("/", async (_req, res) => {
 router.get("/me", async (_req, res) => {
   const tenants = await db.select().from(tenantsTable).limit(1);
   if (!tenants.length) return res.status(404).json({ error: "No tenant found" });
-  res.json(tenants[0]);
+  return res.json(tenants[0]);
 });
 
 router.get("/:id", async (req, res) => {
@@ -27,7 +27,7 @@ router.get("/:id", async (req, res) => {
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id)).limit(1);
   if (!tenant) return res.status(404).json({ error: "Not found" });
-  res.json(tenant);
+  return res.json(tenant);
 });
 
 router.patch("/:id", async (req, res) => {
@@ -42,7 +42,7 @@ router.patch("/:id", async (req, res) => {
   if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
   await db.update(tenantsTable).set(updates).where(eq(tenantsTable.id, id));
   const [row] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
-  res.json(row);
+  return res.json(row);
 });
 
 export default router;

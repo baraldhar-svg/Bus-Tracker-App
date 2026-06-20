@@ -261,6 +261,7 @@ export interface PassengerInput {
   photoUrl?: string;
   role: PassengerInputRole;
   stationId: number;
+  routeId?: number;
 }
 
 export interface PassengerUpdate {

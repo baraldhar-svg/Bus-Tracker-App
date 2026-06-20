@@ -1188,6 +1188,8 @@ components:
           enum: [student, staff]
         stationId:
           type: integer
+        routeId:
+          type: integer
 
     PassengerUpdate:
       type: object

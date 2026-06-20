@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
     .leftJoin(driversTable, eq(routesTable.driverId, driversTable.id))
     .leftJoin(vehiclesTable, eq(routesTable.vehicleId, vehiclesTable.id))
     .where(eq(routesTable.id, row.id));
-  res.status(201).json(enriched);
+  return res.status(201).json(enriched);
 });
 
 // PATCH /routes/:id — update name/driver/vehicle
@@ -87,7 +87,7 @@ router.patch("/:id", async (req, res) => {
     .leftJoin(vehiclesTable, eq(routesTable.vehicleId, vehiclesTable.id))
     .where(eq(routesTable.id, paramsParsed.data.id));
   if (!enriched) return res.status(404).json({ error: "Not found" });
-  res.json(enriched);
+  return res.json(enriched);
 });
 
 // DELETE /routes/:id
@@ -95,7 +95,7 @@ router.delete("/:id", async (req, res) => {
   const parsed = DeleteRouteParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
   await db.delete(routesTable).where(eq(routesTable.id, parsed.data.id));
-  res.status(204).send();
+  return res.status(204).send();
 });
 
 // GET /routes/:id/stations — ordered stations for a route
@@ -121,7 +121,7 @@ router.post("/:id/stations/reorder", async (req, res) => {
     .leftJoin(stationsTable, eq(routeStationsTable.stationId, stationsTable.id))
     .where(eq(routeStationsTable.routeId, paramsParsed.data.id))
     .orderBy(asc(routeStationsTable.position));
-  res.json(rows);
+  return res.json(rows);
 });
 
 router.get("/:id/stations", async (req, res) => {
@@ -133,7 +133,7 @@ router.get("/:id/stations", async (req, res) => {
     .leftJoin(stationsTable, eq(routeStationsTable.stationId, stationsTable.id))
     .where(eq(routeStationsTable.routeId, parsed.data.id))
     .orderBy(asc(routeStationsTable.position));
-  res.json(rows);
+  return res.json(rows);
 });
 
 // POST /routes/:id/stations — add station to route
@@ -161,7 +161,7 @@ router.post("/:id/stations", async (req, res) => {
     .from(routeStationsTable)
     .leftJoin(stationsTable, eq(routeStationsTable.stationId, stationsTable.id))
     .where(eq(routeStationsTable.id, row.id));
-  res.status(201).json(withStation);
+  return res.status(201).json(withStation);
 });
 
 // DELETE /routes/:id/stations/:stationId — remove station from route
@@ -174,7 +174,7 @@ router.delete("/:id/stations/:stationId", async (req, res) => {
   await db.delete(routeStationsTable).where(
     and(eq(routeStationsTable.routeId, parsed.data.id), eq(routeStationsTable.stationId, parsed.data.stationId))
   );
-  res.status(204).send();
+  return res.status(204).send();
 });
 
 export default router;
