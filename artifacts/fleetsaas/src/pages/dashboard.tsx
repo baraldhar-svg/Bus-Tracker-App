@@ -467,7 +467,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ffee47]"><Bus size={15} className="text-slate-900" /></span>
               <span className="font-black text-primary text-sm">
-                Orbit<span className="text-[#FFF078]">Track</span>
+                Orbit<span className="text-[#ffee47]">Track</span>
               </span>
             </div>
 

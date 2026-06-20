@@ -207,7 +207,7 @@ export default function AuthScreen() {
         <div className="mb-6 flex flex-col items-center gap-2">
           <span className="text-5xl bus-float">🚌</span>
           <h1 className="text-2xl font-black text-white">
-            Orbit<span className="text-amber-400">Track</span>
+            Orbit<span className="text-[#ffee47]">Track</span>
           </h1>
         </div>
 

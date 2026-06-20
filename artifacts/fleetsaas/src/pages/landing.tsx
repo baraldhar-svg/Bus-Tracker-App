@@ -15,7 +15,7 @@ export default function Landing() {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-white">
-              Orbit<span className="text-amber-400">Track</span>
+              Orbit<span className="text-[#ffee47]">Track</span>
             </h1>
             <p className="text-[10px] font-medium text-slate-400 -mt-0.5">Nepal's Smart Bus Platform</p>
           </div>
