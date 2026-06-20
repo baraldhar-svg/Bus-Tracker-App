@@ -1192,12 +1192,26 @@ type RouteStation = { id: number; routeId: number; stationId: number; position: 
 type RouteRow = { id: number; name: string; driverId: number | null; vehicleId: number | null; isActive: boolean | null; driverName: string | null; vehiclePlate: string | null };
 type VehicleRow = { id: number; plateNumber: string; model: string; capacity: number; isActive: boolean; tag?: string | null };
 
-function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: () => void }) {
+function RouteStationsPanel({
+  routeId, route, vehicles, drivers, onClose, onRouteUpdated,
+}: {
+  routeId: number;
+  route: RouteRow;
+  vehicles: VehicleRow[] | undefined;
+  drivers: Array<{ id: number; name: string }> | undefined;
+  onClose: () => void;
+  onRouteUpdated: () => void;
+}) {
   const queryClient = useQueryClient();
   const { data: stations } = useListStations();
   const [routeStations, setRouteStations] = useState<RouteStation[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState("");
+
+  // Assignment state
+  const [editVehicle, setEditVehicle] = useState(String(route.vehicleId ?? ""));
+  const [editDriver, setEditDriver] = useState(String(route.driverId ?? ""));
+  const [assignSaving, setAssignSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1209,6 +1223,18 @@ function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: ()
   }, [routeId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleAssign() {
+    setAssignSaving(true);
+    try {
+      await apiPatch(`/routes/${routeId}`, {
+        vehicleId: editVehicle ? Number(editVehicle) : null,
+        driverId: editDriver ? Number(editDriver) : null,
+      });
+      onRouteUpdated();
+    } catch { /* ignore */ }
+    finally { setAssignSaving(false); }
+  }
 
   async function handleAdd() {
     if (!addingId) return;
@@ -1226,11 +1252,53 @@ function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: ()
   const assignedIds = new Set(routeStations.map((rs) => rs.stationId));
   const available = (stations ?? []).filter((s) => !assignedIds.has(s.id));
 
+  const vehicleLabel = (v: VehicleRow) => v.tag ? `${v.tag} — ${v.plateNumber}` : v.plateNumber;
+
   return (
     <div className="bg-muted/30 border border-border rounded-xl p-4 mt-2 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-muted-foreground">Stations on this route ({routeStations.length})</p>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+      </div>
+
+      {/* Bus & Driver assignment */}
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Bus size={10} />Assign Bus &amp; Driver</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Bus</label>
+            <select
+              value={editVehicle}
+              onChange={(e) => setEditVehicle(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
+            >
+              <option value="">None</option>
+              {(vehicles ?? []).map((v) => (
+                <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Driver</label>
+            <select
+              value={editDriver}
+              onChange={(e) => setEditDriver(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
+            >
+              <option value="">None</option>
+              {(drivers ?? []).map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={handleAssign}
+          disabled={assignSaving}
+          className="w-full rounded-lg bg-amber-500 py-1.5 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+        >
+          {assignSaving ? "Saving…" : "Save Assignment"}
+        </button>
       </div>
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
@@ -1658,7 +1726,14 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
               </div>
             </div>
             {expandedId === r.id && (
-              <RouteStationsPanel routeId={r.id} onClose={() => setExpandedId(null)} />
+              <RouteStationsPanel
+                routeId={r.id}
+                route={r}
+                vehicles={vehicles}
+                drivers={drivers}
+                onClose={() => setExpandedId(null)}
+                onRouteUpdated={() => { refetch(); queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() }); }}
+              />
             )}
           </div>
         ))}
