@@ -21,7 +21,6 @@ export default function Landing() {
           </div>
         </div>
       </header>
-
       {/* Hero */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-8 pt-8 text-center">
         {/* Big animated bus */}
@@ -37,7 +36,7 @@ export default function Landing() {
         <h2 className="mb-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
           Track Every Bus.
           <br />
-          <span className="text-amber-400">Every Stop. In Real Time.</span>
+          <span className="text-[#ffee47]">Every Stop. In Real Time.</span>
         </h2>
         <p className="mb-8 max-w-md text-base text-slate-400 leading-relaxed">
           OrbitTrack connects students, drivers and school admins with live GPS tracking, OTP boarding, geofencing alerts and smart fleet management — built for Nepal.
@@ -46,7 +45,7 @@ export default function Landing() {
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={() => navigate("/auth?mode=register")}
-            className="rounded-2xl bg-amber-500 px-8 py-3.5 text-base font-bold text-slate-900 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all hover:scale-105"
+            className="rounded-2xl px-8 py-3.5 text-base font-bold text-slate-900 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all hover:scale-105 bg-[#ffee47]"
           >
             Get Started Free
           </button>
@@ -58,8 +57,6 @@ export default function Landing() {
           </button>
         </div>
       </main>
-
-
       {/* Feature strip */}
       <div className="relative z-10 border-t border-slate-800 bg-slate-900/60 backdrop-blur">
         <div className="grid grid-cols-2 gap-0 sm:grid-cols-4">
@@ -76,14 +73,12 @@ export default function Landing() {
           ))}
         </div>
       </div>
-
       {/* Animated road + bus at the bottom */}
       <div className="absolute bottom-[72px] left-0 right-0 overflow-hidden pointer-events-none">
         <div className="road-line h-0.5 w-full bg-slate-700/60" />
         <div className="absolute bottom-0 bus-drive text-4xl">🚌</div>
         <div className="absolute bottom-3 bus-drive2 text-2xl opacity-40">🚗</div>
       </div>
-
       <AppFooter variant="dark" />
     </div>
   );
