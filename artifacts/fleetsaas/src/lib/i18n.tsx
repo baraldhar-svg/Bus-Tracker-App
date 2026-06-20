@@ -1768,7 +1768,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLang() { return useContext(LangContext); }
 
-export function useT() {
+export function useT(): Translations {
   const { lang } = useLang();
-  return (key: TranslationKey): string => T[lang]?.[key] ?? EN[key];
+  return T[lang] ?? EN;
 }
