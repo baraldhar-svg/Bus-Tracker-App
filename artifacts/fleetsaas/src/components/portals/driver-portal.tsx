@@ -1,6 +1,21 @@
 import { useState } from "react";
 import { useListStations, useListPassengers, useBoardPassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { sendDriverMessage } from "@/lib/driver-messages";
+
+const DRIVER_NAME = "Ram Bahadur";
+const DRIVER_PLATE = "BA 1 KHA 1234";
+
+const QUICK_MESSAGES = [
+  { emoji: "🚦", text: "Traffic jam on route" },
+  { emoji: "🚧", text: "Road is under construction" },
+  { emoji: "🔧", text: "Tire is punctured" },
+  { emoji: "⛽", text: "Fuel is low" },
+  { emoji: "🕐", text: "Running late" },
+  { emoji: "🚌", text: "Bus breakdown" },
+  { emoji: "✅", text: "All clear, back on route" },
+  { emoji: "🌧️", text: "Bad weather conditions" },
+];
 
 const SAFETY_SCORE = 91;
 const SPEED_KMH = 38;
@@ -40,6 +55,9 @@ export default function DriverPortal() {
   const [sosActive, setSosActive] = useState(false);
   const [journeyStarted, setJourneyStarted] = useState(false);
   const [journeyTime, setJourneyTime] = useState<string | null>(null);
+  const [quickMsgOpen, setQuickMsgOpen] = useState(false);
+  const [customMsg, setCustomMsg] = useState("");
+  const [lastSent, setLastSent] = useState<string | null>(null);
 
   const currentStation = stations?.[stationIdx];
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
@@ -72,7 +90,7 @@ export default function DriverPortal() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-slate-100">Driver Portal</h1>
-            <p className="text-xs text-slate-400">Ram Bahadur · BA 1 KHA 1234</p>
+            <p className="text-xs text-slate-400">{DRIVER_NAME} · {DRIVER_PLATE}</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-semibold text-green-400">
@@ -282,8 +300,25 @@ export default function DriverPortal() {
         </div>
       </div>
 
-      {/* SOS */}
-      <div className="p-4 border-t border-slate-700 bg-slate-900/50">
+      {/* Quick Message + SOS footer */}
+      <div className="p-4 border-t border-slate-700 bg-slate-900/50 space-y-2">
+
+        {/* Last sent confirmation */}
+        {lastSent && (
+          <div className="flex items-center gap-2 rounded-xl bg-blue-900/30 border border-blue-700/30 px-3 py-2">
+            <span className="text-sm">📨</span>
+            <p className="text-xs text-blue-300 flex-1 truncate">Sent: "{lastSent}"</p>
+            <button onClick={() => setLastSent(null)} className="text-slate-500 text-xs hover:text-slate-400">✕</button>
+          </div>
+        )}
+
+        {/* Report to Admin button */}
+        <button onClick={() => setQuickMsgOpen(true)}
+          className="w-full rounded-2xl bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 py-3.5 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98]">
+          <span className="text-lg mr-2">📢</span>
+          Report to Admin
+        </button>
+
         <button onClick={() => setSosActive((v) => !v)}
           className={`w-full rounded-2xl py-4 text-center font-bold text-white transition-all ${
             sosActive ? "bg-red-800 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
@@ -292,6 +327,81 @@ export default function DriverPortal() {
           {sosActive ? "🚨 SOS SENT — Admin & Parents Alerted" : "🆘 SOS EMERGENCY"}
         </button>
       </div>
+
+      {/* Quick Message Sheet */}
+      {quickMsgOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setQuickMsgOpen(false); }}>
+          <div className="w-full max-w-md rounded-t-3xl bg-[#1e293b] border-t border-slate-700 shadow-2xl">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-slate-600" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
+              <div>
+                <h2 className="text-base font-bold text-slate-100">📢 Report to Admin</h2>
+                <p className="text-xs text-slate-400">Tap a message or write your own</p>
+              </div>
+              <button onClick={() => setQuickMsgOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-slate-400 hover:bg-slate-600 text-sm">
+                ✕
+              </button>
+            </div>
+
+            <div className="px-4 py-4 space-y-4">
+              {/* Preset chips */}
+              <div className="grid grid-cols-2 gap-2">
+                {QUICK_MESSAGES.map((m) => (
+                  <button key={m.text}
+                    onClick={() => {
+                      sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: m.text, isCustom: false });
+                      setLastSent(m.text);
+                      setQuickMsgOpen(false);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 px-3 py-2.5 text-left text-xs font-medium text-slate-200 transition-colors active:bg-slate-500">
+                    <span className="text-base shrink-0">{m.emoji}</span>
+                    <span className="leading-snug">{m.text}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom message */}
+              <div>
+                <p className="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Custom Message</p>
+                <div className="flex gap-2">
+                  <input
+                    value={customMsg}
+                    onChange={(e) => setCustomMsg(e.target.value)}
+                    placeholder="Describe the issue…"
+                    className="flex-1 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customMsg.trim()) {
+                        sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: customMsg.trim(), isCustom: true });
+                        setLastSent(customMsg.trim());
+                        setCustomMsg("");
+                        setQuickMsgOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!customMsg.trim()) return;
+                      sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: customMsg.trim(), isCustom: true });
+                      setLastSent(customMsg.trim());
+                      setCustomMsg("");
+                      setQuickMsgOpen(false);
+                    }}
+                    disabled={!customMsg.trim()}
+                    className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-40 transition-colors">
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="pb-6" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

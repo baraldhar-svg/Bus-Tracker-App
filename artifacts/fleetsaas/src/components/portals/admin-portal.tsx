@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, getListPassengersQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useDriverMessages } from "@/lib/driver-messages";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -100,6 +101,122 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 type Modal = "add-passenger" | "add-driver" | null;
 type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; };
+type FleetVehicle = typeof FLEET_VEHICLES[number];
+
+function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: () => void }) {
+  const messages = useDriverMessages(vehicle.plate);
+  const score = DRIVER_SCORES.find((d) => d.name === vehicle.driver);
+  const avatarSrc = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vehicle.driver)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[90vh] flex flex-col">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <div className={`h-3 w-3 rounded-full shrink-0 ${vehicle.status === "on-route" ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
+            <div>
+              <h2 className="text-base font-bold text-foreground">{vehicle.plate}</h2>
+              <span className={`text-[10px] font-semibold ${vehicle.status === "on-route" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                {vehicle.status === "on-route" ? "● On Route" : "● At Depot"}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {/* Driver info */}
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-4">
+            <img src={avatarSrc} alt={vehicle.driver} className="h-14 w-14 rounded-full border-2 border-amber-500 object-cover shrink-0" />
+            <div className="flex-1">
+              <p className="font-bold text-foreground">{vehicle.driver}</p>
+              <p className="text-xs text-muted-foreground">{vehicle.route}</p>
+              {score && (
+                <div className="flex items-center gap-2 mt-1">
+                  <ScoreBadge score={score.score} />
+                  <span className="text-[10px] text-muted-foreground">{score.trips} trips · {score.harsh > 0 ? `⚠️ ${score.harsh} harsh events` : "✓ Clean"}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Live stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-card p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-0.5">Speed</p>
+              <p className={`text-lg font-bold ${vehicle.speed > 50 ? "text-red-500" : "text-foreground"}`}>{vehicle.speed}</p>
+              <p className="text-[9px] text-muted-foreground">km/h</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-0.5">Fuel</p>
+              <p className={`text-lg font-bold ${vehicle.fuel < 30 ? "text-red-500" : vehicle.fuel < 60 ? "text-amber-500" : "text-green-600"}`}>{vehicle.fuel}%</p>
+              <p className="text-[9px] text-muted-foreground">level</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-0.5">Service</p>
+              <p className={`text-lg font-bold ${vehicle.nextService < 1000 ? "text-red-500" : "text-foreground"}`}>{(vehicle.nextService / 1000).toFixed(1)}k</p>
+              <p className="text-[9px] text-muted-foreground">km away</p>
+            </div>
+          </div>
+
+          {/* Exact location */}
+          <div className="rounded-2xl border border-border bg-muted/20 px-4 py-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">📍 Current Location</p>
+            <p className="text-sm font-medium text-foreground">{vehicle.route}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {vehicle.status === "on-route"
+                ? `Moving at ${vehicle.speed} km/h · GPS live`
+                : "Stationary at depot"}
+            </p>
+          </div>
+
+          {/* Alerts */}
+          {(vehicle.fuel < 30 || vehicle.nextService < 1000 || vehicle.speed > 50) && (
+            <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">⚠️ Alerts</p>
+              {vehicle.fuel < 30 && <p className="text-xs text-red-700 dark:text-red-400">⛽ Fuel critically low ({vehicle.fuel}%)</p>}
+              {vehicle.nextService < 1000 && <p className="text-xs text-red-700 dark:text-red-400">🔧 Service due in {vehicle.nextService} km</p>}
+              {vehicle.speed > 50 && <p className="text-xs text-red-700 dark:text-red-400">🚨 Speeding — {vehicle.speed} km/h</p>}
+            </div>
+          )}
+
+          {/* Driver messages */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              📨 Driver Reports {messages.length > 0 && <span className="ml-1 rounded-full bg-blue-100 dark:bg-blue-950/40 px-1.5 text-blue-700 dark:text-blue-400">{messages.length}</span>}
+            </p>
+            {messages.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic px-1">No reports from driver</p>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((m) => (
+                  <div key={m.id} className="flex items-start gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 px-3 py-2.5">
+                    <span className="text-base shrink-0">{m.isCustom ? "💬" : "📢"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground leading-snug">"{m.text}"</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{m.driverName} · {m.timestamp}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="pb-6 shrink-0" />
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPortal() {
   const { user, login } = useAuth();
@@ -112,6 +229,7 @@ export default function AdminPortal() {
   const [modal, setModal] = useState<Modal>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
 
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
   const [editingSchool, setEditingSchool] = useState(false);
@@ -536,7 +654,9 @@ export default function AdminPortal() {
         </div>
         <div className="divide-y divide-border">
           {FLEET_VEHICLES.map((v) => (
-            <div key={v.id} className="flex items-center gap-4 px-5 py-3">
+            <button key={v.id}
+              onClick={() => setSelectedVehicle(v)}
+              className="w-full flex items-center gap-4 px-5 py-3 text-left hover:bg-muted/40 transition-colors">
               <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${v.status === "on-route" ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -547,12 +667,12 @@ export default function AdminPortal() {
                 </div>
                 <p className="text-xs text-muted-foreground">{v.driver} · {v.route}</p>
               </div>
-              <div className="hidden sm:flex items-center gap-4">
-                <div className="text-right">
+              <div className="flex items-center gap-4">
+                <div className="hidden sm:block text-right">
                   <p className="text-xs text-muted-foreground">Speed</p>
                   <p className={`text-sm font-bold ${v.speed > 50 ? "text-red-500" : "text-foreground"}`}>{v.speed} km/h</p>
                 </div>
-                <div>
+                <div className="hidden sm:block">
                   <p className="text-xs text-muted-foreground">Fuel</p>
                   <div className="flex items-center gap-1">
                     <div className="w-12 h-1.5 rounded-full bg-border overflow-hidden">
@@ -561,8 +681,9 @@ export default function AdminPortal() {
                     <p className="text-xs font-medium">{v.fuel}%</p>
                   </div>
                 </div>
+                <span className="text-muted-foreground/40 text-sm">›</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -624,6 +745,11 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
+
+      {/* Bus Detail Panel */}
+      {selectedVehicle && (
+        <BusDetailPanel vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} />
+      )}
 
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
