@@ -364,7 +364,7 @@ export default function StudentPortal() {
         <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Clock size={14} /> Tracking Timeline</h2>
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {timeline ? (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
               {timeline.map((event, idx) => (
                 <div key={event.id} className="flex items-start gap-3 px-4 py-3">
                   <div className="flex flex-col items-center gap-1 pt-0.5">
