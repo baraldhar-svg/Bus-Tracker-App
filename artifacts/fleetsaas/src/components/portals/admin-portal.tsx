@@ -32,9 +32,9 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 const FLEET_VEHICLES = [
-  { id: 1, plate: "BA 1 KHA 1234", driver: "Ram Bahadur", speed: 38, route: "B4 - Koteshwor", status: "on-route", fuel: 72, nextService: 3200 },
-  { id: 2, plate: "BA 2 CHA 5678", driver: "Hari Prasad", speed: 0, route: "B2 - Kalanki", status: "depot", fuel: 45, nextService: 800 },
-  { id: 3, plate: "BA 3 JA 9012", driver: "Sita Rai", speed: 29, route: "B7 - Patan", status: "on-route", fuel: 88, nextService: 5100 },
+  { id: 1, plate: "BA 1 KHA 1234", driver: "Ram Bahadur", speed: 38, route: "B4 - Koteshwor", status: "on-route", fuel: 72, nextService: 3200, lat: 27.6939, lng: 85.3440 },
+  { id: 2, plate: "BA 2 CHA 5678", driver: "Hari Prasad", speed: 0, route: "B2 - Kalanki Depot", status: "depot", fuel: 45, nextService: 800, lat: 27.7054, lng: 85.2814 },
+  { id: 3, plate: "BA 3 JA 9012", driver: "Sita Rai", speed: 29, route: "B7 - Patan", status: "on-route", fuel: 88, nextService: 5100, lat: 27.6755, lng: 85.3216 },
 ];
 
 const DRIVER_SCORES = [
@@ -169,15 +169,60 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
             </div>
           </div>
 
-          {/* Exact location */}
-          <div className="rounded-2xl border border-border bg-muted/20 px-4 py-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">📍 Current Location</p>
-            <p className="text-sm font-medium text-foreground">{vehicle.route}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {vehicle.status === "on-route"
-                ? `Moving at ${vehicle.speed} km/h · GPS live`
-                : "Stationary at depot"}
-            </p>
+          {/* Live Map Location */}
+          <div
+            className="rounded-2xl border border-border overflow-hidden shadow-sm cursor-pointer group"
+            onClick={() => window.open(`https://www.google.com/maps?q=${vehicle.lat},${vehicle.lng}`, "_blank", "noopener,noreferrer")}
+          >
+            {/* Map header */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📍</span>
+                <div>
+                  <p className="text-xs font-semibold text-foreground">{vehicle.route}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {vehicle.status === "on-route"
+                      ? `Moving · ${vehicle.speed} km/h · GPS live`
+                      : "Stationary · At depot"}
+                  </p>
+                </div>
+              </div>
+              <span className="flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-950/60 transition-colors">
+                Open in Maps ↗
+              </span>
+            </div>
+
+            {/* OpenStreetMap embedded iframe */}
+            <div className="relative w-full" style={{ height: 160 }}>
+              <iframe
+                title="Bus location map"
+                width="100%"
+                height="160"
+                style={{ border: 0, display: "block" }}
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - 0.012},${vehicle.lat - 0.008},${vehicle.lng + 0.012},${vehicle.lat + 0.008}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
+              />
+              {/* Click overlay — captures tap to open Google Maps */}
+              <div className="absolute inset-0" />
+              {/* Live pulse indicator */}
+              {vehicle.status === "on-route" && (
+                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  LIVE GPS
+                </div>
+              )}
+              {vehicle.status !== "on-route" && (
+                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow">
+                  DEPOT
+                </div>
+              )}
+            </div>
+
+            {/* Coords footer */}
+            <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
+              <p className="text-[10px] font-mono text-muted-foreground">{vehicle.lat.toFixed(4)}°N, {vehicle.lng.toFixed(4)}°E</p>
+              <p className="text-[10px] text-muted-foreground">Tap to open Google Maps</p>
+            </div>
           </div>
 
           {/* Alerts */}
