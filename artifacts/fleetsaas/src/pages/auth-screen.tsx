@@ -15,6 +15,40 @@ const TITLES = ["Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// Uniform photo hint — translated by browser locale
+const UNIFORM_TRANSLATIONS: Record<string, string> = {
+  ne: "कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !",
+  hi: "कृपया केवल वर्दी वाली फ़ोटो अपलोड करें !",
+  bn: "দয়া করে শুধুমাত্র ইউনিফর্ম পরিহিত ছবি আপলোড করুন !",
+  zh: "请仅上传穿制服的照片！",
+  ja: "制服を着た写真のみアップロードしてください！",
+  ko: "교복 사진만 업로드해 주세요！",
+  ar: "يرجى تحميل صور بالزي الرسمي فقط !",
+  es: "Por favor, sube solo fotos con uniforme !",
+  fr: "Veuillez télécharger uniquement des photos en uniforme !",
+  de: "Bitte lade nur Fotos in Uniform hoch !",
+  pt: "Por favor, carregue apenas fotos com uniforme !",
+  ru: "Пожалуйста, загружайте только фотографии в форме !",
+  ur: "براہ کرم صرف یونیفارم والی تصاویر اپ لوڈ کریں !",
+  id: "Harap unggah foto berseragam saja !",
+  ms: "Sila muat naik gambar berpakaian seragam sahaja !",
+  th: "กรุณาอัปโหลดเฉพาะรูปที่สวมชุดนักเรียนเท่านั้น !",
+  vi: "Vui lòng chỉ tải lên ảnh mặc đồng phục !",
+  tr: "Lütfen yalnızca üniforma fotoğrafı yükleyin !",
+  it: "Si prega di caricare solo foto in uniforme !",
+  pl: "Prosimy przesyłać tylko zdjęcia w mundurku !",
+  sw: "Tafadhali pakia picha za sare tu !",
+};
+
+function getUniformHint(): string {
+  const lang = (navigator.language ?? "en").split("-")[0].toLowerCase();
+  const translation = UNIFORM_TRANSLATIONS[lang];
+  if (!translation || lang === "en") {
+    return "📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)";
+  }
+  return `📸 Please upload uniform photos only! (${translation})`;
+}
+
 async function apiPost(path: string, body: unknown) {
   const res = await fetch(`${BASE}/api${path}`, {
     method: "POST",
@@ -297,7 +331,7 @@ export default function AuthScreen() {
                   </div>
                 )}
                 <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
-                  📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)
+                  {getUniformHint()}
                 </div>
               </div>
             </div>
