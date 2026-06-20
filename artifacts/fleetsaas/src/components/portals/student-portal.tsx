@@ -184,7 +184,7 @@ export default function StudentPortal() {
   const etaProgress = Math.max(0, 100 - (pos.eta / 18) * 100);
 
   return (
-    <div className="mx-auto w-full max-w-[480px] bg-card px-4 pb-8 pt-4 shadow-md sm:my-8 sm:rounded-2xl flex flex-col gap-5">
+    <div className="w-full px-4 pb-8 pt-4 flex flex-col gap-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
