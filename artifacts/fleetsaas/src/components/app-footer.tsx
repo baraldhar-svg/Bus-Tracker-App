@@ -10,7 +10,7 @@ export default function AppFooter({ variant = "light" }: { variant?: "light" | "
 
         {/* Copyright + Legal links */}
         <p className={`text-[11px] ${dark ? "text-slate-400" : "text-muted-foreground"}`}>
-          © 2026 RoutePulse. All Rights Reserved.{" "}
+          © 2026 OrbitTrack. All Rights Reserved.{" "}
           <span className={`mx-1 ${dark ? "text-slate-600" : "text-border"}`}>|</span>
           <button className={`underline-offset-2 hover:underline transition-colors ${dark ? "text-slate-400 hover:text-amber-400" : "text-muted-foreground hover:text-primary"}`}>
             Privacy Policy
