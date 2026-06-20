@@ -450,6 +450,15 @@ export const TriggerSosResponse = zod.object({
 
 
 /**
+ * @summary Mark the journey as started and notify all passengers and admins
+ */
+export const StartJourneyResponse = zod.object({
+  "acknowledged": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
  * @summary Mark the current journey as complete and notify all passengers and admins
  */
 export const CompleteJourneyResponse = zod.object({

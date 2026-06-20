@@ -2189,6 +2189,76 @@ export const useTriggerSos = <TError = ErrorType<unknown>,
       return useMutation(getTriggerSosMutationOptions(options));
     }
 
+export const getStartJourneyUrl = () => {
+
+
+
+
+  return `/api/trips/start`
+}
+
+/**
+ * @summary Mark the journey as started and notify all passengers and admins
+ */
+export const startJourney = async ( options?: RequestInit): Promise<SosResponse> => {
+
+  return customFetch<SosResponse>(getStartJourneyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getStartJourneyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startJourney>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startJourney>>, TError,void, TContext> => {
+
+const mutationKey = ['startJourney'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startJourney>>, void> = () => {
+
+
+          return  startJourney(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartJourneyMutationResult = NonNullable<Awaited<ReturnType<typeof startJourney>>>
+
+    export type StartJourneyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the journey as started and notify all passengers and admins
+ */
+export const useStartJourney = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startJourney>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startJourney>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartJourneyMutationOptions(options));
+    }
+
 export const getCompleteJourneyUrl = () => {
 
 

@@ -520,6 +520,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosResponse"
 
+  /trips/start:
+    post:
+      operationId: startJourney
+      tags: [trips]
+      summary: Mark the journey as started and notify all passengers and admins
+      responses:
+        "200":
+          description: Journey start acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosResponse"
+
   /trips/complete:
     post:
       operationId: completeJourney

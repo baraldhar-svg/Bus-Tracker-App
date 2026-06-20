@@ -56,6 +56,19 @@ router.get("/timeline", async (_req, res) => {
   ]);
 });
 
+router.post("/start", async (req, res) => {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  await db.insert(announcementsTable).values({
+    tenantId: req.tenantId,
+    message: `🚌 Bus journey started at ${timeStr}. The driver is on the way — students will be picked up at their stops shortly.`,
+    severity: "info",
+  });
+
+  return res.json({ acknowledged: true, message: `Journey started at ${timeStr}. All passengers and admins notified.` });
+});
+
 router.post("/sos", async (_req, res) => {
   return res.json({ acknowledged: true, message: "Emergency SOS broadcast sent to all admins and parents." });
 });

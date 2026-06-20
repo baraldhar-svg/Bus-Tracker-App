@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useCompleteJourney, getListPassengersQueryKey, getListAnnouncementsQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, getListPassengersQueryKey, getListAnnouncementsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
 import {
@@ -54,6 +54,7 @@ export default function DriverPortal() {
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
   const unboardPassenger = useUnboardPassenger();
+  const startJourney = useStartJourney();
   const completeJourney = useCompleteJourney();
   const queryClient = useQueryClient();
 
@@ -112,11 +113,17 @@ export default function DriverPortal() {
     });
   }
 
-  function handleStartJourney() {
+  async function handleStartJourney() {
     setJourneyStarted(true);
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     setJourneyTime(timeStr);
+    try {
+      await startJourney.mutateAsync();
+      queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
+    } catch {
+      // Non-blocking — UI already shows started state
+    }
   }
 
   async function handleJourneyComplete() {
