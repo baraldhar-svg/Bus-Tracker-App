@@ -729,7 +729,7 @@ export default function AdminPortal() {
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="font-medium text-[#000] border-t-[color:var(--color-slate-700)] border-r-[color:var(--color-slate-700)] border-b-[color:var(--color-slate-700)] border-l-[color:var(--color-slate-700)] bg-[#ffb900] rounded-tl-[1px] rounded-tr-[1px] rounded-bl-[1px] rounded-br-[1px] px-2 py-0.5 inline-block text-sm">On Board</h2>
+            <h2 className="font-medium text-[#000] border-t-[color:var(--color-slate-700)] border-r-[color:var(--color-slate-700)] border-b-[color:var(--color-slate-700)] border-l-[color:var(--color-slate-700)] bg-[#ffb900] px-2 py-0.5 inline-block text-sm rounded-tl-[12px] rounded-tr-[12px] rounded-br-[12px] rounded-bl-[12px]">On Board</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{passengers?.length ?? 0} students & staff</p>
           </div>
           <button onClick={() => { setModal("add-passenger"); setErr(""); setPPhoto(""); }}
