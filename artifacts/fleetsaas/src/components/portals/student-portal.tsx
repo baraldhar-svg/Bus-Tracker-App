@@ -189,7 +189,7 @@ export default function StudentPortal() {
       )}
       {/* Geofencing Alert */}
       {nearbyAlert && (
-        <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once">
+        <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once border-t-[#ffee47] border-r-[#ffee47] border-b-[#ffee47] border-l-[#ffee47]">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <Bus size={36} className="text-white drop-shadow" />
