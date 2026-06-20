@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useListVehicles } from "@workspace/api-client-react";
+import AppFooter from "@/components/app-footer";
 
 export default function Landing() {
   const [, navigate] = useLocation();
@@ -136,6 +137,8 @@ export default function Landing() {
         <div className="absolute bottom-0 bus-drive text-4xl">🚌</div>
         <div className="absolute bottom-3 bus-drive2 text-2xl opacity-40">🚗</div>
       </div>
+
+      <AppFooter variant="dark" />
     </div>
   );
 }

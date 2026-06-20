@@ -8,6 +8,7 @@ import DriverPortal from "@/components/portals/driver-portal";
 import AdminPortal from "@/components/portals/admin-portal";
 import SuperadminPortal from "@/components/portals/superadmin-portal";
 import PaywallModal from "@/components/paywall-modal";
+import AppFooter from "@/components/app-footer";
 import { useGetMySubscription } from "@workspace/api-client-react";
 
 type Role = "student" | "driver" | "admin" | "superadmin";
@@ -482,6 +483,8 @@ export default function Dashboard() {
           {userRole === "admin" && <AdminPortal />}
           {userRole === "superadmin" && <SuperadminPortal />}
         </main>
+
+        <AppFooter />
 
         {subscription?.paywallActive && <PaywallModal subscription={subscription} />}
 
