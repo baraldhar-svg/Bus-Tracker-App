@@ -465,7 +465,7 @@ export default function Dashboard() {
         <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur shadow-sm">
           <div className="flex h-14 items-center justify-between px-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500"><Bus size={15} className="text-slate-900" /></span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#FFF078]"><Bus size={15} className="text-slate-900" /></span>
               <span className="font-black text-primary text-sm">
                 Orbit<span className="text-[#FFF078]">Track</span>
               </span>

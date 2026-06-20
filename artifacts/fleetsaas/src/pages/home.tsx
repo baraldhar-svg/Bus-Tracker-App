@@ -35,7 +35,7 @@ export default function Home() {
           <div className="container mx-auto flex h-14 items-center justify-between px-4">
             {/* Brand */}
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-[15px]">🚌</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#FFF078] text-[15px]">🚌</span>
               <span className="hidden font-bold text-primary text-sm sm:block">FleetSaaS</span>
             </div>
 
