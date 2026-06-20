@@ -9,7 +9,7 @@ export default function Landing() {
   const selected = vehicles?.find((v) => v.id === selectedId);
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#0F172A]">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-scroll bg-[#0F172A] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
       {/* Top Nav */}
       <header className="relative z-20 flex items-center justify-between px-6 py-4">
         {/* Logo */}
