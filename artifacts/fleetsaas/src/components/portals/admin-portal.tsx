@@ -1195,7 +1195,7 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
       {(!vehicles || vehicles.length === 0) && !adding && (
         <p className="px-5 py-6 text-center text-xs text-muted-foreground">No vehicles yet — click Add Vehicle to register your first bus</p>
       )}
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
         {(vehicles ?? []).map((v) => (
           <div key={v.id} className="flex items-center gap-3 px-5 py-3">
             <div className={`h-2 w-2 rounded-full shrink-0 ${v.isActive ? "bg-green-500" : "bg-slate-400"}`} />
@@ -1464,7 +1464,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
         </div>
       )}
 
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
         {(routes ?? []).length === 0 && !creating && (
           <p className="px-5 py-6 text-center text-xs text-muted-foreground">No routes yet — create one above</p>
         )}
