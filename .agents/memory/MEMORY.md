@@ -1,1 +1,2 @@
 - [App rename & auth](orbittrack-auth.md) — App renamed to OrbitTrack; OTP auth uses /api/auth/* routes (no OpenAPI codegen)
+- [Orval codegen types conflict fix](orval-codegen-fix.md) — Removing `schemas` from api-zod orval config and patching the generated index.ts to drop stale types re-export

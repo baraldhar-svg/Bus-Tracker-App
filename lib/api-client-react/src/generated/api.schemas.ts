@@ -341,6 +341,63 @@ export interface SubscriptionActivationInput {
   vehicleCount?: number;
 }
 
+export type CalendarEventType = typeof CalendarEventType[keyof typeof CalendarEventType];
+
+
+export const CalendarEventType = {
+  event: 'event',
+  holiday: 'holiday',
+} as const;
+
+export interface CalendarEvent {
+  id: number;
+  tenantId: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  type: CalendarEventType;
+  /** ISO date YYYY-MM-DD (AD) */
+  eventDate: string;
+  notified: boolean;
+  autoNotify: boolean;
+  createdAt: string;
+}
+
+export type CalendarEventList = CalendarEvent[];
+
+export type CreateCalendarEventBodyType = typeof CreateCalendarEventBodyType[keyof typeof CreateCalendarEventBodyType];
+
+
+export const CreateCalendarEventBodyType = {
+  event: 'event',
+  holiday: 'holiday',
+} as const;
+
+export interface CreateCalendarEventBody {
+  title: string;
+  description?: string;
+  type: CreateCalendarEventBodyType;
+  /** ISO date YYYY-MM-DD (AD) */
+  eventDate: string;
+  autoNotify?: boolean;
+}
+
+export type UpdateCalendarEventBodyType = typeof UpdateCalendarEventBodyType[keyof typeof UpdateCalendarEventBodyType];
+
+
+export const UpdateCalendarEventBodyType = {
+  event: 'event',
+  holiday: 'holiday',
+} as const;
+
+export interface UpdateCalendarEventBody {
+  title?: string;
+  description?: string;
+  type?: UpdateCalendarEventBodyType;
+  eventDate?: string;
+  autoNotify?: boolean;
+}
+
 export type DashboardStatsSubscriptionBreakdown = {
   trial?: number;
   silver?: number;
@@ -359,5 +416,12 @@ export interface DashboardStats {
 
 export type GeocodeAddressParams = {
 q: string;
+};
+
+export type ListCalendarEventsParams = {
+/**
+ * Filter by AD month prefix YYYY-MM (optional)
+ */
+month?: string;
 };
 

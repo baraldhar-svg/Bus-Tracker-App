@@ -14,6 +14,7 @@ import authRouter from "./auth";
 import advertisementsRouter from "./advertisements";
 import routesRouter from "./routes";
 import geocodeRouter from "./geocode";
+import calendarRouter from "./calendar";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/subscriptions", subscriptionsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/routes", routesRouter);
 router.use("/geocode", geocodeRouter);
+router.use("/calendar-events", calendarRouter);
 
 export default router;

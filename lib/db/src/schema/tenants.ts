@@ -12,6 +12,7 @@ export const tenantsTable = pgTable("tenants", {
   schoolCode: text("school_code"),
   currency: text("currency").notNull().default("NPR"),
   country: text("country").notNull().default("NP"),
+  calendarSystem: text("calendar_system").notNull().default("bs"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

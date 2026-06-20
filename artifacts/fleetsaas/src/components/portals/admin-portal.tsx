@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw } from "lucide-react";
+import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, formatBsDate, BS_MONTH_NAMES_EN } from "@/lib/bs-calendar";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
@@ -54,6 +55,273 @@ const STATUS_LABELS: Record<string, string> = { boarded: "✓ Boarded", pending:
 function PassengerAvatar({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
   const src = photoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`;
   return <img src={src} alt={name} className="h-9 w-9 rounded-full border border-border object-cover shrink-0" />;
+}
+
+// ── CalendarManager ───────────────────────────────────────────────────────────
+type CalendarEvent = {
+  id: number;
+  title: string;
+  description?: string | null;
+  type: string;
+  eventDate: string;
+  notified: boolean;
+  autoNotify: boolean;
+};
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function CalendarManager() {
+  const queryClient = useQueryClient();
+  const todayB = todayBs();
+  const [calSystem, setCalSystem] = useState<"bs" | "ad">("bs");
+  const [bsYear, setBsYear] = useState(todayB.year);
+  const [bsMonth, setBsMonth] = useState(todayB.month);
+
+  // Derive AD month prefix from BS month for the API query
+  const adMonthStr = (() => {
+    const d = bsToAd(bsYear, bsMonth, 1);
+    return `${d.year}-${String(d.month).padStart(2, "0")}`;
+  })();
+
+  const { data: events, refetch } = useListCalendarEvents({ month: adMonthStr });
+
+  const [showForm, setShowForm] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [eTitle, setETitle] = useState("");
+  const [eDesc, setEDesc] = useState("");
+  const [eType, setEType] = useState<"event" | "holiday">("event");
+  const [eAutoNotify, setEAutoNotify] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formErr, setFormErr] = useState("");
+
+  const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const daysInMonth = getDaysInBsMonth(bsYear, bsMonth);
+  const firstWeekday = getFirstWeekdayOfBsMonth(bsYear, bsMonth);
+
+  // Map events by BS day
+  const eventsByDay = new Map<number, CalendarEvent[]>();
+  for (const ev of events ?? []) {
+    // Convert AD eventDate "YYYY-MM-DD" to BS
+    const parts = ev.eventDate.split("-").map(Number);
+    const bs = adToBs(parts[0]!, parts[1]!, parts[2]!);
+    if (bs.year === bsYear && bs.month === bsMonth) {
+      const list = eventsByDay.get(bs.day) ?? [];
+      list.push(ev as CalendarEvent);
+      eventsByDay.set(bs.day, list);
+    }
+  }
+
+  function prevMonth() {
+    if (bsMonth === 1) { setBsYear(y => y - 1); setBsMonth(12); }
+    else setBsMonth(m => m - 1);
+    setSelectedDay(null);
+  }
+  function nextMonth() {
+    if (bsMonth === 12) { setBsYear(y => y + 1); setBsMonth(1); }
+    else setBsMonth(m => m + 1);
+    setSelectedDay(null);
+  }
+
+  function openAddForm(day: number) {
+    setSelectedDay(day);
+    setETitle(""); setEDesc(""); setEType("event"); setEAutoNotify(true); setFormErr("");
+    setShowForm(true);
+  }
+
+  async function handleSave() {
+    if (!eTitle.trim() || !selectedDay) return;
+    setFormErr(""); setSaving(true);
+    try {
+      const adDateStr = bsDateToAd(bsYear, bsMonth, selectedDay);
+      const res = await fetch(`${BASE_URL}/api/calendar-events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: eTitle.trim(), description: eDesc.trim() || undefined, type: eType, eventDate: adDateStr, autoNotify: eAutoNotify }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed"); }
+      queryClient.invalidateQueries({ queryKey: getListCalendarEventsQueryKey() });
+      refetch();
+      setShowForm(false);
+    } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: number) {
+    await fetch(`${BASE_URL}/api/calendar-events/${id}`, { method: "DELETE" });
+    queryClient.invalidateQueries({ queryKey: getListCalendarEventsQueryKey() });
+    refetch();
+  }
+
+  const selectedDayEvents = selectedDay ? (eventsByDay.get(selectedDay) ?? []) : [];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-amber-500" />
+          <div>
+            <h2 className="font-semibold text-primary">School Calendar</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Events, holidays & auto-notifications</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-muted p-0.5 text-xs font-semibold">
+          <button onClick={() => setCalSystem("bs")}
+            className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "bs" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}>
+            BS
+          </button>
+          <button onClick={() => setCalSystem("ad")}
+            className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "ad" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}>
+            AD
+          </button>
+        </div>
+      </div>
+
+      {/* Month Nav */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+        <button onClick={prevMonth} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
+          <ChevronLeft size={16} />
+        </button>
+        <div className="text-center">
+          <p className="font-bold text-sm text-foreground">
+            {BS_MONTH_NAMES_EN[bsMonth - 1]} {bsYear}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {adMonthStr.replace("-", " / ")} AD
+          </p>
+        </div>
+        <button onClick={nextMonth} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="p-4">
+        <div className="grid grid-cols-7 mb-1">
+          {WEEKDAYS.map(d => (
+            <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-0.5">
+          {/* Empty cells before first day */}
+          {Array.from({ length: firstWeekday }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {/* Day cells */}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dayEvents = eventsByDay.get(day) ?? [];
+            const isToday = day === todayB.day && bsMonth === todayB.month && bsYear === todayB.year;
+            const isSelected = day === selectedDay;
+            const hasHoliday = dayEvents.some(e => e.type === "holiday");
+            const hasEvent = dayEvents.some(e => e.type === "event");
+            return (
+              <button key={day} onClick={() => setSelectedDay(isSelected ? null : day)}
+                className={`relative flex flex-col items-center rounded-xl py-1.5 transition-all text-xs font-medium
+                  ${isSelected ? "bg-amber-500 text-slate-900 shadow-sm" : isToday ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" : "hover:bg-muted text-foreground"}
+                `}>
+                <span>{day}</span>
+                <div className="flex gap-0.5 mt-0.5">
+                  {hasHoliday && <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-slate-900" : "bg-red-500"}`} />}
+                  {hasEvent && <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-slate-900" : "bg-blue-500"}`} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mt-3 px-1">
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-red-500 inline-block" />Holiday
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />Event
+          </span>
+        </div>
+      </div>
+
+      {/* Selected day panel */}
+      {selectedDay && (
+        <div className="border-t border-border mx-4 mb-4 pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">
+              {formatBsDate({ year: bsYear, month: bsMonth, day: selectedDay })}
+            </p>
+            <button onClick={() => openAddForm(selectedDay)}
+              className="flex items-center gap-1 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
+              <Plus size={12} />Add
+            </button>
+          </div>
+          {selectedDayEvents.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">No events — tap Add to create one</p>
+          )}
+          {selectedDayEvents.map(ev => (
+            <div key={ev.id} className={`flex items-start gap-3 rounded-xl border p-3
+              ${ev.type === "holiday" ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20" : "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20"}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${ev.type === "holiday" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"}`}>
+                    {ev.type}
+                  </span>
+                  {ev.autoNotify && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">🔔 T-1 alert</span>}
+                </div>
+                <p className="text-sm font-medium text-foreground mt-1">{ev.title}</p>
+                {ev.description && <p className="text-xs text-muted-foreground">{ev.description}</p>}
+              </div>
+              <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-red-500 transition-colors mt-0.5">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Event Form */}
+      {showForm && selectedDay && (
+        <div className="border-t border-border mx-4 mb-4 pt-4 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New entry for {formatBsDate({ year: bsYear, month: bsMonth, day: selectedDay })}</p>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Title</label>
+            <input value={eTitle} onChange={e => setETitle(e.target.value)} placeholder="e.g. Saraswati Puja, Parent Meeting…"
+              className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Description (optional)</label>
+            <input value={eDesc} onChange={e => setEDesc(e.target.value)} placeholder="Additional details…"
+              className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Type</label>
+              <select value={eType} onChange={e => setEType(e.target.value as "event" | "holiday")}
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                <option value="event">Event</option>
+                <option value="holiday">Holiday</option>
+              </select>
+            </div>
+            <div className="flex flex-col justify-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={eAutoNotify} onChange={e => setEAutoNotify(e.target.checked)}
+                  className="h-4 w-4 rounded accent-amber-500" />
+                <span className="text-xs font-medium text-foreground">Auto-notify day before</span>
+              </label>
+            </div>
+          </div>
+          {formErr && <p className="text-xs text-red-500">{formErr}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setShowForm(false)}
+              className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+            <button onClick={handleSave} disabled={!eTitle.trim() || saving}
+              className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+              {saving ? "Saving…" : "Save Event"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -1215,6 +1483,8 @@ export default function AdminPortal() {
       </div>
       {/* Route Management */}
       <RouteManager drivers={drivers} vehicles={vehicles} />
+      {/* School Calendar */}
+      <CalendarManager />
       {/* Stats Detail Panel */}
       {statsFilter && (
         <StatsDetailPanel

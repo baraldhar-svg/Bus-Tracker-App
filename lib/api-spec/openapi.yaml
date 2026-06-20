@@ -631,6 +631,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/Subscription"
 
+  # ─── CALENDAR EVENTS ────────────────────────────────────────────────────────
+  /calendar-events:
+    get:
+      operationId: listCalendarEvents
+      tags: [calendar]
+      summary: List calendar events for the tenant
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+            description: Filter by AD month prefix YYYY-MM (optional)
+      responses:
+        "200":
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventList"
+    post:
+      operationId: createCalendarEvent
+      tags: [calendar]
+      summary: Create a calendar event or holiday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalendarEventBody"
+      responses:
+        "201":
+          description: Created event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+
+  /calendar-events/{id}:
+    patch:
+      operationId: updateCalendarEvent
+      tags: [calendar]
+      summary: Update a calendar event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarEventBody"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+    delete:
+      operationId: deleteCalendarEvent
+      tags: [calendar]
+      summary: Delete a calendar event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ─── SUPERADMIN DASHBOARD ───────────────────────────────────────────────────
   /dashboard/stats:
     get:
@@ -1061,6 +1136,69 @@ components:
           enum: [esewa, khalti, stripe, paypal]
         vehicleCount:
           type: integer
+
+    CalendarEvent:
+      type: object
+      required: [id, tenantId, title, type, eventDate, notified, autoNotify, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [event, holiday]
+        eventDate:
+          type: string
+          description: ISO date YYYY-MM-DD (AD)
+        notified:
+          type: boolean
+        autoNotify:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CalendarEventList:
+      type: array
+      items:
+        $ref: "#/components/schemas/CalendarEvent"
+
+    CreateCalendarEventBody:
+      type: object
+      required: [title, type, eventDate]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [event, holiday]
+        eventDate:
+          type: string
+          description: ISO date YYYY-MM-DD (AD)
+        autoNotify:
+          type: boolean
+
+    UpdateCalendarEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [event, holiday]
+        eventDate:
+          type: string
+        autoNotify:
+          type: boolean
 
     DashboardStats:
       type: object

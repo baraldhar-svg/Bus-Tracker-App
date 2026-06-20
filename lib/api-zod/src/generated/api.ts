@@ -534,6 +534,75 @@ export const ActivateSubscriptionResponse = zod.object({
 
 
 /**
+ * @summary List calendar events for the tenant
+ */
+export const ListCalendarEventsQueryParams = zod.object({
+  "month": zod.coerce.string().optional()
+})
+
+export const ListCalendarEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['event', 'holiday']),
+  "eventDate": zod.string().describe('ISO date YYYY-MM-DD (AD)'),
+  "notified": zod.boolean(),
+  "autoNotify": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCalendarEventsResponse = zod.array(ListCalendarEventsResponseItem)
+
+
+/**
+ * @summary Create a calendar event or holiday
+ */
+export const CreateCalendarEventBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "type": zod.enum(['event', 'holiday']),
+  "eventDate": zod.string().describe('ISO date YYYY-MM-DD (AD)'),
+  "autoNotify": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update a calendar event
+ */
+export const UpdateCalendarEventParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCalendarEventBody = zod.object({
+  "title": zod.string().optional(),
+  "description": zod.string().optional(),
+  "type": zod.enum(['event', 'holiday']).optional(),
+  "eventDate": zod.string().optional(),
+  "autoNotify": zod.boolean().optional()
+})
+
+export const UpdateCalendarEventResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['event', 'holiday']),
+  "eventDate": zod.string().describe('ISO date YYYY-MM-DD (AD)'),
+  "notified": zod.boolean(),
+  "autoNotify": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a calendar event
+ */
+export const DeleteCalendarEventParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary Global platform statistics (SuperAdmin only)
  */
 export const GetDashboardStatsResponse = zod.object({

@@ -6,6 +6,7 @@ import {
   useListPassengers,
   useListRoutes,
   getListPassengersQueryKey,
+  useListCalendarEvents,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import BusMap from "@/components/bus-map";
@@ -71,6 +72,11 @@ export default function StudentPortal() {
   const [loadingStations, setLoadingStations] = useState(false);
   const [transportSaving, setTransportSaving] = useState(false);
   const [transportSaved, setTransportSaved] = useState(false);
+
+  const todayAdStr = (() => { const d = new Date(); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; })();
+  const tmrAdStr = (() => { const d = new Date(); d.setDate(d.getDate()+1); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; })();
+  const { data: calEvents } = useListCalendarEvents({ month: todayAdStr.slice(0, 7) });
+  const upcomingEvents = (calEvents ?? []).filter(e => e.eventDate === todayAdStr || e.eventDate === tmrAdStr);
 
   const me = passengers?.find((p) => p.id === DEMO_PASSENGER_ID);
 
@@ -191,6 +197,27 @@ export default function StudentPortal() {
           className="h-11 w-11 rounded-full border-2 border-amber-500 shadow"
         />
       </div>
+      {/* Calendar upcoming events urgent banner */}
+      {upcomingEvents.length > 0 && (
+        <div className="space-y-2">
+          {upcomingEvents.map((ev) => {
+            const isToday = ev.eventDate === todayAdStr;
+            const isHoliday = ev.type === "holiday";
+            return (
+              <div key={ev.id} className={`flex items-start gap-3 rounded-xl border p-3 ${isHoliday ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"}`}>
+                <span className="text-lg">{isHoliday ? "🎉" : "📅"}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold uppercase tracking-wide ${isHoliday ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                    {isHoliday ? "Holiday" : "Event"} {isToday ? "Today" : "Tomorrow"}
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">{ev.title}</p>
+                  {ev.description && <p className="text-xs text-muted-foreground">{ev.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {/* Geofencing Alert */}
       {nearbyAlert && (
         <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once">

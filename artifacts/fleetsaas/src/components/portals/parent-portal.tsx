@@ -1,8 +1,30 @@
-import { useListAnnouncements, useGetTripTimeline } from "@workspace/api-client-react";
+import { useListAnnouncements, useGetTripTimeline, useListCalendarEvents } from "@workspace/api-client-react";
+
+function todayAdStr() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function tomorrowAdStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export default function ParentPortal() {
   const { data: announcements } = useListAnnouncements();
-  const { data: timeline } = useGetTripTimeline(1); // placeholder tripId
+  const { data: timeline } = useGetTripTimeline();
+
+  const thisMonth = todayAdStr().slice(0, 7);
+  const { data: calEvents } = useListCalendarEvents({ month: thisMonth });
+
+  const todayStr = todayAdStr();
+  const tmrStr = tomorrowAdStr();
+
+  const upcomingEvents = (calEvents ?? []).filter(
+    (e) => e.eventDate === todayStr || e.eventDate === tmrStr
+  );
 
   return (
     <div className="mx-auto w-full max-w-[480px] bg-card p-4 shadow-md sm:my-8 sm:rounded-xl">
@@ -13,6 +35,28 @@ export default function ParentPortal() {
       <div className="mb-6 rounded-lg bg-muted p-4 text-center">
         <p className="text-sm font-medium">Please upload standard uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)</p>
       </div>
+
+      {/* Upcoming Calendar Events urgent banner */}
+      {upcomingEvents.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {upcomingEvents.map((ev) => {
+            const isToday = ev.eventDate === todayStr;
+            const isHoliday = ev.type === "holiday";
+            return (
+              <div key={ev.id} className={`flex items-start gap-3 rounded-xl border p-3 ${isHoliday ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"}`}>
+                <span className="text-lg">{isHoliday ? "🎉" : "📅"}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold uppercase tracking-wide ${isHoliday ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                    {isHoliday ? "Holiday" : "Event"} {isToday ? "Today" : "Tomorrow"}
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">{ev.title}</p>
+                  {ev.description && <p className="text-xs text-muted-foreground">{ev.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {announcements?.length ? (
         <div className="mb-6 space-y-2">
