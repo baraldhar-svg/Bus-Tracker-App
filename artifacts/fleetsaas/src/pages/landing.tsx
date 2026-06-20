@@ -23,12 +23,6 @@ export default function Landing() {
         {/* Auth Buttons */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate("/auth?mode=login")}
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-amber-500 hover:text-amber-400 transition-colors"
-          >
-            Log In
-          </button>
-          <button
             onClick={() => navigate("/auth?mode=register")}
             className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/25"
           >
