@@ -251,7 +251,7 @@ export default function StudentPortal() {
       {/* Notice Board */}
       <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 overflow-hidden shadow-sm">
         {/* Board header */}
-        <div className="flex items-center gap-2 bg-amber-500 px-4 py-3">
+        <div className="flex items-center gap-2 px-4 py-3 bg-[#FFF078]">
           <ClipboardList size={18} className="text-slate-900" />
           <div className="flex-1">
             <p className="font-bold text-slate-900 text-sm leading-tight">Notice Board</p>
@@ -377,7 +377,6 @@ export default function StudentPortal() {
           ))}
         </div>
       </div>
-
       {/* Transport Configuration */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button
