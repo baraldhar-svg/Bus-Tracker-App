@@ -180,6 +180,13 @@ export interface Vehicle {
   tag?: string | null;
 }
 
+export interface VehicleCreate {
+  plateNumber: string;
+  model: string;
+  capacity?: number;
+  tag?: string | null;
+}
+
 export interface VehicleUpdate {
   tag?: string | null;
 }

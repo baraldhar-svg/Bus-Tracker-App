@@ -219,6 +219,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Vehicle"
+    post:
+      operationId: createVehicle
+      tags: [vehicles]
+      summary: Add a new vehicle (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleCreate"
+      responses:
+        "201":
+          description: Created vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
 
   /vehicles/{id}:
     patch:
@@ -244,6 +261,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Vehicle"
+    delete:
+      operationId: deleteVehicle
+      tags: [vehicles]
+      summary: Remove a vehicle (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   # ─── FLEET SWAP ─────────────────────────────────────────────────────────────
   /fleet/swap:
@@ -1007,6 +1037,20 @@ components:
           type: integer
         isActive:
           type: boolean
+        tag:
+          type: string
+          nullable: true
+
+    VehicleCreate:
+      type: object
+      required: [plateNumber, model]
+      properties:
+        plateNumber:
+          type: string
+        model:
+          type: string
+        capacity:
+          type: integer
         tag:
           type: string
           nullable: true

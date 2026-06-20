@@ -795,6 +795,15 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
   const [tagValue, setTagValue] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Add Vehicle form state
+  const [adding, setAdding] = useState(false);
+  const [aPlate, setAPlate] = useState("");
+  const [aModel, setAModel] = useState("");
+  const [aCapacity, setACapacity] = useState("40");
+  const [aTag, setATag] = useState("");
+  const [aErr, setAErr] = useState("");
+  const [aSaving, setASaving] = useState(false);
+
   async function handleSaveTag(id: number) {
     setSaving(true);
     try {
@@ -805,14 +814,78 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
     finally { setSaving(false); }
   }
 
+  async function handleAddVehicle() {
+    if (!aPlate.trim() || !aModel.trim()) return;
+    setAErr(""); setASaving(true);
+    try {
+      await apiPost("/vehicles", { plateNumber: aPlate.trim(), model: aModel.trim(), capacity: Number(aCapacity) || 40, tag: aTag.trim() || null });
+      setAPlate(""); setAModel(""); setACapacity("40"); setATag(""); setAdding(false);
+      onTagUpdated();
+    } catch (e: unknown) { setAErr(e instanceof Error ? e.message : "Failed to add vehicle"); }
+    finally { setASaving(false); }
+  }
+
+  async function handleDeleteVehicle(id: number) {
+    try {
+      await apiDelete(`/vehicles/${id}`);
+      onTagUpdated();
+    } catch { /* ignore */ }
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-border">
-        <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Vehicle Assets</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Assign friendly labels (Bus A, Bus B, Bus C…) shown in route assignment</p>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Vehicle Assets</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Add buses, assign friendly labels (Bus A, Bus B…) used in routes</p>
+        </div>
+        <button onClick={() => setAdding((v) => !v)}
+          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
+          <Plus size={12} />Add Vehicle
+        </button>
       </div>
-      {(!vehicles || vehicles.length === 0) && (
-        <p className="px-5 py-6 text-center text-xs text-muted-foreground">No vehicles registered — add drivers with vehicles above</p>
+
+      {/* Add Vehicle inline form */}
+      {adding && (
+        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Plate Number <span className="text-red-400">*</span></label>
+              <input value={aPlate} onChange={(e) => setAPlate(e.target.value)} placeholder="BA 1 KHA 1234"
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Model <span className="text-red-400">*</span></label>
+              <input value={aModel} onChange={(e) => setAModel(e.target.value)} placeholder="Tata Starbus"
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Seats</label>
+              <input type="number" min="1" max="80" value={aCapacity} onChange={(e) => setACapacity(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Label (optional)</label>
+              <input value={aTag} onChange={(e) => setATag(e.target.value)} placeholder="Bus A"
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+            </div>
+          </div>
+          {aErr && <p className="text-xs text-red-500">{aErr}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => { setAdding(false); setAPlate(""); setAModel(""); setACapacity("40"); setATag(""); setAErr(""); }}
+              className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+            <button onClick={handleAddVehicle} disabled={!aPlate.trim() || !aModel.trim() || aSaving}
+              className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+              {aSaving ? "Adding…" : "Add Vehicle"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(!vehicles || vehicles.length === 0) && !adding && (
+        <p className="px-5 py-6 text-center text-xs text-muted-foreground">No vehicles yet — click Add Vehicle to register your first bus</p>
       )}
       <div className="divide-y divide-border">
         {(vehicles ?? []).map((v) => (
@@ -848,6 +921,10 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
                 <button onClick={() => { setEditingId(v.id); setTagValue(v.tag ?? ""); }}
                   className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:border-amber-500 transition-colors">
                   <Pencil size={9} />Label
+                </button>
+                <button onClick={() => handleDeleteVehicle(v.id)}
+                  className="rounded-lg p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                  <Trash2 size={12} />
                 </button>
               </div>
             )}

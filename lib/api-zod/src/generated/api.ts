@@ -148,6 +148,17 @@ export const ListVehiclesResponse = zod.array(ListVehiclesResponseItem)
 
 
 /**
+ * @summary Add a new vehicle (admin)
+ */
+export const CreateVehicleBody = zod.object({
+  "plateNumber": zod.string(),
+  "model": zod.string(),
+  "capacity": zod.number().optional(),
+  "tag": zod.string().nullish()
+})
+
+
+/**
  * @summary Update vehicle tag (admin)
  */
 export const PatchVehicleParams = zod.object({
@@ -165,6 +176,14 @@ export const PatchVehicleResponse = zod.object({
   "capacity": zod.number().optional(),
   "isActive": zod.boolean().optional(),
   "tag": zod.string().nullish()
+})
+
+
+/**
+ * @summary Remove a vehicle (admin)
+ */
+export const DeleteVehicleParams = zod.object({
+  "id": zod.coerce.number()
 })
 
 
