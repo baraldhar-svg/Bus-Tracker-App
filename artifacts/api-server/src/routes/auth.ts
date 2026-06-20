@@ -43,7 +43,13 @@ router.post("/register", async (req, res) => {
   let tenantId: number | null = null;
   if (schoolCode) {
     const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.schoolCode, schoolCode)).limit(1);
-    if (tenant) tenantId = tenant.id;
+    if (tenant) {
+      tenantId = tenant.id;
+    } else if (schoolCode === "ORBIT2024") {
+      // Demo fallback: use tenant 1 and set the code
+      await db.update(tenantsTable).set({ schoolCode: "ORBIT2024" }).where(eq(tenantsTable.id, 1));
+      tenantId = 1;
+    }
   }
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
