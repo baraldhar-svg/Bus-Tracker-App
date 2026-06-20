@@ -97,6 +97,21 @@ router.post("/register-school", async (req, res) => {
   return res.status(201).json({ user, tenant, schoolCode });
 });
 
+router.patch("/profile", async (req, res) => {
+  const { userId, name, title, photoUrl } = req.body as {
+    userId?: number; name?: string; title?: string; photoUrl?: string | null;
+  };
+  if (!userId) return res.status(400).json({ error: "userId required" });
+  const updates: Record<string, unknown> = {};
+  if (name) updates.name = name;
+  if (title !== undefined) updates.title = title ?? null;
+  if (photoUrl !== undefined) updates.photoUrl = photoUrl ?? null;
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
+  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
+  if (!updated) return res.status(404).json({ error: "User not found" });
+  return res.json(updated);
+});
+
 router.get("/me", async (req, res) => {
   const { phone } = req.query as { phone?: string };
   if (!phone) return res.status(400).json({ error: "Phone required" });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, type AuthUser } from "@/hooks/use-auth";
 import StudentPortal from "@/components/portals/student-portal";
 import DriverPortal from "@/components/portals/driver-portal";
 import AdminPortal from "@/components/portals/admin-portal";
@@ -78,6 +78,175 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
   );
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const TITLES = ["", "Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
+
+function ProfilePanel({
+  user, onClose, onSave,
+}: {
+  user: AuthUser;
+  onClose: () => void;
+  onSave: (updated: AuthUser) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(user.name);
+  const [title, setTitle] = useState(user.title ?? "");
+  const [photo, setPhoto] = useState(user.photoUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  const avatarSrc = photo ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=0F172A&textColor=D97706`;
+
+  async function handleSave() {
+    if (!name.trim()) { setErr("Name is required"); return; }
+    setSaving(true); setErr("");
+    try {
+      const res = await fetch(`${BASE}/api/auth/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, name: name.trim(), title: title || null, photoUrl: photo || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      onSave({ ...user, name: data.name, title: data.title, photoUrl: data.photoUrl });
+      setEditing(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="text-base font-bold text-foreground">My Profile</h2>
+          <div className="flex items-center gap-2">
+            {!editing && (
+              <button onClick={() => setEditing(true)}
+                className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
+                Edit
+              </button>
+            )}
+            <button onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Hidden file inputs */}
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden"
+          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
+        <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
+          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
+
+        <div className="px-5 py-5 space-y-5">
+          {/* Avatar */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative">
+              <img src={avatarSrc} alt={user.name}
+                className="h-20 w-20 rounded-full border-4 border-amber-500 object-cover shadow-lg" />
+              {editing && (
+                <div className="absolute -bottom-1 -right-1 flex gap-1">
+                  <button onClick={() => galleryRef.current?.click()}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📁</button>
+                  <button onClick={() => cameraRef.current?.click()}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📷</button>
+                </div>
+              )}
+            </div>
+            {editing && photo && (
+              <button onClick={() => setPhoto("")} className="text-xs text-red-500 hover:text-red-400">Remove photo</button>
+            )}
+          </div>
+
+          {/* Fields */}
+          <div className="space-y-3">
+            {editing ? (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Title</label>
+                    <select value={title} onChange={(e) => setTitle(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-muted px-2 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      {TITLES.map((t) => <option key={t} value={t}>{t || "—"}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
+                    <input value={name} onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{user.title ? `${user.title} ` : ""}{user.name}</p>
+                <span className="inline-block rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase mt-1">
+                  {user.role}
+                </span>
+              </div>
+            )}
+
+            {/* Read-only info */}
+            <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-xs text-muted-foreground">📞 Phone</span>
+                <span className="text-sm font-medium text-foreground">{user.phone}</span>
+              </div>
+              {user.schoolCode && (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-muted-foreground">🏫 School Code</span>
+                  <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
+                </div>
+              )}
+              {user.tenant?.name && (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-muted-foreground">🏫 School</span>
+                  <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {err && <p className="text-xs text-red-500">{err}</p>}
+
+          {editing && (
+            <div className="flex gap-2 pb-2">
+              <button onClick={() => { setEditing(false); setName(user.name); setTitle(user.title ?? ""); setPhoto(user.photoUrl ?? ""); setErr(""); }}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving || !name.trim()}
+                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
   if (!tenant.bannerUrl) return null;
   return (
@@ -95,9 +264,10 @@ function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
 }
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const [, navigate] = useLocation();
   const [dark, setDark] = useState(() => localStorage.getItem("fleetDark") === "1");
+  const [profileOpen, setProfileOpen] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
   const [tenant, setTenant] = useState<TenantInfo | null>(user?.tenant ?? null);
   const { data: subscription } = useGetMySubscription();
@@ -168,7 +338,11 @@ export default function Dashboard() {
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-base hover:bg-muted/70 transition-colors">
                 {dark ? "☀️" : "🌙"}
               </button>
-              <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full border-2 border-amber-500 object-cover shrink-0" />
+              <button onClick={() => setProfileOpen(true)}
+                className="relative rounded-full ring-2 ring-amber-500 hover:ring-amber-400 transition-all focus:outline-none"
+                title="My Profile">
+                <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full object-cover shrink-0" />
+              </button>
               <button onClick={() => { logout(); navigate("/"); }}
                 className="flex items-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
                 Sign Out
@@ -213,6 +387,17 @@ export default function Dashboard() {
         </main>
 
         {subscription?.paywallActive && <PaywallModal subscription={subscription} />}
+
+        {profileOpen && user && (
+          <ProfilePanel
+            user={user}
+            onClose={() => setProfileOpen(false)}
+            onSave={(updated) => {
+              login(updated);
+              setProfileOpen(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );
