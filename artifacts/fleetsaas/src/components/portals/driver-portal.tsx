@@ -60,6 +60,7 @@ export default function DriverPortal() {
   const [journeyCompleted, setJourneyCompleted] = useState(false);
   const [completedTime, setCompletedTime] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [quickMsgOpen, setQuickMsgOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -91,6 +92,19 @@ export default function DriverPortal() {
       refetch();
     } finally { setUnboardingId(null); }
   };
+
+  function handleToggleOffline() {
+    const goingOffline = !isOffline;
+    setIsOffline(goingOffline);
+    sendDriverMessage({
+      driverName: DRIVER_NAME,
+      vehiclePlate: DRIVER_PLATE,
+      text: goingOffline
+        ? `🔴 Driver went OFFLINE — location sharing paused`
+        : `🟢 Driver is back ONLINE — location sharing resumed`,
+      isCustom: false,
+    });
+  }
 
   function handleStartJourney() {
     setJourneyStarted(true);
@@ -126,15 +140,32 @@ export default function DriverPortal() {
             <p className="text-xs text-slate-400">{DRIVER_NAME} · {DRIVER_PLATE}</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-semibold text-green-400">
-              ● LIVE
-            </div>
+            <button
+              onClick={handleToggleOffline}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors border ${
+                isOffline
+                  ? "bg-slate-700/60 border-slate-600 text-slate-400 hover:bg-slate-700"
+                  : "bg-green-500/15 border-green-500/30 text-green-400 hover:bg-green-500/25"
+              }`}
+              title={isOffline ? "Go online" : "Go offline"}
+            >
+              {isOffline ? "⬤ OFFLINE" : "● LIVE"}
+            </button>
             <div className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-200">
               {boardedCount}/{totalCount}
             </div>
           </div>
         </div>
       </header>
+
+      {/* Offline banner */}
+      {isOffline && (
+        <div className="flex items-center gap-2 bg-slate-800 border-b border-slate-700 px-4 py-2.5">
+          <span className="text-sm">📵</span>
+          <p className="text-xs text-slate-300 font-medium flex-1">Location sharing paused — you are offline. Admin has been notified.</p>
+          <button onClick={handleToggleOffline} className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 underline">Go Online</button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
