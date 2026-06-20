@@ -258,7 +258,7 @@ function ProfilePanel({
             {err && <p className="text-xs text-red-500">{err}</p>}
 
             {editing && (
-              <div className="flex gap-2 pb-2">
+              <div className="flex gap-2">
                 <button onClick={() => { setEditing(false); setName(user.name); setTitle(user.title ?? ""); setPhoto(user.photoUrl ?? ""); setErr(""); }}
                   className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
                   {t.cancel}
@@ -269,6 +269,17 @@ function ProfilePanel({
                 </button>
               </div>
             )}
+
+            {/* Sign Out */}
+            <div className="pt-1 pb-3">
+              <button
+                onClick={() => { logout(); navigate("/"); }}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 py-3 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
+              >
+                <span>⬅️</span>
+                {t.signOut}
+              </button>
+            </div>
           </div>
         </div>
       </div>
