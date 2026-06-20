@@ -55,6 +55,8 @@ export default function DriverPortal() {
   const [sosActive, setSosActive] = useState(false);
   const [journeyStarted, setJourneyStarted] = useState(false);
   const [journeyTime, setJourneyTime] = useState<string | null>(null);
+  const [journeyCompleted, setJourneyCompleted] = useState(false);
+  const [completedTime, setCompletedTime] = useState<string | null>(null);
   const [quickMsgOpen, setQuickMsgOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -65,6 +67,9 @@ export default function DriverPortal() {
   const liveTodayPassengers = passengers?.filter((p) => p.liveToday === 1) ?? [];
   const withMessages = passengers?.filter((p) => p.quickMessage) ?? [];
   const onLeavePassengers = passengers?.filter((p) => p.quickMessage === "Staying home today") ?? [];
+
+  // Bus is "near school" when driver reaches the last station (≤ 200 m perimeter)
+  const nearSchool = stations != null && stationIdx === stations.length - 1;
 
   const handleBoard = async (id: number) => {
     setBoardingId(id);
@@ -80,6 +85,13 @@ export default function DriverPortal() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     setJourneyTime(timeStr);
+  }
+
+  function handleJourneyComplete() {
+    if (!nearSchool || journeyCompleted) return;
+    setJourneyCompleted(true);
+    const now = new Date();
+    setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
   }
 
   return (
@@ -116,32 +128,89 @@ export default function DriverPortal() {
               Start Journey
             </button>
           ) : (
-            <div className="rounded-2xl bg-green-900/30 border border-green-700/50 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white text-lg font-bold">
-                  ✓
+            <div className="space-y-3">
+              {/* Journey Started card */}
+              <div className="rounded-2xl bg-green-900/30 border border-green-700/50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white text-lg font-bold">
+                    ✓
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-green-300">Journey Started · {journeyTime}</p>
+                    <p className="text-xs text-green-500/80">Students, staff & admin have been notified</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-green-300">Journey Started · {journeyTime}</p>
-                  <p className="text-xs text-green-500/80">Students, staff & admin have been notified</p>
-                </div>
-              </div>
-              {/* Who was notified */}
-              <div className="mt-3 pt-3 border-t border-green-800/40">
-                <p className="text-[10px] text-green-600 uppercase tracking-wider font-semibold mb-2">Notifications sent to</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {passengers?.slice(0, 6).map((p) => (
-                    <div key={p.id} className="flex items-center gap-1 rounded-full bg-green-900/40 border border-green-700/30 px-2 py-0.5">
-                      <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
-                      <span className="text-[10px] text-green-200">{p.name.split(" ")[0]}</span>
-                      <span className="text-[9px] text-green-500">✓</span>
+                {/* Who was notified */}
+                <div className="mt-3 pt-3 border-t border-green-800/40">
+                  <p className="text-[10px] text-green-600 uppercase tracking-wider font-semibold mb-2">Notifications sent to</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {passengers?.slice(0, 6).map((p) => (
+                      <div key={p.id} className="flex items-center gap-1 rounded-full bg-green-900/40 border border-green-700/30 px-2 py-0.5">
+                        <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                        <span className="text-[10px] text-green-200">{p.name.split(" ")[0]}</span>
+                        <span className="text-[9px] text-green-500">✓</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
+                      <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
                     </div>
-                  ))}
-                  <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
-                    <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
                   </div>
                 </div>
               </div>
+
+              {/* Journey Completed — locked until bus is within 200 m of school */}
+              {!journeyCompleted ? (
+                <div className="space-y-1">
+                  <button
+                    onClick={handleJourneyComplete}
+                    disabled={!nearSchool}
+                    className={`w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
+                      nearSchool
+                        ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-900/40"
+                        : "bg-slate-700 cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    <span className="text-xl mr-2">🏁</span>
+                    Journey Completed
+                  </button>
+                  {!nearSchool && (
+                    <p className="text-center text-[10px] text-slate-500">
+                      🔒 Unlocks within 200 m of school — navigate to the last stop
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Completion confirmed card */
+                <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
+                      🏁
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
+                      <p className="text-xs text-red-500/80">All passengers & admin notified</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-red-800/40">
+                    <p className="text-[10px] text-red-500 uppercase tracking-wider font-semibold mb-2">Arrival notification sent to</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {passengers?.filter((p) => p.status === "boarded").slice(0, 6).map((p) => (
+                        <div key={p.id} className="flex items-center gap-1 rounded-full bg-red-900/30 border border-red-700/30 px-2 py-0.5">
+                          <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                          <span className="text-[10px] text-red-200">{p.name.split(" ")[0]}</span>
+                          <span className="text-[9px] text-red-400">✓</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
+                        <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
+                      </div>
+                      <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
+                        <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
