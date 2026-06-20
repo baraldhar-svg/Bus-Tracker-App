@@ -47,7 +47,7 @@ export default function SchoolProfile() {
     <div className="min-h-[100dvh] bg-[#0F172A]">
       {/* Nav */}
       <header className="flex items-center gap-3 px-4 py-3 border-b border-slate-800">
-        <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white text-sm">← Back</button>
+        <button onClick={() => window.history.back()} className="text-slate-400 hover:text-white text-sm">← Back</button>
         <div className="flex items-center gap-2">
           <span className="text-lg">🚌</span>
           <span className="font-black text-white text-sm">Orbit<span className="text-amber-400">Track</span></span>
