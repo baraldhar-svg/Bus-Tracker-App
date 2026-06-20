@@ -54,10 +54,15 @@ const DEFAULT_ADS = [
 ];
 
 router.get("/", async (req, res) => {
-  let rows = await db.select().from(advertisementsTable).where(eq(advertisementsTable.active, 1)).orderBy(asc(advertisementsTable.sortOrder));
+  const showAll = req.query.showAll === "true";
+  let rows = showAll
+    ? await db.select().from(advertisementsTable).orderBy(asc(advertisementsTable.sortOrder))
+    : await db.select().from(advertisementsTable).where(eq(advertisementsTable.active, 1)).orderBy(asc(advertisementsTable.sortOrder));
   if (rows.length === 0) {
     await db.insert(advertisementsTable).values(DEFAULT_ADS);
-    rows = await db.select().from(advertisementsTable).where(eq(advertisementsTable.active, 1)).orderBy(asc(advertisementsTable.sortOrder));
+    rows = showAll
+      ? await db.select().from(advertisementsTable).orderBy(asc(advertisementsTable.sortOrder))
+      : await db.select().from(advertisementsTable).where(eq(advertisementsTable.active, 1)).orderBy(asc(advertisementsTable.sortOrder));
   }
   return res.json(rows);
 });

@@ -1,4 +1,18 @@
+import { useState, useCallback, useEffect } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function apiReq(method: string, path: string, body?: unknown) {
+  const res = await fetch(`${BASE}/api${path}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Failed");
+  return data;
+}
 
 const TIER_COLORS: Record<string, string> = {
   silver: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600",
@@ -6,15 +20,166 @@ const TIER_COLORS: Record<string, string> = {
   platinum: "bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700",
 };
 
+type Ad = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string;
+  targetUrl: string | null;
+  sortOrder: number;
+  active: number;
+};
+
+function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, isFirst, isLast }: {
+  ad: Ad;
+  onToggle: (id: number, active: number) => void;
+  onDelete: (id: number) => void;
+  onMoveUp: (id: number) => void;
+  onMoveDown: (id: number) => void;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+      ad.active ? "border-slate-700 bg-slate-800/60" : "border-slate-800 bg-slate-900/40 opacity-60"
+    }`}>
+      {/* Thumbnail */}
+      <img
+        src={ad.imageUrl}
+        alt={ad.title}
+        className="h-12 w-20 shrink-0 rounded-lg object-cover border border-slate-700"
+        onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/80x48/1e293b/64748b?text=IMG"; }}
+      />
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-200 truncate">{ad.title}</p>
+        {ad.subtitle && <p className="text-xs text-slate-400 truncate">{ad.subtitle}</p>}
+        {ad.targetUrl && <p className="text-[10px] text-slate-500 truncate">{ad.targetUrl}</p>}
+      </div>
+      {/* Controls */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Reorder */}
+        <div className="flex flex-col gap-0.5">
+          <button
+            onClick={() => onMoveUp(ad.id)}
+            disabled={isFirst}
+            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors"
+            title="Move up"
+          >▲</button>
+          <button
+            onClick={() => onMoveDown(ad.id)}
+            disabled={isLast}
+            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors"
+            title="Move down"
+          >▼</button>
+        </div>
+        {/* Toggle */}
+        <button
+          onClick={() => onToggle(ad.id, ad.active)}
+          className={`rounded-lg px-2.5 py-1 text-xs font-bold border transition-colors ${
+            ad.active
+              ? "border-green-700 bg-green-900/40 text-green-400 hover:bg-green-900/70"
+              : "border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500"
+          }`}
+          title={ad.active ? "Click to deactivate" : "Click to activate"}
+        >
+          {ad.active ? "Live" : "Off"}
+        </button>
+        {/* Delete */}
+        <button
+          onClick={() => onDelete(ad.id)}
+          className="rounded-lg p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+          title="Delete ad"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SuperadminPortal() {
   const { data: stats } = useGetDashboardStats();
   const { data: tenants } = useListTenants();
 
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [adsLoading, setAdsLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formTitle, setFormTitle] = useState("");
+  const [formSubtitle, setFormSubtitle] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState("");
+  const [formTargetUrl, setFormTargetUrl] = useState("");
+  const [formErr, setFormErr] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+
+  const fetchAds = useCallback(async () => {
+    setAdsLoading(true);
+    try {
+      const data = await apiReq("GET", "/advertisements?showAll=true");
+      setAds(data);
+    } catch { /* ignore */ }
+    finally { setAdsLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchAds(); }, [fetchAds]);
+
+  const handleToggle = useCallback(async (id: number, current: number) => {
+    try {
+      await apiReq("PATCH", `/advertisements/${id}`, { active: current ? 0 : 1 });
+      setAds((prev) => prev.map((a) => a.id === id ? { ...a, active: current ? 0 : 1 } : a));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleDelete = useCallback(async (id: number) => {
+    if (!confirm("Delete this ad permanently?")) return;
+    try {
+      await apiReq("DELETE", `/advertisements/${id}`);
+      setAds((prev) => prev.filter((a) => a.id !== id));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleMove = useCallback(async (id: number, dir: "up" | "down") => {
+    setAds((prev) => {
+      const idx = prev.findIndex((a) => a.id === id);
+      if (idx < 0) return prev;
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      // Persist new sortOrders
+      next.forEach((ad, i) => {
+        apiReq("PATCH", `/advertisements/${ad.id}`, { sortOrder: i + 1 }).catch(() => null);
+      });
+      return next.map((ad, i) => ({ ...ad, sortOrder: i + 1 }));
+    });
+  }, []);
+
+  const handleAddAd = useCallback(async () => {
+    setFormErr(""); setFormLoading(true);
+    try {
+      const newAd = await apiReq("POST", "/advertisements", {
+        title: formTitle,
+        subtitle: formSubtitle || undefined,
+        imageUrl: formImageUrl,
+        targetUrl: formTargetUrl || undefined,
+        sortOrder: ads.length + 1,
+      });
+      setAds((prev) => [...prev, newAd]);
+      setShowAddForm(false);
+      setFormTitle(""); setFormSubtitle(""); setFormImageUrl(""); setFormTargetUrl("");
+    } catch (e: unknown) { setFormErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setFormLoading(false); }
+  }, [formTitle, formSubtitle, formImageUrl, formTargetUrl, ads.length]);
+
+  const liveCount = ads.filter((a) => a.active).length;
+
   return (
     <div className="mx-auto w-full max-w-[700px] p-4 sm:p-6 space-y-5">
-      {/* Dark themed card */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] p-6 text-white shadow-2xl border border-slate-700">
 
+      {/* Dark themed stats card */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] p-6 text-white shadow-2xl border border-slate-700">
         <header className="mb-6 flex items-center gap-3 border-b border-slate-700 pb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-slate-900 font-bold text-lg shadow">
             🛡️
@@ -76,6 +241,109 @@ export default function SuperadminPortal() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Ad Carousel Manager */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📢</span>
+              <h2 className="font-bold text-slate-100">Ad Carousel Manager</h2>
+              <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-xs font-semibold text-amber-400">
+                {liveCount} Live
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">Manage banners shown on all dashboards · drag ▲▼ to reorder</p>
+          </div>
+          <button
+            onClick={() => { setShowAddForm(!showAddForm); setFormErr(""); }}
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors shrink-0"
+          >
+            {showAddForm ? "✕ Cancel" : "+ New Ad"}
+          </button>
+        </div>
+
+        {/* Add Form */}
+        {showAddForm && (
+          <div className="border-b border-slate-700 bg-slate-900/60 p-5 space-y-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">New Banner Ad</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-400">School / Ad Title *</label>
+                <input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Sunrise Academy"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-400">Subtitle / Tagline</label>
+                <input value={formSubtitle} onChange={(e) => setFormSubtitle(e.target.value)} placeholder="Admissions Open 2081"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image URL *</label>
+              <input value={formImageUrl} onChange={(e) => setFormImageUrl(e.target.value)} placeholder="https://images.unsplash.com/..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Target URL (click destination)</label>
+              <input value={formTargetUrl} onChange={(e) => setFormTargetUrl(e.target.value)} placeholder="/school/6 or https://..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+            </div>
+            {/* Preview */}
+            {formImageUrl && (
+              <div className="relative h-24 w-full overflow-hidden rounded-xl border border-slate-700">
+                <img src={formImageUrl} alt="preview" className="h-full w-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/600x96/1e293b/64748b?text=Invalid+URL"; }} />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent flex items-center px-4">
+                  <div>
+                    <p className="text-sm font-bold text-white">{formTitle || "Ad Title"}</p>
+                    {formSubtitle && <p className="text-xs text-slate-300">{formSubtitle}</p>}
+                  </div>
+                </div>
+                <span className="absolute top-2 right-2 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-bold text-white">PREVIEW</span>
+              </div>
+            )}
+            {formErr && <p className="text-xs text-red-400">{formErr}</p>}
+            <button
+              onClick={handleAddAd}
+              disabled={!formTitle || !formImageUrl || formLoading}
+              className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+            >
+              {formLoading ? "Publishing…" : "Publish Banner Ad"}
+            </button>
+          </div>
+        )}
+
+        {/* Ad List */}
+        <div className="p-4 space-y-2">
+          {adsLoading ? (
+            <div className="py-8 text-center text-sm text-slate-500">Loading ads…</div>
+          ) : ads.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500">No ads yet. Add the first one above.</div>
+          ) : (
+            ads.map((ad, idx) => (
+              <AdRow
+                key={ad.id}
+                ad={ad}
+                onToggle={handleToggle}
+                onDelete={handleDelete}
+                onMoveUp={(id) => handleMove(id, "up")}
+                onMoveDown={(id) => handleMove(id, "down")}
+                isFirst={idx === 0}
+                isLast={idx === ads.length - 1}
+              />
+            ))
+          )}
+        </div>
+
+        {ads.length > 0 && (
+          <div className="border-t border-slate-800 px-5 py-3 flex items-center justify-between">
+            <p className="text-xs text-slate-500">{ads.length} total · {liveCount} live on carousel</p>
+            <p className="text-[10px] text-slate-600">Changes save instantly</p>
+          </div>
+        )}
       </div>
     </div>
   );
