@@ -11,6 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import BusMap from "@/components/bus-map";
 import { useT } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Bus, ClipboardList, Map, Clock, MessageSquare, X,
   User, Timer, Home, MapPin, HeartPulse, ThumbsUp, Route, Navigation, CheckCircle, RefreshCw,
@@ -48,6 +49,7 @@ type RouteStationItem = { id: number; stationId: number; stationName: string | n
 
 export default function StudentPortal() {
   const t = useT();
+  const { user } = useAuth();
   const { data: announcements } = useListAnnouncements();
   const { data: timeline } = useGetTripTimeline(1);
   const { data: passengers } = useListPassengers();
@@ -212,6 +214,20 @@ export default function StudentPortal() {
             />
           </div>
           <p className="mt-1 text-right text-[10px] text-amber-100">Route progress {Math.round(etaProgress)}%</p>
+        </div>
+      )}
+      {/* Welcome bar */}
+      {user && (
+        <div className="border border-border rounded-xl bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-2.5 flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">
+            {user.title ? `${user.title} ` : ""}{user.name}
+          </span>
+          <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase">
+            {user.role}
+          </span>
+          {user.tenant?.name && (
+            <span className="text-xs text-muted-foreground">· {user.tenant.name}</span>
+          )}
         </div>
       )}
       {/* Riding Today / Leave Status */}
