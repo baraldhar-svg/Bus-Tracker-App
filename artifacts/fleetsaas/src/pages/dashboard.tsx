@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth, type AuthUser } from "@/hooks/use-auth";
+import { useLang, LANGUAGES } from "@/lib/i18n";
 import StudentPortal from "@/components/portals/student-portal";
 import DriverPortal from "@/components/portals/driver-portal";
 import AdminPortal from "@/components/portals/admin-portal";
@@ -104,6 +105,7 @@ function ProfilePanel({
   const [err, setErr] = useState("");
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const { lang, setLang } = useLang();
 
   const avatarSrc = photo ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=0F172A&textColor=D97706`;
@@ -224,6 +226,27 @@ function ProfilePanel({
                   <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Language picker — always visible */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🌐 App Language</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => setLang(l.code)}
+                  className={`rounded-xl border py-2 px-1 text-center transition-all ${
+                    lang === l.code
+                      ? "border-amber-500 bg-amber-500/10 text-amber-500 font-bold"
+                      : "border-border text-muted-foreground hover:border-amber-400 hover:text-foreground"
+                  }`}
+                >
+                  <p className="text-[11px] font-medium leading-tight truncate">{l.native}</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{l.name}</p>
+                </button>
+              ))}
             </div>
           </div>
 
