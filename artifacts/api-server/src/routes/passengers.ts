@@ -14,19 +14,23 @@ import {
 const router = Router();
 const DEFAULT_TENANT_ID = 1;
 
+const PASSENGER_SELECT = {
+  id: passengersTable.id,
+  name: passengersTable.name,
+  photoUrl: passengersTable.photoUrl,
+  role: passengersTable.role,
+  status: passengersTable.status,
+  stationId: passengersTable.stationId,
+  stationName: stationsTable.name,
+  boardedAt: passengersTable.boardedAt,
+  tenantId: passengersTable.tenantId,
+  liveToday: passengersTable.liveToday,
+  quickMessage: passengersTable.quickMessage,
+};
+
 router.get("/", async (req, res) => {
   const rows = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.tenantId, DEFAULT_TENANT_ID));
@@ -44,17 +48,7 @@ router.post("/", async (req, res) => {
     .values({ tenantId: DEFAULT_TENANT_ID, name, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, status: "pending" })
     .returning();
   const [withStation] = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, row.id));
@@ -65,17 +59,7 @@ router.get("/:id", async (req, res) => {
   const parsed = GetPassengerParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
   const [row] = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
@@ -92,19 +76,14 @@ router.patch("/:id", async (req, res) => {
   if (bodyParsed.data.name) updates.name = bodyParsed.data.name;
   if (bodyParsed.data.photoUrl) updates.photoUrl = bodyParsed.data.photoUrl;
   if (bodyParsed.data.stationId) updates.stationId = bodyParsed.data.stationId;
+  if (bodyParsed.data.liveToday !== undefined) updates.liveToday = bodyParsed.data.liveToday;
+  if (bodyParsed.data.quickMessage !== undefined) updates.quickMessage = bodyParsed.data.quickMessage;
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: "No fields to update" });
+  }
   await db.update(passengersTable).set(updates).where(eq(passengersTable.id, paramsParsed.data.id));
   const [row] = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, paramsParsed.data.id));
@@ -119,17 +98,7 @@ router.post("/:id/board", async (req, res) => {
     .set({ status: "boarded", boardedAt: new Date() })
     .where(eq(passengersTable.id, parsed.data.id));
   const [row] = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
@@ -144,17 +113,7 @@ router.post("/:id/leave", async (req, res) => {
     .set({ status: "leave", boardedAt: null })
     .where(eq(passengersTable.id, parsed.data.id));
   const [row] = await db
-    .select({
-      id: passengersTable.id,
-      name: passengersTable.name,
-      photoUrl: passengersTable.photoUrl,
-      role: passengersTable.role,
-      status: passengersTable.status,
-      stationId: passengersTable.stationId,
-      stationName: stationsTable.name,
-      boardedAt: passengersTable.boardedAt,
-      tenantId: passengersTable.tenantId,
-    })
+    .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));

@@ -156,6 +156,13 @@ export interface Passenger {
   stationName?: string | null;
   /** @nullable */
   boardedAt?: string | null;
+  /** 1 if the passenger confirmed they are riding today, 0 otherwise */
+  liveToday?: number;
+  /**
+     * Last quick status message sent by the passenger
+     * @nullable
+     */
+  quickMessage?: string | null;
 }
 
 export type PassengerInputRole = typeof PassengerInputRole[keyof typeof PassengerInputRole];
@@ -177,6 +184,8 @@ export interface PassengerUpdate {
   name?: string;
   photoUrl?: string;
   stationId?: number;
+  liveToday?: number;
+  quickMessage?: string;
 }
 
 export interface ActiveTrip {

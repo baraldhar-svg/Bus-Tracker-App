@@ -20,4 +20,11 @@ export interface Passenger {
   stationName?: string | null;
   /** @nullable */
   boardedAt?: Date | null;
+  /** 1 if the passenger confirmed they are riding today, 0 otherwise */
+  liveToday?: number;
+  /**
+     * Last quick status message sent by the passenger
+     * @nullable
+     */
+  quickMessage?: string | null;
 }

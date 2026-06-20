@@ -637,6 +637,12 @@ components:
         boardedAt:
           type: ["string", "null"]
           format: date-time
+        liveToday:
+          type: integer
+          description: 1 if the passenger confirmed they are riding today, 0 otherwise
+        quickMessage:
+          type: ["string", "null"]
+          description: Last quick status message sent by the passenger
 
     PassengerInput:
       type: object
@@ -661,6 +667,10 @@ components:
           type: string
         stationId:
           type: integer
+        liveToday:
+          type: integer
+        quickMessage:
+          type: string
 
     ActiveTrip:
       type: object

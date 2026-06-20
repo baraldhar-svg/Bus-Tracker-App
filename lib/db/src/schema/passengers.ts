@@ -13,6 +13,8 @@ export const passengersTable = pgTable("passengers", {
   status: text("status").notNull().default("pending"),
   stationId: integer("station_id").notNull().references(() => stationsTable.id),
   boardedAt: timestamp("boarded_at"),
+  liveToday: integer("live_today").notNull().default(0),
+  quickMessage: text("quick_message"),
 });
 
 export const insertPassengerSchema = createInsertSchema(passengersTable).omit({ id: true, boardedAt: true });

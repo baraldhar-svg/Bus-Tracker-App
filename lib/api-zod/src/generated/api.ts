@@ -174,7 +174,9 @@ export const ListPassengersResponseItem = zod.object({
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
   "stationName": zod.string().nullish(),
-  "boardedAt": zod.coerce.date().nullish()
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
 })
 export const ListPassengersResponse = zod.array(ListPassengersResponseItem)
 
@@ -205,7 +207,9 @@ export const GetPassengerResponse = zod.object({
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
   "stationName": zod.string().nullish(),
-  "boardedAt": zod.coerce.date().nullish()
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
 })
 
 
@@ -219,7 +223,9 @@ export const UpdatePassengerParams = zod.object({
 export const UpdatePassengerBody = zod.object({
   "name": zod.string().optional(),
   "photoUrl": zod.string().optional(),
-  "stationId": zod.number().optional()
+  "stationId": zod.number().optional(),
+  "liveToday": zod.number().optional(),
+  "quickMessage": zod.string().optional()
 })
 
 export const UpdatePassengerResponse = zod.object({
@@ -230,7 +236,9 @@ export const UpdatePassengerResponse = zod.object({
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
   "stationName": zod.string().nullish(),
-  "boardedAt": zod.coerce.date().nullish()
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
 })
 
 
@@ -249,7 +257,9 @@ export const BoardPassengerResponse = zod.object({
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
   "stationName": zod.string().nullish(),
-  "boardedAt": zod.coerce.date().nullish()
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
 })
 
 
@@ -268,7 +278,9 @@ export const MarkPassengerLeaveResponse = zod.object({
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
   "stationName": zod.string().nullish(),
-  "boardedAt": zod.coerce.date().nullish()
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
 })
 
 

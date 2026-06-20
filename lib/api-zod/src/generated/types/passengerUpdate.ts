@@ -10,4 +10,6 @@ export interface PassengerUpdate {
   name?: string;
   photoUrl?: string;
   stationId?: number;
+  liveToday?: number;
+  quickMessage?: string;
 }
