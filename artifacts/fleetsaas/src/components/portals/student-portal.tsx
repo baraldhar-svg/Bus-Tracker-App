@@ -157,14 +157,20 @@ export default function StudentPortal() {
             {liveToday && !onLeave ? "✅ Riding Today" : "📍 Mark Live"}
           </button>
           <button
-            onClick={handleLeave}
-            className={`rounded-xl py-3 text-sm font-semibold transition-all ${
+            onClick={!onLeave ? handleLeave : undefined}
+            onDoubleClick={onLeave ? handleLeave : undefined}
+            className={`rounded-xl py-3 text-sm font-semibold transition-all select-none ${
               onLeave
                 ? "bg-red-600 text-white shadow-md"
                 : "bg-muted text-muted-foreground border border-border"
             }`}
           >
-            {onLeave ? "❌ On Leave" : "🏠 Take Leave"}
+            {onLeave ? (
+              <span className="flex flex-col items-center leading-tight">
+                <span>❌ On Leave</span>
+                <span className="text-[9px] font-normal text-red-200 mt-0.5">double-tap to cancel</span>
+              </span>
+            ) : "🏠 Take Leave"}
           </button>
         </div>
         {sentMsg && (
