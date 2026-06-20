@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { Bus, Globe, Phone, Building2, Sun, Moon, Upload, Camera } from "lucide-react";
 import { useAuth, type AuthUser } from "@/hooks/use-auth";
 import { useLang, useT, LANGUAGES } from "@/lib/i18n";
 import StudentPortal from "@/components/portals/student-portal";
@@ -63,7 +64,7 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
             <div className="absolute top-2 right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold text-slate-900">AD</div>
             {ad.targetUrl && (
               <div className="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-[9px] text-white flex items-center gap-0.5">
-                <span>🌐</span>
+                <Globe size={9} className="text-white" />
               </div>
             )}
           </button>
@@ -181,12 +182,12 @@ function ProfilePanel({
                     <button onClick={() => galleryRef.current?.click()}
                       title="Upload from gallery"
                       className="flex items-center gap-1 rounded-lg bg-card border border-border shadow px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                      📁 <span>Gallery</span>
+                      <Upload size={10} className="shrink-0" /> <span>Gallery</span>
                     </button>
                     <button onClick={() => cameraRef.current?.click()}
                       title="Take a photo"
                       className="flex items-center gap-1 rounded-lg bg-card border border-border shadow px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                      📷 <span>Camera</span>
+                      <Camera size={10} className="shrink-0" /> <span>Camera</span>
                     </button>
                   </div>
                 )}
@@ -227,18 +228,18 @@ function ProfilePanel({
               {/* Read-only info */}
               <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
                 <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs text-muted-foreground">📞 {t.phone}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={11} />{t.phone}</span>
                   <span className="text-sm font-medium text-foreground">{user.phone}</span>
                 </div>
                 {user.schoolCode && (
                   <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-xs text-muted-foreground">🏫 {t.schoolCode}</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 size={11} />{t.schoolCode}</span>
                     <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
                   </div>
                 )}
                 {user.tenant?.name && (
                   <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-xs text-muted-foreground">🏫 {t.school}</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 size={11} />{t.school}</span>
                     <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
                   </div>
                 )}
@@ -248,7 +249,7 @@ function ProfilePanel({
             {/* Dark Mode toggle */}
             <div className="rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">{dark ? <Sun size={13} /> : <Moon size={13} />} {dark ? "Light Mode" : "Dark Mode"}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{dark ? "Switch to light theme" : "Switch to dark theme"}</p>
               </div>
               <button
@@ -263,13 +264,13 @@ function ProfilePanel({
 
             {/* Language picker — compact trigger */}
             <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">🌐 {t.appLanguage}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5"><Globe size={12} />{t.appLanguage}</p>
               <button
                 onClick={() => setLangPickerOpen(true)}
                 className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 hover:border-amber-500 transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">🌐</span>
+                  <Globe size={20} className="text-muted-foreground shrink-0" />
                   <div className="text-left">
                     <p className="text-sm font-semibold text-foreground">{currentLang?.native ?? "English"}</p>
                     <p className="text-xs text-muted-foreground">{currentLang?.name ?? "English"}</p>
@@ -319,7 +320,7 @@ function ProfilePanel({
               <div className="h-1 w-10 rounded-full bg-border" />
             </div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-              <h2 className="text-base font-bold text-foreground">🌐 {t.selectLanguage}</h2>
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2"><Globe size={16} />{t.selectLanguage}</h2>
               <button onClick={() => setLangPickerOpen(false)}
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
                 ✕
@@ -431,7 +432,7 @@ export default function Dashboard() {
         <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur shadow-sm">
           <div className="flex h-14 items-center justify-between px-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-[15px]">🚌</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500"><Bus size={15} className="text-slate-900" /></span>
               <span className="font-black text-primary text-sm">
                 Orbit<span className="text-amber-500">Track</span>
               </span>

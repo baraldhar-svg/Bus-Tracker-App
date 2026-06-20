@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -181,8 +182,8 @@ export default function SuperadminPortal() {
       {/* Dark themed stats card */}
       <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] p-6 text-white shadow-2xl border border-slate-700">
         <header className="mb-6 flex items-center gap-3 border-b border-slate-700 pb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-slate-900 font-bold text-lg shadow">
-            🛡️
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 shadow">
+            <Shield size={20} className="text-slate-900" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-100">SuperAdmin</h1>
@@ -193,13 +194,13 @@ export default function SuperadminPortal() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
           {[
-            { label: "Tenants", value: stats?.totalTenants ?? 0, icon: "🏫", color: "text-slate-100" },
-            { label: "Passengers", value: stats?.totalPassengers ?? 0, icon: "👥", color: "text-blue-300" },
-            { label: "API Pings", value: stats?.whatsappSmsPings ?? 0, icon: "📡", color: "text-amber-300" },
-            { label: "MRR (NPR)", value: `${(stats?.monthlyMrr ?? 0).toLocaleString()}`, icon: "💰", color: "text-emerald-400" },
+            { label: "Tenants",    value: stats?.totalTenants ?? 0, Icon: Building2, color: "text-slate-100" },
+            { label: "Passengers", value: stats?.totalPassengers ?? 0, Icon: Users, color: "text-blue-300" },
+            { label: "API Pings",  value: stats?.whatsappSmsPings ?? 0, Icon: Radio, color: "text-amber-300" },
+            { label: "MRR (NPR)",  value: `${(stats?.monthlyMrr ?? 0).toLocaleString()}`, Icon: Banknote, color: "text-emerald-400" },
           ].map((s) => (
             <div key={s.label} className="rounded-xl bg-slate-800/70 border border-slate-700 p-4">
-              <p className="text-xl mb-1">{s.icon}</p>
+              <s.Icon size={20} className="mb-1 text-slate-400" />
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
               <p className="text-xs text-slate-400 mt-0.5">{s.label}</p>
             </div>
@@ -249,7 +250,7 @@ export default function SuperadminPortal() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg">📢</span>
+              <Megaphone size={18} className="text-slate-300 shrink-0" />
               <h2 className="font-bold text-slate-100">Ad Carousel Manager</h2>
               <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-xs font-semibold text-amber-400">
                 {liveCount} Live

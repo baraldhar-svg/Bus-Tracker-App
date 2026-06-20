@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, getListPassengersQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
@@ -87,11 +88,11 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => galleryRef.current?.click()}
             className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-            📁 Upload Photo
+            <Upload size={13} className="shrink-0" /> Upload Photo
           </button>
           <button onClick={() => cameraRef.current?.click()}
             className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-            📷 Take Photo
+            <Camera size={13} className="shrink-0" /> Take Photo
           </button>
         </div>
       )}
@@ -123,10 +124,10 @@ function StatsDetailPanel({
     return [];
   })();
 
-  const META: Record<NonNullable<Exclude<StatsFilter, "buses">>, { title: string; icon: string; empty: string }> = {
-    boarded: { title: "On Board", icon: "✅", empty: "No passengers boarded yet" },
-    live:    { title: "Live Today", icon: "📍", empty: "No passengers marked live" },
-    leave:   { title: "On Leave Today", icon: "🏠", empty: "No passengers on leave" },
+  const META: Record<NonNullable<Exclude<StatsFilter, "buses">>, { title: string; empty: string }> = {
+    boarded: { title: "On Board",       empty: "No passengers boarded yet" },
+    live:    { title: "Live Today",      empty: "No passengers marked live" },
+    leave:   { title: "On Leave Today", empty: "No passengers on leave" },
   };
 
   const isBuses = filter === "buses";
@@ -141,8 +142,8 @@ function StatsDetailPanel({
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div>
-            <h2 className="text-base font-bold text-foreground">
-              {isBuses ? "🚌 Active Buses" : `${meta!.icon} ${meta!.title}`}
+            <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
+              {isBuses ? <><Bus size={15} className="text-foreground" />Active Buses</> : meta!.title}
             </h2>
             <p className="text-xs text-muted-foreground">
               {isBuses
@@ -160,7 +161,7 @@ function StatsDetailPanel({
           {isBuses ? (
             FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
               <div key={v.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center text-lg shrink-0">🚌</div>
+                <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center shrink-0"><Bus size={18} className="text-green-600 dark:text-green-400" /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{v.plate}</p>
                   <p className="text-xs text-muted-foreground truncate">{v.driver} · {v.route}</p>
@@ -169,13 +170,12 @@ function StatsDetailPanel({
                   <span className="rounded-full bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2 py-0.5 text-[10px] font-bold">
                     ● On Route
                   </span>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · ⛽ {v.fuel}%</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · {v.fuel}% fuel</p>
                 </div>
               </div>
             ))
           ) : filtered.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-3xl mb-2">{meta!.icon}</p>
               <p className="text-sm text-muted-foreground">{meta!.empty}</p>
             </div>
           ) : (
@@ -189,7 +189,7 @@ function StatsDetailPanel({
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{p.stationName ?? "—"}</p>
                   {p.quickMessage && (
-                    <p className="text-[10px] text-blue-500 italic truncate">💬 "{p.quickMessage}"</p>
+                    <p className="text-[10px] text-blue-500 italic truncate flex items-center gap-1"><MessageSquare size={9} />"{p.quickMessage}"</p>
                   )}
                 </div>
                 <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
@@ -250,7 +250,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
               {score && (
                 <div className="flex items-center gap-2 mt-1">
                   <ScoreBadge score={score.score} />
-                  <span className="text-[10px] text-muted-foreground">{score.trips} trips · {score.harsh > 0 ? `⚠️ ${score.harsh} harsh events` : "✓ Clean"}</span>
+                  <span className="text-[10px] text-muted-foreground">{score.trips} trips · {score.harsh > 0 ? `${score.harsh} harsh events` : "✓ Clean"}</span>
                 </div>
               )}
             </div>
@@ -280,7 +280,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
             {/* Map header */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border">
               <div className="flex items-center gap-2">
-                <span className="text-sm">📍</span>
+                <MapPin size={14} className="text-amber-500 shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-foreground">{vehicle.route}</p>
                   <p className="text-[10px] text-muted-foreground">
@@ -350,17 +350,17 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
           {/* Alerts */}
           {(vehicle.fuel < 30 || vehicle.nextService < 1000 || vehicle.speed > 50) && (
             <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 space-y-1.5">
-              <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">⚠️ Alerts</p>
-              {vehicle.fuel < 30 && <p className="text-xs text-red-700 dark:text-red-400">⛽ Fuel critically low ({vehicle.fuel}%)</p>}
-              {vehicle.nextService < 1000 && <p className="text-xs text-red-700 dark:text-red-400">🔧 Service due in {vehicle.nextService} km</p>}
-              {vehicle.speed > 50 && <p className="text-xs text-red-700 dark:text-red-400">🚨 Speeding — {vehicle.speed} km/h</p>}
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5"><AlertTriangle size={12} /> Alerts</p>
+              {vehicle.fuel < 30 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><Wrench size={10} /> Fuel critically low ({vehicle.fuel}%)</p>}
+              {vehicle.nextService < 1000 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><Wrench size={10} /> Service due in {vehicle.nextService} km</p>}
+              {vehicle.speed > 50 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><AlertTriangle size={10} /> Speeding — {vehicle.speed} km/h</p>}
             </div>
           )}
 
           {/* Driver messages */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              📨 Driver Reports {messages.length > 0 && <span className="ml-1 rounded-full bg-blue-100 dark:bg-blue-950/40 px-1.5 text-blue-700 dark:text-blue-400">{messages.length}</span>}
+              <span className="flex items-center gap-1.5"><Send size={12} /> Driver Reports {messages.length > 0 && <span className="rounded-full bg-blue-100 dark:bg-blue-950/40 px-1.5 text-blue-700 dark:text-blue-400">{messages.length}</span>}</span>
             </p>
             {messages.length === 0 ? (
               <p className="text-xs text-muted-foreground italic px-1">No reports from driver</p>
@@ -368,7 +368,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
               <div className="space-y-2">
                 {messages.map((m) => (
                   <div key={m.id} className="flex items-start gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 px-3 py-2.5">
-                    <span className="text-base shrink-0">{m.isCustom ? "💬" : "📢"}</span>
+                    {m.isCustom ? <MessageSquare size={15} className="shrink-0 text-blue-500" /> : <Megaphone size={15} className="shrink-0 text-blue-500" />}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground leading-snug">"{m.text}"</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{m.driverName} · {m.timestamp}</p>
@@ -559,7 +559,7 @@ export default function AdminPortal() {
           {!editingSchool && (
             <button onClick={openEditSchool}
               className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
-              ✏️ Edit
+              <Pencil size={12} className="inline mr-1" />Edit
             </button>
           )}
         </div>
@@ -591,7 +591,7 @@ export default function AdminPortal() {
                       onClick={() => setBannerEditing(true)}
                       className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-black/50 hover:bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors"
                     >
-                      ✏️ Edit Banner
+                      <Pencil size={11} className="inline mr-1" />Edit Banner
                     </button>
                   )}
                 </div>
@@ -620,11 +620,11 @@ export default function AdminPortal() {
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => bannerEditGalleryRef.current?.click()}
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-                        📁 Change Photo
+                        <Upload size={13} className="inline mr-1" />Change Photo
                       </button>
                       <button onClick={() => bannerEditCameraRef.current?.click()}
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-                        📷 Take Photo
+                        <Camera size={13} className="inline mr-1" />Take Photo
                       </button>
                     </div>
                     <div className="flex gap-2 pt-1">
@@ -646,8 +646,8 @@ export default function AdminPortal() {
               </div>
             )}
             <div className="flex items-center gap-4 text-sm">
-              {tenant?.address && <span className="text-muted-foreground">📍 {tenant.address}</span>}
-              {tenant?.contactPhone && <span className="text-muted-foreground">📞 {tenant.contactPhone}</span>}
+              {tenant?.address && <span className="text-muted-foreground flex items-center gap-1"><MapPin size={12} />{tenant.address}</span>}
+              {tenant?.contactPhone && <span className="text-muted-foreground flex items-center gap-1"><Phone size={12} />{tenant.contactPhone}</span>}
             </div>
           </div>
         ) : (
@@ -695,11 +695,11 @@ export default function AdminPortal() {
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => bannerGalleryRef.current?.click()}
                       className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-                      📁 Upload Photo
+                      <Upload size={13} className="inline mr-1" />Upload Photo
                     </button>
                     <button onClick={() => bannerCameraRef.current?.click()}
                       className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
-                      📷 Take Photo
+                      <Camera size={13} className="inline mr-1" />Take Photo
                     </button>
                   </div>
                 </>
@@ -770,7 +770,7 @@ export default function AdminPortal() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{p.stationName}</p>
-                {p.quickMessage && <p className="text-[10px] text-blue-500 italic truncate">💬 "{p.quickMessage}"</p>}
+                {p.quickMessage && <p className="text-[10px] text-blue-500 italic truncate flex items-center gap-1"><MessageSquare size={9} />"{p.quickMessage}"</p>}
               </div>
               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
                 {STATUS_LABELS[p.status] ?? p.status}
@@ -865,7 +865,7 @@ export default function AdminPortal() {
                 <p className="text-sm font-semibold text-foreground">{d.name}</p>
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-muted-foreground">{d.trips} trips</span>
-                  {d.harsh > 0 ? <span className="text-[10px] text-red-500 font-semibold">⚠️ {d.harsh} harsh events</span> : <span className="text-[10px] text-green-500 font-semibold">✓ Clean</span>}
+                  {d.harsh > 0 ? <span className="text-[10px] text-red-500 font-semibold flex items-center gap-0.5"><AlertTriangle size={9} />{d.harsh} harsh events</span> : <span className="text-[10px] text-green-500 font-semibold">✓ Clean</span>}
                 </div>
               </div>
               <ScoreBadge score={d.score} />
@@ -881,7 +881,7 @@ export default function AdminPortal() {
         <div className="divide-y divide-border">
           {FLEET_VEHICLES.map((v) => (
             <div key={v.id} className="flex items-center gap-4 px-5 py-3">
-              <span className="text-xl shrink-0">{v.nextService < 1000 ? "🔧" : "🚗"}</span>
+              <span className="shrink-0 text-muted-foreground">{v.nextService < 1000 ? <Wrench size={18} className="text-red-500" /> : <Bus size={18} />}</span>
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{v.plate}</p>
                 <p className="text-xs text-muted-foreground">Next service in {v.nextService.toLocaleString()} km</p>
@@ -900,7 +900,7 @@ export default function AdminPortal() {
         <div className="divide-y divide-border">
           {stations?.map((s) => (
             <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="text-amber-500 shrink-0">📍</span>
+              <MapPin size={14} className="text-amber-500 shrink-0" />
               <p className="text-sm text-foreground">{s.name}</p>
             </div>
           ))}

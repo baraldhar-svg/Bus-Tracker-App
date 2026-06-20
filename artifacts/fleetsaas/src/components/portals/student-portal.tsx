@@ -9,16 +9,20 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import BusMap from "@/components/bus-map";
 import { useT } from "@/lib/i18n";
+import {
+  Bus, ClipboardList, Map, Clock, MessageSquare, X,
+  User, Timer, Home, MapPin, HeartPulse, ThumbsUp,
+} from "lucide-react";
 
 const DEMO_PASSENGER_ID = 1;
 
 const QUICK_MESSAGES = [
-  { label: "🚶 I'm on my way", value: "I'm on my way" },
-  { label: "⏳ Wait, I'm coming!", value: "Wait, I'm coming!" },
-  { label: "🏠 Staying home today", value: "Staying home today" },
-  { label: "🏫 At the stop now", value: "At the stop now" },
-  { label: "🤒 Sick, not coming", value: "Sick, not coming" },
-  { label: "👍 On the bus", value: "On the bus" },
+  { Icon: User,       label: "I'm on my way",      value: "I'm on my way" },
+  { Icon: Timer,      label: "Wait, I'm coming!",   value: "Wait, I'm coming!" },
+  { Icon: Home,       label: "Staying home today",  value: "Staying home today" },
+  { Icon: MapPin,     label: "At the stop now",     value: "At the stop now" },
+  { Icon: HeartPulse, label: "Sick, not coming",    value: "Sick, not coming" },
+  { Icon: ThumbsUp,   label: "On the bus",          value: "On the bus" },
 ];
 
 // Simulated bus GPS route through Kathmandu
@@ -146,7 +150,7 @@ export default function StudentPortal() {
         <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="text-3xl">🚌</span>
+              <Bus size={36} className="text-white drop-shadow" />
               <div>
                 <p className="font-bold text-sm">Bus is nearby — {pos.eta} min away!</p>
                 <p className="text-xs text-amber-100 mt-0.5">
@@ -195,7 +199,7 @@ export default function StudentPortal() {
           >
             {onLeave ? (
               <span className="flex flex-col items-center leading-tight">
-                <span>❌ {t.onLeave}</span>
+                <span className="flex items-center justify-center gap-1"><X size={12} /> {t.onLeave}</span>
                 <span className="text-[9px] font-normal text-red-200 mt-0.5">
                   {leaveConfirming ? t.tapAgainToCancel : t.tapTwiceToCancel}
                 </span>
@@ -213,7 +217,7 @@ export default function StudentPortal() {
       <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 overflow-hidden shadow-sm">
         {/* Board header */}
         <div className="flex items-center gap-2 bg-amber-500 px-4 py-3">
-          <span className="text-lg">📋</span>
+          <ClipboardList size={18} className="text-slate-900" />
           <div className="flex-1">
             <p className="font-bold text-slate-900 text-sm leading-tight">Notice Board</p>
             <p className="text-[10px] text-amber-900/70">From your school administration</p>
@@ -246,7 +250,7 @@ export default function StudentPortal() {
       {/* Live Bus Map */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-primary text-sm">🗺️ Live Bus Location</h2>
+          <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Map size={14} /> Live Bus Location</h2>
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse inline-block" />
@@ -284,7 +288,7 @@ export default function StudentPortal() {
       </div>
       {/* Tracking Timeline */}
       <div className="space-y-2">
-        <h2 className="font-semibold text-primary text-sm">🕐 Tracking Timeline</h2>
+        <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Clock size={14} /> Tracking Timeline</h2>
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {timeline ? (
             <div className="divide-y divide-border">
@@ -317,7 +321,7 @@ export default function StudentPortal() {
       {/* Quick Message Bar */}
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">💬 Quick Message to Driver</p>
+          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MessageSquare size={14} /> Quick Message to Driver</p>
           {sentMsg && (
             <span className="text-xs text-green-600 font-medium">✓ Sent</span>
           )}
@@ -333,7 +337,7 @@ export default function StudentPortal() {
                   : "border-border bg-card hover:bg-muted text-foreground"
               }`}
             >
-              {msg.label}
+              <span className="flex items-center gap-1.5"><msg.Icon size={13} className="shrink-0" />{msg.label}</span>
             </button>
           ))}
         </div>

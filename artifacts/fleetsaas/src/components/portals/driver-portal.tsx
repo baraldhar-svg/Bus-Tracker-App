@@ -2,19 +2,24 @@ import { useState, useEffect } from "react";
 import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
+import {
+  Navigation, Flag, WifiOff, BellOff, CheckCircle, Home,
+  MessageSquare, Send, Megaphone, AlertTriangle, Users, Building2,
+  Wrench, Clock, Bus, CloudRain, Gauge,
+} from "lucide-react";
 
 const DRIVER_NAME = "Ram Bahadur";
 const DRIVER_PLATE = "BA 1 KHA 1234";
 
 const QUICK_MESSAGES = [
-  { emoji: "🚦", text: "Traffic jam on route" },
-  { emoji: "🚧", text: "Road is under construction" },
-  { emoji: "🔧", text: "Tire is punctured" },
-  { emoji: "⛽", text: "Fuel is low" },
-  { emoji: "🕐", text: "Running late" },
-  { emoji: "🚌", text: "Bus breakdown" },
-  { emoji: "✅", text: "All clear, back on route" },
-  { emoji: "🌧️", text: "Bad weather conditions" },
+  { Icon: Navigation,     text: "Traffic jam on route" },
+  { Icon: AlertTriangle,  text: "Road is under construction" },
+  { Icon: Wrench,         text: "Tire is punctured" },
+  { Icon: Gauge,          text: "Fuel is low" },
+  { Icon: Clock,          text: "Running late" },
+  { Icon: Bus,            text: "Bus breakdown" },
+  { Icon: CheckCircle,    text: "All clear, back on route" },
+  { Icon: CloudRain,      text: "Bad weather conditions" },
 ];
 
 const SAFETY_SCORE = 91;
@@ -161,7 +166,7 @@ export default function DriverPortal() {
       {/* Offline banner */}
       {isOffline && (
         <div className="flex items-center gap-2 bg-slate-800 border-b border-slate-700 px-4 py-2.5">
-          <span className="text-sm">📵</span>
+          <WifiOff size={16} className="shrink-0 text-slate-300" />
           <p className="text-xs text-slate-300 font-medium flex-1">Location sharing paused — you are offline. Admin has been notified.</p>
           <button onClick={handleToggleOffline} className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 underline">Go Online</button>
         </div>
@@ -176,7 +181,7 @@ export default function DriverPortal() {
               onClick={handleStartJourney}
               className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
             >
-              <span className="text-xl mr-2">🚦</span>
+              <Navigation size={20} className="inline mr-2" />
               Start Journey
             </button>
           ) : journeyCompleted && countdown === null ? (
@@ -191,15 +196,15 @@ export default function DriverPortal() {
               }}
               className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
             >
-              <span className="text-xl mr-2">🚦</span>
+              <Navigation size={20} className="inline mr-2" />
               Start Journey
             </button>
           ) : journeyCompleted ? (
             /* Countdown in progress — completion card only */
             <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
-                  🏁
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600">
+                  <Flag size={18} className="text-white" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
@@ -218,10 +223,10 @@ export default function DriverPortal() {
                     </div>
                   ))}
                   <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
-                    <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
+                    <span className="text-[10px] text-blue-300 flex items-center gap-0.5"><Building2 size={10} /> Admin ✓</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
-                    <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
+                    <span className="text-[10px] text-purple-300 flex items-center gap-0.5"><Users size={10} /> Parents ✓</span>
                   </div>
                 </div>
               </div>
@@ -231,8 +236,8 @@ export default function DriverPortal() {
             <div className="space-y-3">
               <div className="rounded-2xl bg-green-900/30 border border-green-700/50 p-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white text-lg font-bold">
-                    ✓
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600">
+                    <CheckCircle size={18} className="text-white" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-green-300">Journey Started · {journeyTime}</p>
@@ -250,7 +255,7 @@ export default function DriverPortal() {
                       </div>
                     ))}
                     <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
-                      <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
+                      <span className="text-[10px] text-blue-300 flex items-center gap-0.5"><Building2 size={10} /> Admin ✓</span>
                     </div>
                   </div>
                 </div>
@@ -259,7 +264,7 @@ export default function DriverPortal() {
                 onClick={handleJourneyComplete}
                 className="w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg shadow-red-900/40 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all active:scale-[0.98]"
               >
-                <span className="text-xl mr-2">🏁</span>
+                <Flag size={20} className="inline mr-2" />
                 Journey Completed
               </button>
             </div>
@@ -332,7 +337,7 @@ export default function DriverPortal() {
         {/* DND */}
         {SPEED_KMH > 20 && (
           <div className="rounded-xl bg-red-900/20 border border-red-700/30 px-4 py-2.5 flex items-center gap-2">
-            <span className="text-sm">🔕</span>
+            <BellOff size={16} className="shrink-0 text-red-300" />
             <p className="text-xs text-red-300 font-medium">DND Active — Vehicle in motion. Messages queued as voice notes.</p>
           </div>
         )}
@@ -340,7 +345,7 @@ export default function DriverPortal() {
         {/* Live Today */}
         {liveTodayPassengers.length > 0 && (
           <div className="rounded-2xl bg-green-900/20 border border-green-700/30 p-3">
-            <p className="text-xs font-semibold text-green-400 mb-2 uppercase tracking-wider">✅ Confirmed Riding Today</p>
+            <p className="text-xs font-semibold text-green-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><CheckCircle size={12} /> Confirmed Riding Today</p>
             <div className="flex flex-wrap gap-2">
               {liveTodayPassengers.map((p) => (
                 <div key={p.id} className="flex items-center gap-1.5 rounded-full bg-green-900/40 px-2.5 py-1 border border-green-700/30">
@@ -355,7 +360,7 @@ export default function DriverPortal() {
         {/* On Leave */}
         {onLeavePassengers.length > 0 && (
           <div className="rounded-2xl bg-slate-800/60 border border-slate-700 p-3">
-            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">🏠 Not Riding Today</p>
+            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><Home size={12} /> Not Riding Today</p>
             <div className="flex flex-wrap gap-2">
               {onLeavePassengers.map((p) => (
                 <span key={p.id} className="rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-400">{p.name.split(" ")[0]}</span>
@@ -367,7 +372,7 @@ export default function DriverPortal() {
         {/* Messages */}
         {withMessages.filter(p => p.quickMessage !== "Staying home today").length > 0 && (
           <div className="rounded-2xl bg-blue-900/10 border border-blue-700/20 p-3">
-            <p className="text-xs font-semibold text-blue-400 mb-2 uppercase tracking-wider">💬 Messages</p>
+            <p className="text-xs font-semibold text-blue-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><MessageSquare size={12} /> Messages</p>
             <div className="space-y-2">
               {withMessages.filter(p => p.quickMessage !== "Staying home today").map((p) => (
                 <div key={p.id} className="flex items-center gap-2">
@@ -438,7 +443,7 @@ export default function DriverPortal() {
         {/* Last sent confirmation */}
         {lastSent && (
           <div className="flex items-center gap-2 rounded-xl bg-blue-900/30 border border-blue-700/30 px-3 py-2">
-            <span className="text-sm">📨</span>
+            <Send size={16} className="shrink-0 text-blue-300" />
             <p className="text-xs text-blue-300 flex-1 truncate">Sent: "{lastSent}"</p>
             <button onClick={() => setLastSent(null)} className="text-slate-500 text-xs hover:text-slate-400">✕</button>
           </div>
@@ -447,7 +452,7 @@ export default function DriverPortal() {
         {/* Report to Admin button */}
         <button onClick={() => setQuickMsgOpen(true)}
           className="w-full rounded-2xl bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 py-3.5 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98]">
-          <span className="text-lg mr-2">📢</span>
+          <Megaphone size={18} className="inline mr-2" />
           Report to Admin
         </button>
 
@@ -456,7 +461,8 @@ export default function DriverPortal() {
             sosActive ? "bg-red-800 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
               : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-lg"
           }`}>
-          {sosActive ? "🚨 SOS SENT — Admin & Parents Alerted" : "🆘 SOS EMERGENCY"}
+          <AlertTriangle size={18} className="inline mr-2" />
+          {sosActive ? "SOS SENT — Admin & Parents Alerted" : "SOS EMERGENCY"}
         </button>
       </div>
 
@@ -471,7 +477,7 @@ export default function DriverPortal() {
             </div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
               <div>
-                <h2 className="text-base font-bold text-slate-100">📢 Report to Admin</h2>
+                <h2 className="text-base font-bold text-slate-100 flex items-center gap-2"><Megaphone size={16} /> Report to Admin</h2>
                 <p className="text-xs text-slate-400">Tap a message or write your own</p>
               </div>
               <button onClick={() => setQuickMsgOpen(false)}
@@ -491,7 +497,7 @@ export default function DriverPortal() {
                       setQuickMsgOpen(false);
                     }}
                     className="flex items-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 px-3 py-2.5 text-left text-xs font-medium text-slate-200 transition-colors active:bg-slate-500">
-                    <span className="text-base shrink-0">{m.emoji}</span>
+                    <m.Icon size={16} className="shrink-0 text-slate-400" />
                     <span className="leading-snug">{m.text}</span>
                   </button>
                 ))}
