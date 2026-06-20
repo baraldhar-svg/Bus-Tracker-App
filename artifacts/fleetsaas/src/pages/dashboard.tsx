@@ -173,18 +173,11 @@ export default function Dashboard() {
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-base hover:bg-muted/70 transition-colors">
                 {dark ? "☀️" : "🌙"}
               </button>
-              <div className="relative group">
-                <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full border-2 border-amber-500 cursor-pointer object-cover" />
-                <div className="absolute right-0 top-10 hidden group-hover:block z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-xl p-2">
-                  <p className="px-2 py-1 text-xs font-semibold text-foreground truncate">{user?.name}</p>
-                  <p className="px-2 pb-1 text-[10px] text-muted-foreground">{user?.phone}</p>
-                  <hr className="border-border my-1" />
-                  <button onClick={() => { logout(); navigate("/"); }}
-                    className="w-full rounded-lg px-2 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-left transition-colors">
-                    Sign Out
-                  </button>
-                </div>
-              </div>
+              <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full border-2 border-amber-500 object-cover shrink-0" />
+              <button onClick={() => { logout(); navigate("/"); }}
+                className="flex items-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
+                Sign Out
+              </button>
             </div>
           </div>
         </header>
