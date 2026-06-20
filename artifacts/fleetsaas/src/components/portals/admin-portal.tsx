@@ -117,6 +117,8 @@ export default function AdminPortal() {
   const [editingSchool, setEditingSchool] = useState(false);
   const bannerGalleryRef = useRef<HTMLInputElement>(null);
   const bannerCameraRef = useRef<HTMLInputElement>(null);
+  const bannerEditGalleryRef = useRef<HTMLInputElement>(null);
+  const bannerEditCameraRef = useRef<HTMLInputElement>(null);
 
   const [sName, setSName] = useState("");
   const [sAddress, setSAddress] = useState("");
@@ -124,6 +126,13 @@ export default function AdminPortal() {
   const [sBanner, setSBanner] = useState("");
   const [schoolSaving, setSchoolSaving] = useState(false);
   const [schoolErr, setSchoolErr] = useState("");
+
+  // Inline banner editor
+  const [bannerEditing, setBannerEditing] = useState(false);
+  const [bannerHeight, setBannerHeight] = useState(100);
+  const [bannerPositionY, setBannerPositionY] = useState(50);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerSaving, setBannerSaving] = useState(false);
 
   const [newNotice, setNewNotice] = useState("");
   const [noticeSaving, setNoticeSaving] = useState(false);
@@ -156,6 +165,19 @@ export default function AdminPortal() {
     setSBanner(tenant?.bannerUrl ?? "");
     setSchoolErr("");
     setEditingSchool(true);
+  }
+
+  async function handleSaveBanner() {
+    setBannerSaving(true);
+    try {
+      const newUrl = bannerPreview ?? tenant?.bannerUrl ?? null;
+      const updated = await apiPatch(`/tenants/${tenantId}`, { bannerUrl: newUrl });
+      setTenant(updated);
+      if (user) login({ ...user, tenant: { id: updated.id, name: updated.name, bannerUrl: updated.bannerUrl, address: updated.address } });
+      setBannerEditing(false);
+      setBannerPreview(null);
+    } catch { /* ignore */ }
+    finally { setBannerSaving(false); }
   }
 
   async function handleSaveSchool() {
@@ -257,12 +279,80 @@ export default function AdminPortal() {
         </div>
         {!editingSchool ? (
           <div className="p-5 space-y-3">
-            {tenant?.bannerUrl ? (
-              <div className="relative rounded-xl overflow-hidden" style={{ height: 100 }}>
-                <img src={tenant.bannerUrl} alt="banner" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex items-end p-3">
-                  <p className="text-sm font-bold text-white">{tenant?.name}</p>
+            {/* Hidden inputs for inline banner editor */}
+            <input ref={bannerEditGalleryRef} type="file" accept="image/*" className="hidden"
+              onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerPreview(await fileToDataUrl(f)); }} />
+            <input ref={bannerEditCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerPreview(await fileToDataUrl(f)); }} />
+
+            {(tenant?.bannerUrl || bannerPreview) ? (
+              <div className="space-y-2">
+                {/* Banner preview with live crop/height */}
+                <div className="relative rounded-xl overflow-hidden border border-border"
+                  style={{ height: bannerHeight }}>
+                  <img
+                    src={bannerPreview ?? tenant!.bannerUrl!}
+                    alt="banner"
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: `center ${bannerPositionY}%` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex items-end p-3">
+                    <p className="text-sm font-bold text-white">{tenant?.name}</p>
+                  </div>
+                  {/* Edit overlay button */}
+                  {!bannerEditing && (
+                    <button
+                      onClick={() => setBannerEditing(true)}
+                      className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-black/50 hover:bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors"
+                    >
+                      ✏️ Edit Banner
+                    </button>
+                  )}
                 </div>
+
+                {/* Inline editor controls */}
+                {bannerEditing && (
+                  <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-muted-foreground">Height</label>
+                        <span className="text-xs text-muted-foreground">{bannerHeight}px</span>
+                      </div>
+                      <input type="range" min={60} max={220} value={bannerHeight}
+                        onChange={(e) => setBannerHeight(Number(e.target.value))}
+                        className="w-full accent-amber-500" />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-muted-foreground">Crop Position</label>
+                        <span className="text-xs text-muted-foreground">{bannerPositionY === 0 ? "Top" : bannerPositionY === 100 ? "Bottom" : "Middle"}</span>
+                      </div>
+                      <input type="range" min={0} max={100} value={bannerPositionY}
+                        onChange={(e) => setBannerPositionY(Number(e.target.value))}
+                        className="w-full accent-amber-500" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => bannerEditGalleryRef.current?.click()}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+                        📁 Change Photo
+                      </button>
+                      <button onClick={() => bannerEditCameraRef.current?.click()}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+                        📷 Take Photo
+                      </button>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => { setBannerEditing(false); setBannerPreview(null); setBannerHeight(100); setBannerPositionY(50); }}
+                        className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">
+                        Cancel
+                      </button>
+                      <button onClick={handleSaveBanner} disabled={bannerSaving}
+                        className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                        {bannerSaving ? "Saving…" : "Save Banner"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-xl border-2 border-dashed border-border p-6 text-center">
