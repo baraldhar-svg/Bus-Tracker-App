@@ -185,17 +185,6 @@ export default function StudentPortal() {
 
   return (
     <div className="w-full px-4 pb-8 pt-4 flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-primary">{t.studentStaff}</h1>
-        </div>
-        <img
-          src="https://api.dicebear.com/7.x/initials/svg?seed=Aayush+Shrestha&backgroundColor=0F172A&textColor=D97706"
-          alt="avatar"
-          className="h-11 w-11 rounded-full border-2 border-amber-500 shadow"
-        />
-      </div>
       {/* Calendar upcoming events urgent banner */}
       {upcomingEvents.length > 0 && (
         <div className="space-y-2">
