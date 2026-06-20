@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
+import { useListVehicles } from "@workspace/api-client-react";
 
 export default function Landing() {
   const [, navigate] = useLocation();
+  const { data: vehicles } = useListVehicles();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = vehicles?.find((v) => v.id === selectedId);
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#0F172A]">
@@ -19,11 +24,10 @@ export default function Landing() {
             <p className="text-[10px] font-medium text-slate-400 -mt-0.5">Nepal's Smart Bus Platform</p>
           </div>
         </div>
-
       </header>
 
       {/* Hero */}
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-32 pt-8 text-center">
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-8 pt-8 text-center">
         {/* Big animated bus */}
         <div className="mb-6 flex items-center justify-center">
           <div className="relative">
@@ -58,6 +62,71 @@ export default function Landing() {
           </button>
         </div>
       </main>
+
+      {/* Fleet Picker */}
+      {vehicles && vehicles.length > 0 && (
+        <div className="relative z-10 px-4 pb-6">
+          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-slate-500">
+            Live Fleet · {vehicles.length} Buses
+          </p>
+
+          {/* Scrolling bus cards */}
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory px-1">
+            {vehicles.map((v) => {
+              const isSelected = v.id === selectedId;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedId(isSelected ? null : v.id)}
+                  className={`snap-center shrink-0 w-44 rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    isSelected
+                      ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/20"
+                      : "border-slate-700 bg-slate-800/60 hover:border-slate-500"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xl">🚌</span>
+                    <span className={`h-2 w-2 rounded-full ${v.isActive ? "bg-green-500 animate-pulse" : "bg-slate-600"}`} />
+                  </div>
+                  {v.tag && (
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isSelected ? "text-amber-400" : "text-slate-500"}`}>
+                      {v.tag}
+                    </p>
+                  )}
+                  <p className="text-xs font-bold text-white leading-tight">{v.plateNumber}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{v.model}</p>
+                  <p className={`text-[10px] mt-1.5 font-semibold ${v.isActive ? "text-green-400" : "text-slate-500"}`}>
+                    {v.isActive ? "● On Route" : "● At Depot"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Selected bus detail card */}
+          {selected && (
+            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-slate-800/80 backdrop-blur p-4 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="text-4xl">🚌</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  {selected.tag && <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">{selected.tag}</span>}
+                  <span className={`text-[10px] font-semibold ${selected.isActive ? "text-green-400" : "text-slate-400"}`}>
+                    {selected.isActive ? "● Active" : "● Inactive"}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-white">{selected.plateNumber}</p>
+                <p className="text-xs text-slate-400">{selected.model} · {selected.capacity} seats</p>
+              </div>
+              <button
+                onClick={() => navigate("/auth?mode=login")}
+                className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors"
+              >
+                Track →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Feature strip */}
       <div className="relative z-10 border-t border-slate-800 bg-slate-900/60 backdrop-blur">
