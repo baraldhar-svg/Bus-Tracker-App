@@ -1,0 +1,44 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { announcementsTable, tenantsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import {
+  CreateAnnouncementBody,
+  DeleteAnnouncementParams,
+} from "@workspace/api-zod";
+
+const router = Router();
+const DEFAULT_TENANT_ID = 1;
+
+router.get("/", async (req, res) => {
+  const rows = await db
+    .select()
+    .from(announcementsTable)
+    .where(eq(announcementsTable.tenantId, DEFAULT_TENANT_ID))
+    .orderBy(desc(announcementsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/", async (req, res) => {
+  const parsed = CreateAnnouncementBody.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+  const { message, messageNe, severity } = parsed.data;
+  const [row] = await db
+    .insert(announcementsTable)
+    .values({ tenantId: DEFAULT_TENANT_ID, message, messageNe: messageNe ?? null, severity: severity ?? "info" })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.delete("/:id", async (req, res) => {
+  const parsed = DeleteAnnouncementParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+  await db.delete(announcementsTable).where(eq(announcementsTable.id, parsed.data.id));
+  res.status(204).send();
+});
+
+export default router;

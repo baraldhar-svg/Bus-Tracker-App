@@ -1,22 +1,41 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FleetSaaS school bus tracking API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tenants
+    description: Tenant management
+  - name: passengers
+    description: Passenger management
+  - name: stations
+    description: Station / stop management
+  - name: drivers
+    description: Driver management
+  - name: vehicles
+    description: Vehicle management
+  - name: fleet
+    description: Fleet swap operations
+  - name: trips
+    description: Active trip tracking
+  - name: announcements
+    description: Emergency notices
+  - name: subscriptions
+    description: Subscription & paywall
+  - name: dashboard
+    description: SuperAdmin analytics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +43,416 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── TENANTS ────────────────────────────────────────────────────────────────
+  /tenants/me:
+    get:
+      operationId: getTenantMe
+      tags: [tenants]
+      summary: Get current tenant info
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  # ─── ANNOUNCEMENTS ──────────────────────────────────────────────────────────
+  /announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [announcements]
+      summary: List emergency notices for current tenant
+      responses:
+        "200":
+          description: List of announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Announcement"
+    post:
+      operationId: createAnnouncement
+      tags: [announcements]
+      summary: Create an emergency announcement (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+
+  /announcements/{id}:
+    delete:
+      operationId: deleteAnnouncement
+      tags: [announcements]
+      summary: Delete an announcement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── STATIONS ───────────────────────────────────────────────────────────────
+  /stations:
+    get:
+      operationId: listStations
+      tags: [stations]
+      summary: List all geofenced stations
+      responses:
+        "200":
+          description: Station list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Station"
+    post:
+      operationId: createStation
+      tags: [stations]
+      summary: Add a new geofenced station (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Station"
+
+  /stations/{id}:
+    delete:
+      operationId: deleteStation
+      tags: [stations]
+      summary: Delete a station
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── DRIVERS ────────────────────────────────────────────────────────────────
+  /drivers:
+    get:
+      operationId: listDrivers
+      tags: [drivers]
+      summary: List all drivers for this tenant
+      responses:
+        "200":
+          description: Driver list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Driver"
+    post:
+      operationId: createDriver
+      tags: [drivers]
+      summary: Add a new driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+
+  /drivers/active:
+    get:
+      operationId: getActiveDriver
+      tags: [drivers]
+      summary: Get currently assigned active driver
+      responses:
+        "200":
+          description: Active driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+
+  # ─── VEHICLES ───────────────────────────────────────────────────────────────
+  /vehicles:
+    get:
+      operationId: listVehicles
+      tags: [vehicles]
+      summary: List all vehicles for this tenant
+      responses:
+        "200":
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+
+  # ─── FLEET SWAP ─────────────────────────────────────────────────────────────
+  /fleet/swap:
+    post:
+      operationId: swapFleet
+      tags: [fleet]
+      summary: Emergency fleet swap — reassign driver and/or vehicle to active route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FleetSwapInput"
+      responses:
+        "200":
+          description: Updated active driver info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+
+  # ─── PASSENGERS ─────────────────────────────────────────────────────────────
+  /passengers:
+    get:
+      operationId: listPassengers
+      tags: [passengers]
+      summary: List all passengers for today's trip checklist
+      responses:
+        "200":
+          description: Passenger list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Passenger"
+    post:
+      operationId: createPassenger
+      tags: [passengers]
+      summary: Register a new passenger
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PassengerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+
+  /passengers/{id}:
+    get:
+      operationId: getPassenger
+      tags: [passengers]
+      summary: Get passenger by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Passenger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+    patch:
+      operationId: updatePassenger
+      tags: [passengers]
+      summary: Update passenger profile or photo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PassengerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+
+  /passengers/{id}/board:
+    post:
+      operationId: boardPassenger
+      tags: [passengers]
+      summary: Mark passenger as boarded (driver action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated passenger with boarding status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+
+  /passengers/{id}/leave:
+    post:
+      operationId: markPassengerLeave
+      tags: [passengers]
+      summary: Mark passenger as on leave (parent or admin action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated passenger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+
+  # ─── TRIPS ──────────────────────────────────────────────────────────────────
+  /trips/active:
+    get:
+      operationId: getActiveTrip
+      tags: [trips]
+      summary: Get live tracking data for the active trip
+      responses:
+        "200":
+          description: Active trip with live position and ETA
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveTrip"
+
+  /trips/timeline:
+    get:
+      operationId: getTripTimeline
+      tags: [trips]
+      summary: Get the tracking event timeline for today's trip
+      responses:
+        "200":
+          description: Timeline events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimelineEvent"
+
+  /trips/sos:
+    post:
+      operationId: triggerSos
+      tags: [trips]
+      summary: Trigger an emergency SOS alert
+      responses:
+        "200":
+          description: SOS acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosResponse"
+
+  # ─── SUBSCRIPTIONS ──────────────────────────────────────────────────────────
+  /subscriptions/me:
+    get:
+      operationId: getMySubscription
+      tags: [subscriptions]
+      summary: Get current subscription status (includes trial info and paywall flag)
+      responses:
+        "200":
+          description: Subscription status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /subscriptions/activate:
+    post:
+      operationId: activateSubscription
+      tags: [subscriptions]
+      summary: Activate or upgrade a subscription (mock payment)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionActivationInput"
+      responses:
+        "200":
+          description: Activated subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  # ─── SUPERADMIN DASHBOARD ───────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Global platform statistics (SuperAdmin only)
+      responses:
+        "200":
+          description: Global stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/tenants:
+    get:
+      operationId: listTenants
+      tags: [dashboard]
+      summary: List all tenant organizations (SuperAdmin only)
+      responses:
+        "200":
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +460,311 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    Tenant:
+      type: object
+      required: [id, name, currency, country]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        bannerUrl:
+          type: ["string", "null"]
+        currency:
+          type: string
+          enum: [NPR, USD]
+        country:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TenantSummary:
+      type: object
+      required: [id, name, vehicleCount, passengerCount, subscriptionTier]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        vehicleCount:
+          type: integer
+        passengerCount:
+          type: integer
+        subscriptionTier:
+          type: string
+          enum: [silver, gold, platinum, trial]
+        monthlyRevenue:
+          type: number
+
+    Announcement:
+      type: object
+      required: [id, tenantId, message, severity, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        message:
+          type: string
+        messageNe:
+          type: ["string", "null"]
+        severity:
+          type: string
+          enum: [info, warning, emergency]
+        createdAt:
+          type: string
+          format: date-time
+
+    AnnouncementInput:
+      type: object
+      required: [message, severity]
+      properties:
+        message:
+          type: string
+        messageNe:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, emergency]
+
+    Station:
+      type: object
+      required: [id, name, lat, lng]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        tenantId:
+          type: integer
+
+    StationInput:
+      type: object
+      required: [name, lat, lng]
+      properties:
+        name:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+
+    Driver:
+      type: object
+      required: [id, name, phone, vehicleNumber]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: string
+        isActive:
+          type: boolean
+
+    DriverInput:
+      type: object
+      required: [name, phone, vehicleNumber]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        photoUrl:
+          type: string
+        vehicleNumber:
+          type: string
+
+    Vehicle:
+      type: object
+      required: [id, plateNumber, model]
+      properties:
+        id:
+          type: integer
+        plateNumber:
+          type: string
+        model:
+          type: string
+        capacity:
+          type: integer
+        isActive:
+          type: boolean
+
+    FleetSwapInput:
+      type: object
+      required: [driverId, vehicleId]
+      properties:
+        driverId:
+          type: integer
+        vehicleId:
+          type: integer
+        reason:
+          type: string
+
+    Passenger:
+      type: object
+      required: [id, name, role, status, stationId]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [student, staff]
+        status:
+          type: string
+          enum: [pending, boarded, leave]
+        stationId:
+          type: integer
+        stationName:
+          type: ["string", "null"]
+        boardedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    PassengerInput:
+      type: object
+      required: [name, role, stationId]
+      properties:
+        name:
+          type: string
+        photoUrl:
+          type: string
+        role:
+          type: string
+          enum: [student, staff]
+        stationId:
+          type: integer
+
+    PassengerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        photoUrl:
+          type: string
+        stationId:
+          type: integer
+
+    ActiveTrip:
+      type: object
+      required: [tripId, currentLat, currentLng, etaMinutes, nextStationName, routeName]
+      properties:
+        tripId:
+          type: integer
+        currentLat:
+          type: number
+        currentLng:
+          type: number
+        etaMinutes:
+          type: integer
+        nextStationName:
+          type: string
+        routeName:
+          type: string
+        boardedCount:
+          type: integer
+        totalPassengers:
+          type: integer
+        driver:
+          $ref: "#/components/schemas/Driver"
+
+    TimelineEvent:
+      type: object
+      required: [id, time, description, status]
+      properties:
+        id:
+          type: integer
+        time:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [completed, in_progress, upcoming]
+
+    SosResponse:
+      type: object
+      required: [acknowledged, message]
+      properties:
+        acknowledged:
+          type: boolean
+        message:
+          type: string
+
+    Subscription:
+      type: object
+      required: [id, userRole, tier, isActive, trialDaysRemaining, paywallActive]
+      properties:
+        id:
+          type: integer
+        userRole:
+          type: string
+          enum: [parent, driver, admin, superadmin]
+        tier:
+          type: string
+          enum: [trial, silver, gold, platinum, flat_premium]
+        isActive:
+          type: boolean
+        trialDaysRemaining:
+          type: integer
+        paywallActive:
+          type: boolean
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+
+    SubscriptionActivationInput:
+      type: object
+      required: [tier, paymentGateway]
+      properties:
+        tier:
+          type: string
+          enum: [silver, gold, platinum, flat_premium]
+        paymentGateway:
+          type: string
+          enum: [esewa, khalti, stripe, paypal]
+        vehicleCount:
+          type: integer
+
+    DashboardStats:
+      type: object
+      required: [totalTenants, totalPassengers, whatsappSmsPings, monthlyMrr, activeTodayCount]
+      properties:
+        totalTenants:
+          type: integer
+        totalPassengers:
+          type: integer
+        whatsappSmsPings:
+          type: integer
+        monthlyMrr:
+          type: number
+        activeTodayCount:
+          type: integer
+        subscriptionBreakdown:
+          type: object
+          properties:
+            trial:
+              type: integer
+            silver:
+              type: integer
+            gold:
+              type: integer
+            platinum:
+              type: integer

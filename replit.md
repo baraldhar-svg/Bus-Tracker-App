@@ -1,19 +1,21 @@
-# [Project name]
+# FleetSaaS — School Bus Tracking Platform
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A multi-tenant SaaS school bus tracking system for Nepal with four role portals (Parent, Driver, Admin, SuperAdmin), live GPS tracking, passenger boarding management, OTP auth simulation, and a subscription paywall system.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/fleetsaas run dev` — run the frontend (port 18789)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string (auto-provisioned)
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite, Tailwind CSS, shadcn/ui, wouter, TanStack Query
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
@@ -22,15 +24,25 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — Single source of truth for API contracts
+- `lib/db/src/schema/` — Drizzle schema: tenants.ts, fleet.ts, passengers.ts, subscriptions.ts
+- `artifacts/api-server/src/routes/` — Express route handlers (one file per domain)
+- `artifacts/fleetsaas/src/` — React frontend with role-based portals
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Single tenant in DB (id=1) used for all portal data; SaaS multi-tenancy scaffolded in schema
+- Subscription paywall: 30-day trial tracked via `created_at`; `paywallActive` computed server-side
+- Timeline events return plain time strings (not ISO dates) — render directly without Date parsing
+- Fleet swap: deactivates all drivers/vehicles, activates the specified ones
+- SuperAdmin stats augmented with mock baseline numbers so dashboard always shows meaningful data
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Parent Portal**: Tenant header, photo upload, assigned fleet card with live track map, emergency notice board, OTP auth sandbox, tracking timeline
+- **Driver Portal**: Dark-themed command view, station navigator, passenger boarding checklist with photo popups, emergency SOS button
+- **Admin Portal**: Fleet swap, geofence station management, announcement board, subscription display
+- **SuperAdmin Portal**: Global metrics dashboard, tenant table with revenue data
 
 ## User preferences
 
@@ -38,7 +50,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Timeline event `.time` field is a plain string like "06:45 AM" — do NOT parse with `new Date()`
+- Always re-run `pnpm --filter @workspace/api-spec run codegen` after changing `openapi.yaml`
+- `pnpm run typecheck:libs` needed after lib changes before artifact typechecks
 
 ## Pointers
 

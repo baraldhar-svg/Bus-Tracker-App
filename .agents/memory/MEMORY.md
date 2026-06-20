@@ -1,0 +1,1 @@
+- [FleetSaaS timeline field](fleetsaas-timeline.md) — timeline events return plain time strings, not ISO dates; render directly without new Date() parsing

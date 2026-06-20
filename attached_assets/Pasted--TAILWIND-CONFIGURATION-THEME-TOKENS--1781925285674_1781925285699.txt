@@ -1,0 +1,624 @@
+// ==========================================
+// TAILWIND CONFIGURATION & THEME TOKENS
+// ==========================================
+/* Copy this object into your tailwind.config.js extend block:
+colors: {
+  primary: '#0F172A',     // Slate Navy Blue
+  secondary: '#64748B',   // Steel Gray
+  accent: '#D97706',      // Muted Gold
+  bgSlate: '#F1F5F9',     // Soft Slate White
+  cardBg: '#FFFFFF',      // Pure White
+  accentRed: '#EF4444'    // Emergency SOS Red
+}
+*/
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Bus, Shield, User, MapPin, Bell, Globe, Phone, AlertTriangle, 
+  CheckCircle, Clock, Calendar, Check, Upload, RefreshCw, Layers, Eye
+} from 'lucide-react';
+
+// ==========================================
+// 1. TYPES & ARCHITECTURE DEFINITIONS (SaaS)
+// ==========================================
+interface Tenant {
+  id: string;
+  name: string;
+  logoUrl: string;
+  bannerUrl: string;
+  currency: 'NPR' | 'USD';
+  country: string;
+}
+
+interface Passenger {
+  id: string;
+  name: string;
+  photoUrl: string;
+  stopId: string;
+  status: 'pending' | 'boarded' | 'leave';
+  role: 'student' | 'staff';
+}
+
+interface Station {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+interface Route {
+  id: string;
+  name: string;
+  driverId: string;
+  vehicleId: string;
+  stations: Station[];
+}
+
+// ==========================================
+// MOCK INITIAL DATA FOR MULTI-TENANT
+// ==========================================
+const mockTenant: Tenant = {
+  id: 'tenant-apex-01',
+  name: 'Apex International College',
+  logoUrl: 'https://images.unsplash.com/photo-1592280771190-3e2e4d571952?w=120&auto=format&fit=crop&q=60',
+  bannerUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&auto=format&fit=crop&q=60',
+  currency: 'NPR',
+  country: 'NP'
+};
+
+const mockStations: Station[] = [
+  { id: 'st-01', name: 'Koteshwor Chowk Substation', lat: 27.6756, lng: 85.3459 },
+  { id: 'st-02', name: 'Baneshwor Hub Stop', lat: 27.6915, lng: 85.3331 },
+  { id: 'st-03', name: 'Maitighar Gateway Station', lat: 27.6938, lng: 85.3214 }
+];
+
+const mockPassengers: Passenger[] = [
+  { id: 'p-01', name: 'Aayush Shrestha', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', stopId: 'st-01', status: 'pending', role: 'student' },
+  { id: 'p-02', name: 'Prerna Thapa', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', stopId: 'st-01', status: 'pending', role: 'student' },
+  { id: 'p-03', name: 'Ramesh Katwal (HR)', photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80', stopId: 'st-02', status: 'leave', role: 'staff' }
+];
+
+// ==========================================
+// MAIN REUSABLE APPLICATON BLUEPRINT
+// ==========================================
+export default function App() {
+  const [currentRole, setCurrentRole] = useState<'parent' | 'driver' | 'admin' | 'superadmin'>('parent');
+  const [language, setLanguage] = useState<'EN' | 'NE' | 'HI'>('EN');
+  const [calendarSystem, setCalendarSystem] = useState<'BS' | 'AD'>('BS');
+  
+  // Dynamic Fleet Swap State (New Feature #3)
+  const [activeDriver, setActiveDriver] = useState({ name: 'Ram Bahadur', phone: '+977 9851012345', photo: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=120&auto=format&fit=crop&q=60', vehicle: 'BA 3 CHA 4567' });
+
+  // Localization Text Matrix
+  const localText = {
+    EN: { welcome: "Welcome to", trackBtn: "Live Track", leaveBtn: "Mark Leave", eta: "Mins Away", notice: "Urgent Notice", activeRoute: "Active Tracking Notice" },
+    NE: { welcome: "स्वागत छ", trackBtn: "लाइभ ट्र्याक", leaveBtn: "बिदा मार्क", eta: "मिनेट बाँकी", notice: "जरुरी सूचना", activeRoute: "गाडीको हालको स्थिति" },
+    HI: { welcome: "स्वागत है", trackBtn: "लाइव ट्रैक", leaveBtn: "छुट्टी मार्क", eta: "मिनट शेष", notice: "आपातकालीन सूचना", activeRoute: "सक्रिय ट्रैकिंग नोटिस" }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F1F5F9] font-sans antialiased text-[#0F172A]">
+      
+      {/* GLOBAL SAAS ROLE SWITCHER HEADER */}
+      <header className="bg-[#0F172A] text-white px-4 py-2 flex justify-between items-center border-b border-[#64748B]/30 text-xs">
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-[#D97706]" />
+          <span className="font-mono text-[#64748B]">SaaS Core Engine Running v2.4 (Active Location: Nepal)</span>
+        </div>
+        <div className="flex gap-2">
+          {['parent', 'driver', 'admin', 'superadmin'].map((role) => (
+            <button 
+              key={role}
+              onClick={() => setCurrentRole(role as any)}
+              className={`px-3 py-1 rounded capitalize transition-all ${currentRole === role ? 'bg-[#D97706] text-white font-bold' : 'bg-[#64748B]/20 text-[#64748B] hover:text-white'}`}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* RENDER DYNAMIC ROLE PORTALS */}
+      {currentRole === 'parent' && <ParentPortal tenant={mockTenant} language={language} setLanguage={setLanguage} calendarSystem={calendarSystem} setCalendarSystem={setCalendarSystem} localText={localText} activeDriver={activeDriver} />}
+      {currentRole === 'driver' && <DriverPortal initialPassengers={mockPassengers} stations={mockStations} activeDriver={activeDriver} />}
+      {currentRole === 'admin' && <ClientAdminPortal stations={mockStations} activeDriver={activeDriver} setActiveDriver={setActiveDriver} />}
+      {currentRole === 'superadmin' && <SuperAdminPortal />}
+      
+    </div>
+  );
+}
+
+// ==========================================
+// 4. PORTAL MODULE: PARENTS & STAFF VIEW
+// ==========================================
+function ParentPortal({ tenant, language, setLanguage, calendarSystem, setCalendarSystem, localText, activeDriver }: any) {
+  const [showMap, setShowMap] = useState(false);
+  const [isLeave, setIsLeave] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [otpChannel, setOtpChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [photoUploaded, setPhotoUploaded] = useState(false);
+
+  const triggerOtpFlow = () => {
+    setOtpCountdown(60);
+    setOtpChannel('whatsapp');
+  };
+
+  useEffect(() => {
+    if (otpCountdown > 0) {
+      const timer = setTimeout(() => setOtpCountdown(otpCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (otpCountdown === 0 && otpChannel === 'whatsapp') {
+      setOtpChannel('sms'); // Fallback Logic (Feature #2)
+    }
+  }, [otpCountdown]);
+
+  return (
+    <div className="max-w-md mx-auto bg-white min-h-screen shadow-2xl flex flex-col justify-between relative overflow-x-hidden">
+      
+      {/* Dynamic Top Bar */}
+      <div className="bg-[#0F172A] text-white p-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <img src={tenant.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-[#D97706]" />
+          <div>
+            <h2 className="text-sm font-bold tracking-wide">{tenant.name}</h2>
+            <p className="text-[10px] text-[#64748B]">SaaS Subdomain Tenant Space</p>
+          </div>
+        </div>
+        
+        {/* Localization Toggles */}
+        <div className="flex items-center gap-2 text-xs">
+          <button onClick={() => setLanguage(language === 'EN' ? 'NE' : 'EN')} className="bg-[#64748B]/30 px-2 py-1 rounded flex items-center gap-1 font-mono">
+            <Globe className="w-3 h-3 text-[#D97706]" /> {language}
+          </button>
+          <span className="text-[#64748B]">|</span>
+          <span className="font-mono text-[#D97706] font-bold">{calendarSystem === 'BS' ? '२०८३ गते' : '2026 A.D.'}</span>
+        </div>
+      </div>
+
+      {!showMap ? (
+        /* HOME SCREEN LAYOUT */
+        <div className="flex-1 overflow-y-auto pb-6">
+          
+          {/* A. Dynamic Slider Banner */}
+          <div className="relative h-40 bg-slate-800">
+            <img src={tenant.bannerUrl} alt="School Banner" className="w-full h-full object-cover opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] to-transparent" />
+            <div className="absolute bottom-3 left-4 text-white">
+              <span className="bg-[#D97706] text-black font-extrabold text-[9px] px-2 py-0.5 rounded uppercase tracking-wider">Admission Open 2026</span>
+              <h3 className="text-md font-bold mt-1">{localText[language].welcome} {tenant.name}</h3>
+            </div>
+          </div>
+
+          {/* New Feature #2: Smart Document/Photo Profiler with strict guideline */}
+          <div className="p-4 bg-[#F1F5F9] border-b border-slate-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <h4 className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                <User className="w-4 h-4 text-[#D97706]" /> Upload ID Photo Profile
+              </h4>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 overflow-hidden">
+                  {photoUploaded ? <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80" alt="uploaded" className="object-cover w-full h-full" /> : <Upload className="w-5 h-5" />}
+                </div>
+                <div>
+                  <button onClick={() => setPhotoUploaded(true)} className="text-xs bg-[#0F172A] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition">Choose Profile Image</button>
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium italic block">
+                    Please upload standard uniform photos only! <span className="text-red-500 font-bold">(कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* C. Vehicle & Driver Carousel (Horizontal view) */}
+          <div className="p-4">
+            <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-2">Assigned Transport Fleet</h4>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl min-w-[280px] shadow-sm flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <img src={activeDriver.photo} alt="Driver" className="w-12 h-12 rounded-full object-cover border-2 border-[#D97706]" />
+                  <div>
+                    <h5 className="text-sm font-bold text-[#0F172A]">{activeDriver.name}</h5>
+                    <p className="text-xs text-[#64748B] font-mono">{activeDriver.vehicle}</p>
+                    <p className="text-[10px] bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block text-[#0F172A] font-semibold">Route #4B - Koteshwor</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowMap(true)} className="bg-[#D97706] text-white text-xs px-3 py-2 rounded-lg font-bold flex items-center gap-1 shadow-md hover:bg-amber-700 transition">
+                  <MapPin className="w-3 h-3" /> {localText[language].trackBtn}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* D. Emergency Notice Board */}
+          <div className="mx-4 p-3 bg-amber-50 border-l-4 border-[#D97706] rounded-r-xl flex gap-3 items-start shadow-sm">
+            <AlertTriangle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
+            <div>
+              <h5 className="text-xs font-bold text-[#D97706] uppercase">{localText[language].notice}</h5>
+              <p className="text-xs text-amber-900 mt-0.5 font-medium">आज कोटेश्वर रुटमा भिषण जाम भएकाले बस नियमित समय भन्दा १५ मिनेट ढिलो चल्नेछ।</p>
+            </div>
+          </div>
+
+          {/* Dummy Verification Sandbox for Verification Demo */}
+          <div className="p-4 mt-2 mx-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <h5 className="text-xs font-bold text-[#0F172A]">SaaS Smart Auth Sandbox</h5>
+            <p className="text-[11px] text-slate-500">Test the smart dual-channel system here:</p>
+            {otpCountdown === 0 ? (
+              <button onClick={triggerOtpFlow} className="mt-2 text-xs w-full bg-slate-200 border border-slate-300 py-1 rounded text-slate-700 font-bold">Simulate Dual Channel Authentication</button>
+            ) : (
+              <div className="mt-2 text-xs p-2 rounded bg-white border border-slate-200">
+                <span className="font-bold uppercase tracking-wider text-[#D97706]">Channel: {otpChannel} OTP Sent</span>
+                <p className="text-slate-500 text-[10px] mt-0.5">Countdown: {otpCountdown}s remaining before SMS fallback.</p>
+              </div>
+            )}
+          </div>
+
+          {/* F. Tracking Timeline Logs */}
+          <div className="p-4 mt-2">
+            <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-3">{localText[language].activeRoute}</h4>
+            <div className="relative border-l-2 border-slate-200 pl-4 space-y-4 ml-2">
+              <div className="relative">
+                <div className="absolute -left-[21px] mt-0.5 w-2 h-2 rounded-full bg-emerald-500 border-4 border-white box-content" />
+                <span className="text-[10px] text-[#64748B] font-mono block">06:45 AM</span>
+                <p className="text-xs font-semibold text-slate-800">Bus started from the main university campus garage.</p>
+              </div>
+              <div className="relative">
+                <div className="absolute -left-[21px] mt-0.5 w-2 h-2 rounded-full bg-amber-500 border-4 border-white box-content" />
+                <span className="text-[10px] text-[#64748B] font-mono block">07:05 AM</span>
+                <p className="text-xs font-semibold text-slate-800">Vehicle crossed Balkhu intersection point.</p>
+              </div>
+              <div className="relative">
+                <div className="absolute -left-[21px] mt-0.5 w-2 h-2 rounded-full bg-slate-300 border-4 border-white box-content" />
+                <span className="text-[10px] text-[#64748B] font-mono block">07:15 AM (Expected)</span>
+                <p className="text-xs font-medium text-slate-500">Scheduled arrival at your designated Baneshwor stop.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* E. Dynamic Advertisement Space */}
+          <div className="mx-4 p-4 bg-slate-100 rounded-xl border border-dashed border-slate-300 text-center text-[11px] font-mono text-[#64748B] tracking-wider uppercase">
+            Sponsored Advertisement Banner Slot <br />
+            <span className="text-[9px] text-slate-400 font-sans">Monetized via Super Admin Gateway</span>
+          </div>
+
+        </div>
+      ) : (
+        /* LIVE TRACKING FULLSCREEN MAP INTERFACE */
+        <div className="flex-1 flex flex-col relative bg-slate-200">
+          
+          {/* Simulated Premium Full Map Grid Vector */}
+          <div className="absolute inset-0 bg-[#E2E8F0] overflow-hidden flex flex-col justify-between p-4 font-mono text-xs text-slate-400">
+            <div className="flex justify-between"><span>[MAP_GRID_NORTH]</span><span>LAT: 27.6756, LNG: 85.3459</span></div>
+            
+            {/* Smooth animated gliding vehicle simulation marker */}
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 bg-[#0F172A] border-2 border-[#D97706] text-white px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xl z-10 animate-bounce">
+              <Bus className="w-4 h-4 text-[#D97706]" />
+              <span className="text-[10px] font-bold tracking-wider font-sans">BUS MOVING SMOOTHLY</span>
+            </div>
+
+            {/* Static Simulated Station Pin */}
+            <div className="absolute top-1/2 left-1/3 bg-white border border-slate-300 text-slate-800 px-2 py-0.5 rounded text-[10px] font-sans flex items-center gap-1 shadow">
+              <MapPin className="w-3 h-3 text-emerald-600" /> Current Station
+            </div>
+
+            <div className="flex justify-between"><span>[MAP_RENDER_INTERPOLATED]</span><span>EPSG:3857</span></div>
+          </div>
+
+          <button onClick={() => setShowMap(false)} className="absolute top-4 left-4 z-20 bg-[#0F172A] text-white text-xs px-3 py-1.5 rounded-lg font-bold shadow-md">
+            ← Exit Map
+          </button>
+
+          {/* Floating Premium ETA Actions Card */}
+          <div className="mt-auto m-4 z-20 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold uppercase px-2 py-0.5 rounded">Estimated Arrival</span>
+                <h3 className="text-2xl font-black text-[#0F172A] mt-1 font-mono">07 {localText[language].eta}</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold block text-slate-800">{activeDriver.name}</span>
+                <span className="text-[11px] text-[#64748B] flex items-center gap-1 justify-end mt-0.5">
+                  <Phone className="w-3 h-3" /> Call Driver
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4 border-t border-slate-100 pt-3">
+              <button 
+                onClick={() => setIsLeave(!isLeave)}
+                className={`py-2 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 border ${isLeave ? 'bg-red-50 text-red-600 border-red-200' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+              >
+                <Clock className="w-4 h-4" /> {isLeave ? "Leave Marked" : localText[language].leaveBtn}
+              </button>
+              <div className="bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-200 flex flex-col justify-center">
+                <span className="text-[9px] uppercase font-bold text-[#64748B] block">Today Attendance</span>
+                <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-0.5">
+                  <CheckCircle className="w-3.5 h-3.5" /> Auto-Verified
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* G. Universal Footer */}
+      <footer className="bg-[#F8FAFC] border-t border-slate-200 p-3 text-center text-[10px] text-[#64748B]">
+        <p className="margin-0 font-medium">© 2026 FleetSaaS System Inc. | Legal Agreement | Privacy Contract</p>
+        <p className="margin-0 text-[9px] font-mono mt-0.5 text-slate-400">Powered by Global Architect Software Engine Group</p>
+      </footer>
+
+    </div>
+  );
+}
+
+// ==========================================
+// 5. PORTAL MODULE: DRIVER DISCONNECTED SCREEN
+// ==========================================
+function DriverPortal({ initialPassengers, stations, activeDriver }: { initialPassengers: Passenger[], stations: Station[], activeDriver: any }) {
+  const [passengers, setPassengers] = useState<Passenger[]>(initialPassengers);
+  const [currentStationIndex, setCurrentStationIndex] = useState(0);
+  const [activeBoardingPop, setActiveBoardingPop] = useState<Passenger | null>(null);
+  const [sosActive, setSosActive] = useState(false);
+
+  const handleBoarding = (id: string) => {
+    const updated = passengers.map(p => {
+      if (p.id === id) {
+        const nextStatus = p.status === 'boarded' ? 'pending' : 'boarded';
+        if (nextStatus === 'boarded') {
+          setActiveBoardingPop(p); // New Feature #1: Set passenger boarding context pop-up
+          setTimeout(() => setActiveBoardingPop(null), 4000); // Auto close after 4 seconds
+        }
+        return { ...p, status: nextStatus as any };
+      }
+      return p;
+    });
+    setPassengers(updated);
+  };
+
+  return (
+    <div className="max-w-md mx-auto bg-[#0F172A] text-white min-h-screen flex flex-col justify-between p-4 relative">
+      
+      {/* Driver Active Pop-up overlay (New Feature #1) */}
+      {activeBoardingPop && (
+        <div className="absolute top-16 left-4 right-4 bg-white text-slate-900 rounded-2xl shadow-2xl p-4 border-2 border-[#D97706] z-50 animate-slideDown flex items-center gap-4">
+          <img src={activeBoardingPop.photoUrl} alt="Uniform" className="w-14 h-14 rounded-xl object-cover border-2 border-emerald-500" />
+          <div className="flex-1">
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-extrabold uppercase tracking-wider block w-max">Boarding Alert</span>
+            <h4 className="text-md font-black tracking-tight text-slate-900 mt-0.5">{activeBoardingPop.name}</h4>
+            <p className="text-xs text-slate-500 font-medium">Successfully boarded at: <span className="font-bold text-slate-700">{stations[currentStationIndex].name}</span></p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold"><Check className="w-5 h-5" /></div>
+        </div>
+      )}
+
+      {/* Driver Navigation Dashboard Display */}
+      <div>
+        <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <img src={activeDriver.photo} alt="Driver" className="w-10 h-10 rounded-full object-cover border" />
+            <div>
+              <h3 className="text-sm font-bold">{activeDriver.name} (Driver Portal)</h3>
+              <p className="text-xs text-[#64748B] font-mono">{activeDriver.vehicle}</p>
+            </div>
+          </div>
+          <span className="bg-emerald-500/10 text-emerald-400 font-mono text-[10px] px-2 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1 animate-pulse">● LIVE STREAMING</span>
+        </div>
+
+        {/* Minimal Driving Audio UI Mapping Track */}
+        <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 mb-4">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-[#64748B] block">Next Station Hub Navigation</span>
+          <div className="flex items-center gap-2 mt-1.5 text-md font-bold text-white">
+            <MapPin className="w-5 h-5 text-[#D97706]" /> {stations[currentStationIndex].name}
+          </div>
+          <p className="text-xs text-[#64748B] mt-1 font-mono">Audio Assistance: "Keep straight 300m then arrive at station."</p>
+          <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800">
+            <button 
+              disabled={currentStationIndex === 0}
+              onClick={() => setCurrentStationIndex(currentStationIndex - 1)}
+              className="text-xs bg-slate-800 px-3 py-1 rounded disabled:opacity-30"
+            >
+              Prev Stop
+            </button>
+            <button 
+              disabled={currentStationIndex === stations.length - 1}
+              onClick={() => setCurrentStationIndex(currentStationIndex + 1)}
+              className="text-xs bg-[#D97706] text-black font-bold px-3 py-1 rounded disabled:opacity-30"
+            >
+              Next Stop →
+            </button>
+          </div>
+        </div>
+
+        {/* Passenger Checklist */}
+        <h4 className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-2">Station Passenger Checklist</h4>
+        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          {passengers.map((passenger) => (
+            <div 
+              key={passenger.id} 
+              className={`p-3 rounded-xl border flex items-center justify-between transition-all ${passenger.status === 'boarded' ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200' : passenger.status === 'leave' ? 'bg-slate-900 border-slate-800 opacity-40 text-slate-500 line-through' : 'bg-slate-900 border-slate-800 text-white'}`}
+            >
+              <div className="flex items-center gap-3">
+                <img src={passenger.photoUrl} alt="Passenger" className="w-10 h-10 rounded-lg object-cover" />
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-[#64748B] tracking-tight">{passenger.role}</span>
+                  <p className="text-xs font-bold">{passenger.name}</p>
+                  <p className="text-[10px] text-slate-400">Stop: {stations.find(s => s.id === passenger.stopId)?.name}</p>
+                </div>
+              </div>
+
+              {passenger.status === 'leave' ? (
+                <span className="text-[10px] font-mono bg-red-950 text-red-400 px-2 py-0.5 rounded font-bold">On Leave</span>
+              ) : (
+                <button 
+                  onClick={() => handleBoarding(passenger.id)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${passenger.status === 'boarded' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  {passenger.status === 'boarded' ? '✓ Boarded' : 'Board'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Prominent Red 1-Second Hold SOS Button */}
+      <div className="mt-4 pt-3 border-t border-slate-800">
+        <button 
+          onMouseDown={() => setSosActive(true)}
+          onMouseUp={() => setSosActive(false)}
+          onTouchStart={() => setSosActive(true)}
+          onTouchEnd={() => setSosActive(false)}
+          className={`w-full py-4 rounded-2xl font-black tracking-wide text-xs transition uppercase shadow-2xl ${sosActive ? 'bg-white text-red-600 animate-ping' : 'bg-red-600 text-white hover:bg-red-700'}`}
+        >
+          {sosActive ? "🚨 BROADCASTING EMERGENCY ALERT..." : "⚠️ HOLD 1-SEC FOR EMERGENCY SOS"}
+        </button>
+        <p className="text-center text-[10px] text-[#64748B] mt-2 italic">Broadcasts automated dispatch alert delay messages to client admins & parents instantly.</p>
+      </div>
+
+    </div>
+  );
+}
+
+// ==========================================
+// 6. PORTAL MODULE: CLIENT ADMIN (SCHOOL/OFFICE)
+// ==========================================
+function ClientAdminPortal({ stations, activeDriver, setActiveDriver }: any) {
+  const [stationName, setStationName] = useState('');
+  const [adminStations, setAdminStations] = useState<Station[]>(stations);
+
+  // Feature #4: Admin Inputs station via map coordinates simulation
+  const addStationFromAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stationName) return;
+    const newStation: Station = {
+      id: `st-custom-${Date.now()}`,
+      name: stationName,
+      lat: 27.6 + Math.random() * 0.1,
+      lng: 85.3 + Math.random() * 0.1
+    };
+    setAdminStations([...adminStations, newStation]);
+    setStationName('');
+  };
+
+  // Feature #3: Admin Dynamic fleet driver/vehicle modifier payload swap simulation
+  const executeFleetSwap = () => {
+    setActiveDriver({
+      name: "Hari Prasad Gaihre",
+      phone: "+977 9841999888",
+      photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=60",
+      vehicle: "BA 1 KHA 9999 (BACKUP BUS)"
+    });
+  };
+
+  return (
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+        
+        {/* Workspace banner info */}
+        <div className="bg-[#0F172A] text-white p-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-black tracking-tight">Apex College Administration Workspace</h1>
+            <p className="text-xs text-[#64748B] mt-0.5">SaaS Tenant Node Management System</p>
+          </div>
+          <span className="bg-[#D97706] text-black text-xs font-bold px-3 py-1 rounded-lg">Client Admin Domain</span>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Section: Dynamic Fleet Assignment (Feature #3) */}
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+            <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wide flex items-center gap-1.5 mb-2">
+              <RefreshCw className="w-4 h-4 text-[#D97706]" /> Live Route Optimization & Fleet Swap
+            </h3>
+            <p className="text-xs text-[#64748B] mb-3">Emergency override mechanism. Change active vehicle or driver assigned to the route on-the-fly due to breakdowns or leaves.</p>
+            
+            <div className="bg-white p-3 rounded-lg border border-slate-200 mb-3 flex gap-3 items-center">
+              <img src={activeDriver.photo} alt="active" className="w-12 h-12 rounded-full object-cover border" />
+              <div>
+                <span className="text-[9px] uppercase font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">Active Assigned Fleet</span>
+                <h5 className="text-xs font-bold text-slate-800 mt-1">{activeDriver.name}</h5>
+                <p className="text-[11px] font-mono text-slate-500">{activeDriver.vehicle}</p>
+              </div>
+            </div>
+
+            <button onClick={executeFleetSwap} className="w-full text-xs font-bold bg-[#0F172A] text-white py-2 rounded-lg hover:bg-slate-800 transition shadow">
+              🚀 Simulate Instant Backup Driver & Bus Swap
+            </button>
+          </div>
+
+          {/* Section: Geofenced Stations Pre-Input Hub (Feature #4) */}
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+            <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wide flex items-center gap-1.5 mb-2">
+              <MapPin className="w-4 h-4 text-[#D97706]" /> Geofence Station Maps Pre-Input Hub
+            </h3>
+            <p className="text-xs text-[#64748B] mb-3">Define official pickup/dropoff stations natively mapping to exact global longitude & latitude vectors beforehand.</p>
+
+            <form onSubmit={addStationFromAdmin} className="flex gap-2 mb-3">
+              <input 
+                type="text" 
+                value={stationName}
+                onChange={(e) => setStationName(e.target.value)}
+                placeholder="Type location name (e.g., Kalanki Chowk)" 
+                className="text-xs border border-slate-300 rounded-lg p-2 flex-1 focus:outline-[#D97706]"
+              />
+              <button type="submit" className="bg-[#D97706] text-white text-xs font-bold px-3 rounded-lg">Add Stop</button>
+            </form>
+
+            <div className="space-y-1 max-h-[110px] overflow-y-auto">
+              {adminStations.map((s) => (
+                <div key={s.id} className="bg-white p-2 rounded border border-slate-200 text-xs flex justify-between font-medium">
+                  <span className="text-slate-700">📍 {s.name}</span>
+                  <span className="text-[10px] font-mono text-[#64748B]">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 7. PORTAL MODULE: GLOBAL SUPER ADMIN DASHBOARD
+// ==========================================
+function SuperAdminPortal() {
+  return (
+    <div className="container mx-auto p-6 max-w-2xl text-center">
+      <div className="bg-[#0F172A] text-white rounded-2xl p-8 border border-slate-800 shadow-2xl">
+        <Shield className="w-12 h-12 text-[#D97706] mx-auto mb-4" />
+        <h2 className="text-xl font-black uppercase tracking-wider">Super Admin Central Intelligence Dashboard</h2>
+        <p className="text-xs text-[#64748B] max-w-md mx-auto mt-2">Global SaaS tenant metrics monitoring engine. Deploy new databases, review API token usage counters, and optimize ad metrics distribution channels natively.</p>
+        
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-[#64748B] uppercase block font-bold">Total Tenants</span>
+            <span className="text-2xl font-black text-white font-mono mt-1 block">1,240</span>
+          </div>
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-[#64748B] uppercase block font-bold">WhatsApp/SMS API Pings</span>
+            <span className="text-2xl font-black text-white font-mono mt-1 block">94.2k</span>
+          </div>
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-[#64748B] uppercase block font-bold">Monthly MRR</span>
+            <span className="text-2xl font-black text-emerald-400 font-mono mt-1 block">$48.5k</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+7. AUTOMATED SUBSCRIPTION & PAYWALL LOGIC (NEW CRITICAL REVENUE MODULE):
+- Implement an absolute "Invisible Free Trial" mechanism. For the first 30 days from the registration timestamp (created_at), completely hide all payment menus, trial notices, and pricing screens across all user roles.
+- Implement an automatic 31st-day "Hard Paywall Pop-up". On day 31, upon opening the app, trigger a non-dismissible modal message: "Your 30-day free trial has expired. Please select a plan to resume services."
+- Display the following dynamic pricing tiers based on roles inside the paywall:
+  a. For Client Admins (Per Vehicle / Month Tiers):
+     - Silver Tier (NPR 500): Core Tracking, Driver management, Dual-channel OTP.
+     - Gold Tier (NPR 1000): Silver + ETA + Dynamic Fleet/Driver Swap + Admin Station Pre-input.
+     - Platinum Tier (NPR 1500): Gold + AI Routing + Driver Passenger Boarding Photo Pop-ups.
+  b. For Parents / Staff (End Users):
+     - Flat Premium Tier (NPR 100 / Month): Unlocks all live tracking, "Mark Leave", notifications, and attendance history logs.
+- Integrate mock payment gateway buttons (eSewa, Khalti for Nepal; Stripe, PayPal for Global) to successfully trigger a simulated successful payment that unlocks the application.
+

@@ -1,0 +1,164 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { passengersTable, stationsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import {
+  CreatePassengerBody,
+  GetPassengerParams,
+  UpdatePassengerParams,
+  UpdatePassengerBody,
+  BoardPassengerParams,
+  MarkPassengerLeaveParams,
+} from "@workspace/api-zod";
+
+const router = Router();
+const DEFAULT_TENANT_ID = 1;
+
+router.get("/", async (req, res) => {
+  const rows = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.tenantId, DEFAULT_TENANT_ID));
+  res.json(rows);
+});
+
+router.post("/", async (req, res) => {
+  const parsed = CreatePassengerBody.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+  const { name, photoUrl, role, stationId } = parsed.data;
+  const [row] = await db
+    .insert(passengersTable)
+    .values({ tenantId: DEFAULT_TENANT_ID, name, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, status: "pending" })
+    .returning();
+  const [withStation] = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, row.id));
+  res.status(201).json(withStation);
+});
+
+router.get("/:id", async (req, res) => {
+  const parsed = GetPassengerParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+  const [row] = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, parsed.data.id));
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json(row);
+});
+
+router.patch("/:id", async (req, res) => {
+  const paramsParsed = UpdatePassengerParams.safeParse({ id: Number(req.params.id) });
+  if (!paramsParsed.success) return res.status(400).json({ error: "Invalid id" });
+  const bodyParsed = UpdatePassengerBody.safeParse(req.body);
+  if (!bodyParsed.success) return res.status(400).json({ error: bodyParsed.error.message });
+  const updates: Record<string, unknown> = {};
+  if (bodyParsed.data.name) updates.name = bodyParsed.data.name;
+  if (bodyParsed.data.photoUrl) updates.photoUrl = bodyParsed.data.photoUrl;
+  if (bodyParsed.data.stationId) updates.stationId = bodyParsed.data.stationId;
+  await db.update(passengersTable).set(updates).where(eq(passengersTable.id, paramsParsed.data.id));
+  const [row] = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, paramsParsed.data.id));
+  res.json(row);
+});
+
+router.post("/:id/board", async (req, res) => {
+  const parsed = BoardPassengerParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+  await db
+    .update(passengersTable)
+    .set({ status: "boarded", boardedAt: new Date() })
+    .where(eq(passengersTable.id, parsed.data.id));
+  const [row] = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, parsed.data.id));
+  res.json(row);
+});
+
+router.post("/:id/leave", async (req, res) => {
+  const parsed = MarkPassengerLeaveParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+  await db
+    .update(passengersTable)
+    .set({ status: "leave", boardedAt: null })
+    .where(eq(passengersTable.id, parsed.data.id));
+  const [row] = await db
+    .select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      photoUrl: passengersTable.photoUrl,
+      role: passengersTable.role,
+      status: passengersTable.status,
+      stationId: passengersTable.stationId,
+      stationName: stationsTable.name,
+      boardedAt: passengersTable.boardedAt,
+      tenantId: passengersTable.tenantId,
+    })
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, parsed.data.id));
+  res.json(row);
+});
+
+export default router;
