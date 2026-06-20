@@ -250,6 +250,9 @@ export default function AuthScreen() {
                 <label className="mb-1 block text-xs font-semibold text-slate-300">Profile Photo URL <span className="text-slate-500">(optional)</span></label>
                 <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..."
                   className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
+                  📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)
+                </div>
               </div>
             </div>
             {err && <p className="mt-3 text-xs text-red-400">{err}</p>}

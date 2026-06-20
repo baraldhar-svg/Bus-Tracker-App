@@ -141,12 +141,6 @@ export default function StudentPortal() {
           <p className="mt-1 text-right text-[10px] text-amber-100">Route progress {Math.round(etaProgress)}%</p>
         </div>
       )}
-      {/* Uniform photo notice */}
-      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center">
-        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-          📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)
-        </p>
-      </div>
       {/* Riding Today / Leave Status */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
         <p className="text-sm font-semibold text-foreground">Today's Status</p>
