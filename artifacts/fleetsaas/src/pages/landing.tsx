@@ -1,13 +1,8 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
-import { useListVehicles } from "@workspace/api-client-react";
 import AppFooter from "@/components/app-footer";
 
 export default function Landing() {
   const [, navigate] = useLocation();
-  const { data: vehicles } = useListVehicles();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = vehicles?.find((v) => v.id === selectedId);
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-y-scroll bg-[#0F172A] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
@@ -64,55 +59,6 @@ export default function Landing() {
         </div>
       </main>
 
-      {/* Fleet Picker */}
-      {vehicles && vehicles.length > 0 && (
-        <div className="relative z-10 px-4 pb-6 max-w-md mx-auto w-full">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Select a Bus</p>
-            <p className="text-[10px] text-slate-600">{vehicles.length} buses</p>
-          </div>
-
-          {/* Scrollable list */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 divide-y divide-slate-700/60 max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-800 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-            {vehicles.map((v) => {
-              const isSelected = v.id === selectedId;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => setSelectedId(isSelected ? null : v.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                    isSelected ? "bg-amber-500/10" : "hover:bg-slate-700/40"
-                  }`}
-                >
-                  <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${v.isActive ? "bg-green-500 animate-pulse" : "bg-slate-600"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold leading-tight ${isSelected ? "text-amber-400" : "text-white"}`}>{v.plateNumber}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{v.model} · {v.capacity} seats</p>
-                  </div>
-                  {v.tag && (
-                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                      isSelected
-                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                        : "bg-slate-700 text-slate-400 border-slate-600"
-                    }`}>{v.tag}</span>
-                  )}
-                  {isSelected && <span className="shrink-0 text-amber-400 text-sm">✓</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Track button appears when a bus is selected */}
-          {selected && (
-            <button
-              onClick={() => navigate("/auth?mode=login")}
-              className="mt-3 w-full rounded-2xl bg-amber-500 py-3 text-sm font-bold text-slate-900 hover:bg-amber-400 transition-all hover:scale-[1.02] shadow-lg shadow-amber-500/25"
-            >
-              Track {selected.plateNumber} →
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Feature strip */}
       <div className="relative z-10 border-t border-slate-800 bg-slate-900/60 backdrop-blur">
