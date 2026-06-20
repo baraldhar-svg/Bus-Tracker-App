@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth, type AuthUser } from "@/hooks/use-auth";
-import { useLang, LANGUAGES } from "@/lib/i18n";
+import { useLang, useT, LANGUAGES } from "@/lib/i18n";
 import StudentPortal from "@/components/portals/student-portal";
 import DriverPortal from "@/components/portals/driver-portal";
 import AdminPortal from "@/components/portals/admin-portal";
@@ -103,15 +103,17 @@ function ProfilePanel({
   const [photo, setPhoto] = useState(user.photoUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const { lang, setLang } = useLang();
+  const t = useT();
 
   const avatarSrc = photo ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=0F172A&textColor=D97706`;
 
   async function handleSave() {
-    if (!name.trim()) { setErr("Name is required"); return; }
+    if (!name.trim()) { setErr(t.nameRequired); return; }
     setSaving(true); setErr("");
     try {
       const res = await fetch(`${BASE}/api/auth/profile`, {
@@ -139,12 +141,12 @@ function ProfilePanel({
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h2 className="text-base font-bold text-foreground">My Profile</h2>
+          <h2 className="text-base font-bold text-foreground">{t.myProfile}</h2>
           <div className="flex items-center gap-2">
             {!editing && (
               <button onClick={() => setEditing(true)}
                 className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
-                Edit
+                {t.edit}
               </button>
             )}
             <button onClick={onClose}
@@ -176,7 +178,7 @@ function ProfilePanel({
               )}
             </div>
             {editing && photo && (
-              <button onClick={() => setPhoto("")} className="text-xs text-red-500 hover:text-red-400">Remove photo</button>
+              <button onClick={() => setPhoto("")} className="text-xs text-red-500 hover:text-red-400">{t.removePhoto}</button>
             )}
           </div>
 
@@ -186,14 +188,14 @@ function ProfilePanel({
               <>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Title</label>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.titleLabel}</label>
                     <select value={title} onChange={(e) => setTitle(e.target.value)}
                       className="w-full rounded-xl border border-border bg-muted px-2 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
                       {TITLES.map((t) => <option key={t} value={t}>{t || "—"}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.fullName}</label>
                     <input value={name} onChange={(e) => setName(e.target.value)}
                       className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
                   </div>
@@ -211,18 +213,18 @@ function ProfilePanel({
             {/* Read-only info */}
             <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs text-muted-foreground">📞 Phone</span>
+                <span className="text-xs text-muted-foreground">📞 {t.phone}</span>
                 <span className="text-sm font-medium text-foreground">{user.phone}</span>
               </div>
               {user.schoolCode && (
                 <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs text-muted-foreground">🏫 School Code</span>
+                  <span className="text-xs text-muted-foreground">🏫 {t.schoolCode}</span>
                   <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
                 </div>
               )}
               {user.tenant?.name && (
                 <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs text-muted-foreground">🏫 School</span>
+                  <span className="text-xs text-muted-foreground">🏫 {t.school}</span>
                   <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
                 </div>
               )}

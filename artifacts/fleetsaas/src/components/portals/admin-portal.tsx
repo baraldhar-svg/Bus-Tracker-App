@@ -513,7 +513,6 @@ export default function AdminPortal() {
           Gold Plan
         </span>
       </header>
-
       {/* Key Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -530,7 +529,6 @@ export default function AdminPortal() {
           </button>
         ))}
       </div>
-
       {/* School Settings */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -698,7 +696,6 @@ export default function AdminPortal() {
           </div>
         )}
       </div>
-
       {/* Notices */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
@@ -728,12 +725,11 @@ export default function AdminPortal() {
           )}
         </div>
       </div>
-
       {/* Passengers */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="font-semibold text-primary">Passengers</h2>
+            <h2 className="font-semibold text-primary rounded-tl-[12px] rounded-tr-[12px] rounded-br-[12px] rounded-bl-[12px]">  On Board</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{passengers?.length ?? 0} students & staff</p>
           </div>
           <button onClick={() => { setModal("add-passenger"); setErr(""); setPPhoto(""); }}
@@ -763,7 +759,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Drivers */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -795,7 +790,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Fleet Status */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -837,7 +831,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Driver Safety */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
@@ -860,7 +853,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Maintenance */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
@@ -882,7 +874,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Stations */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Geofence Stations</h2></div>
@@ -895,7 +886,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-
       {/* Stats Detail Panel */}
       {statsFilter && (
         <StatsDetailPanel
@@ -904,12 +894,10 @@ export default function AdminPortal() {
           onClose={() => setStatsFilter(null)}
         />
       )}
-
       {/* Bus Detail Panel */}
       {selectedVehicle && (
         <BusDetailPanel vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} />
       )}
-
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -955,7 +943,6 @@ export default function AdminPortal() {
           </div>
         </div>
       )}
-
       {/* MODAL: Add Driver */}
       {modal === "add-driver" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
