@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   useListAnnouncements,
   useGetTripTimeline,
@@ -47,6 +47,9 @@ export default function StudentPortal() {
   const [liveToday, setLiveToday] = useState(false);
   const [onLeave, setOnLeave] = useState(false);
   const [geoAlertDismissed, setGeoAlertDismissed] = useState(false);
+  const [leaveConfirming, setLeaveConfirming] = useState(false);
+  const leaveClickRef = useRef(0);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const me = passengers?.find((p) => p.id === DEMO_PASSENGER_ID);
 
@@ -78,6 +81,9 @@ export default function StudentPortal() {
   const handleLeave = useCallback(async () => {
     const next = !onLeave;
     setOnLeave(next);
+    setLeaveConfirming(false);
+    leaveClickRef.current = 0;
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     if (next) {
       setLiveToday(false);
       setSentMsg("Staying home today");
@@ -86,11 +92,30 @@ export default function StudentPortal() {
         data: { liveToday: 0, quickMessage: "Staying home today" },
       });
     } else {
-      await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: 0, quickMessage: null } });
       setSentMsg(null);
+      await updatePassenger.mutateAsync({ id: DEMO_PASSENGER_ID, data: { liveToday: 0 } });
     }
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [onLeave, updatePassenger, queryClient]);
+
+  const handleLeaveClick = useCallback(() => {
+    if (!onLeave) {
+      handleLeave();
+      return;
+    }
+    // When already on leave, require two taps within 500ms to cancel
+    leaveClickRef.current += 1;
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    if (leaveClickRef.current >= 2) {
+      handleLeave();
+    } else {
+      setLeaveConfirming(true);
+      leaveTimerRef.current = setTimeout(() => {
+        leaveClickRef.current = 0;
+        setLeaveConfirming(false);
+      }, 500);
+    }
+  }, [onLeave, handleLeave]);
 
   const handleQuickMessage = useCallback(async (msg: string) => {
     setSentMsg(msg);
@@ -157,18 +182,21 @@ export default function StudentPortal() {
             {liveToday && !onLeave ? "✅ Riding Today" : "📍 Mark Live"}
           </button>
           <button
-            onClick={!onLeave ? handleLeave : undefined}
-            onDoubleClick={onLeave ? handleLeave : undefined}
+            onClick={handleLeaveClick}
             className={`rounded-xl py-3 text-sm font-semibold transition-all select-none ${
               onLeave
-                ? "bg-red-600 text-white shadow-md"
+                ? leaveConfirming
+                  ? "bg-red-400 text-white shadow-md scale-95"
+                  : "bg-red-600 text-white shadow-md"
                 : "bg-muted text-muted-foreground border border-border"
             }`}
           >
             {onLeave ? (
               <span className="flex flex-col items-center leading-tight">
                 <span>❌ On Leave</span>
-                <span className="text-[9px] font-normal text-red-200 mt-0.5">double-tap to cancel</span>
+                <span className="text-[9px] font-normal text-red-200 mt-0.5">
+                  {leaveConfirming ? "tap again to cancel ✕" : "tap twice to cancel"}
+                </span>
               </span>
             ) : "🏠 Take Leave"}
           </button>
