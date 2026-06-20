@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListStations, useListPassengers, useBoardPassenger, useUpdatePassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
@@ -59,6 +59,7 @@ export default function DriverPortal() {
   const [journeyTime, setJourneyTime] = useState<string | null>(null);
   const [journeyCompleted, setJourneyCompleted] = useState(false);
   const [completedTime, setCompletedTime] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [quickMsgOpen, setQuickMsgOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -99,11 +100,20 @@ export default function DriverPortal() {
   }
 
   function handleJourneyComplete() {
-    if (!nearSchool || journeyCompleted) return;
+    if (journeyCompleted) return;
     setJourneyCompleted(true);
+    setCountdown(60);
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
   }
+
+  // 60-second countdown after journey is completed
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) { setCountdown(null); return; }
+    const id = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(id);
+  }, [countdown]);
 
   return (
     <div className="min-h-full w-full bg-[#0F172A] text-white flex flex-col">
@@ -138,9 +148,56 @@ export default function DriverPortal() {
               <span className="text-xl mr-2">🚦</span>
               Start Journey
             </button>
+          ) : journeyCompleted && countdown === null ? (
+            /* Countdown done — show fresh Start Journey only */
+            <button
+              onClick={() => {
+                setJourneyStarted(false);
+                setJourneyCompleted(false);
+                setJourneyTime(null);
+                setCompletedTime(null);
+                setStationIdx(0);
+              }}
+              className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
+            >
+              <span className="text-xl mr-2">🚦</span>
+              Start Journey
+            </button>
+          ) : journeyCompleted ? (
+            /* Countdown in progress — completion card only */
+            <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
+                  🏁
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
+                  <p className="text-xs text-red-500/80">All passengers & admin notified</p>
+                </div>
+                <span className="text-xs font-mono text-slate-400">{countdown}s</span>
+              </div>
+              <div className="mt-3 pt-3 border-t border-red-800/40">
+                <p className="text-[10px] text-red-500 uppercase tracking-wider font-semibold mb-2">Arrival notification sent to</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {passengers?.filter((p) => p.status === "boarded").slice(0, 6).map((p) => (
+                    <div key={p.id} className="flex items-center gap-1 rounded-full bg-red-900/30 border border-red-700/30 px-2 py-0.5">
+                      <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                      <span className="text-[10px] text-red-200">{p.name.split(" ")[0]}</span>
+                      <span className="text-[9px] text-red-400">✓</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
+                    <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
+                    <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
+            /* In-journey: Started card + Complete button */
             <div className="space-y-3">
-              {/* Journey Started card */}
               <div className="rounded-2xl bg-green-900/30 border border-green-700/50 p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white text-lg font-bold">
@@ -151,7 +208,6 @@ export default function DriverPortal() {
                     <p className="text-xs text-green-500/80">Students, staff & admin have been notified</p>
                   </div>
                 </div>
-                {/* Who was notified */}
                 <div className="mt-3 pt-3 border-t border-green-800/40">
                   <p className="text-[10px] text-green-600 uppercase tracking-wider font-semibold mb-2">Notifications sent to</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -168,63 +224,13 @@ export default function DriverPortal() {
                   </div>
                 </div>
               </div>
-
-              {/* Journey Completed — locked until bus is within 200 m of school */}
-              {!journeyCompleted ? (
-                <button
-                  onClick={handleJourneyComplete}
-                  className="w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg shadow-red-900/40 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all active:scale-[0.98]"
-                >
-                  <span className="text-xl mr-2">🏁</span>
-                  Journey Completed
-                </button>
-              ) : (
-                /* Completion confirmed card + new journey button */
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
-                        🏁
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
-                        <p className="text-xs text-red-500/80">All passengers & admin notified</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-red-800/40">
-                      <p className="text-[10px] text-red-500 uppercase tracking-wider font-semibold mb-2">Arrival notification sent to</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {passengers?.filter((p) => p.status === "boarded").slice(0, 6).map((p) => (
-                          <div key={p.id} className="flex items-center gap-1 rounded-full bg-red-900/30 border border-red-700/30 px-2 py-0.5">
-                            <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
-                            <span className="text-[10px] text-red-200">{p.name.split(" ")[0]}</span>
-                            <span className="text-[9px] text-red-400">✓</span>
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
-                          <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
-                        </div>
-                        <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
-                          <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setJourneyStarted(false);
-                      setJourneyCompleted(false);
-                      setJourneyTime(null);
-                      setCompletedTime(null);
-                      setStationIdx(0);
-                    }}
-                    className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
-                  >
-                    <span className="text-xl mr-2">🚦</span>
-                    Start Journey
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={handleJourneyComplete}
+                className="w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg shadow-red-900/40 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all active:scale-[0.98]"
+              >
+                <span className="text-xl mr-2">🏁</span>
+                Journey Completed
+              </button>
             </div>
           )}
         </div>
