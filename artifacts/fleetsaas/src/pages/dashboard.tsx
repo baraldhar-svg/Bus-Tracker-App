@@ -163,11 +163,6 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {/* Single role badge — no switching between roles */}
-            <div className="rounded-full border border-border bg-muted px-4 py-1.5 text-xs font-semibold text-foreground">
-              {ROLE_LABELS[userRole]}
-            </div>
-
             <div className="flex items-center gap-2">
               <button onClick={() => setDark((d) => !d)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-base hover:bg-muted/70 transition-colors">
