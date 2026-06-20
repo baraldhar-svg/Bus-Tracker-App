@@ -72,7 +72,7 @@ export default function Landing() {
           </div>
 
           {/* Scrollable list */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden divide-y divide-slate-700/60 max-h-52 overflow-y-auto">
+          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 divide-y divide-slate-700/60 max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-800 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
             {vehicles.map((v) => {
               const isSelected = v.id === selectedId;
               return (
