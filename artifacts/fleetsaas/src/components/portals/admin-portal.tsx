@@ -1946,7 +1946,7 @@ export default function AdminPortal() {
           </div>
           {announcements?.map((a) => (
             <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 dark:bg-red-950/20 p-3 bg-[#C7C7C7]">
-              <p className="flex-1 text-sm dark:text-red-300 bg-[#C7C7C7] font-bold text-[#0044ff]">{a.message}</p>
+              <p className="flex-1 text-sm dark:text-red-300 text-[#ff0000] font-bold bg-[#cec9d1]">{a.message}</p>
               <button onClick={() => handleDeleteNotice(a.id)}
                 className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 text-lg leading-none">×</button>
             </div>
