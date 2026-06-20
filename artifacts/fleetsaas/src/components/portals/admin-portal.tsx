@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, getListPassengersQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -10,13 +11,16 @@ async function apiPost(path: string, body: unknown) {
   if (!res.ok) throw new Error(data.error ?? "Failed");
   return data;
 }
-
+async function apiPatch(path: string, body: unknown) {
+  const res = await fetch(`${BASE}/api${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Failed");
+  return data;
+}
 async function apiDelete(path: string) {
-  const res = await fetch(`${BASE}/api${path}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed");
+  await fetch(`${BASE}/api${path}`, { method: "DELETE" });
 }
 
-// Simulated fleet data
 const FLEET_VEHICLES = [
   { id: 1, plate: "BA 1 KHA 1234", driver: "Ram Bahadur", speed: 38, route: "B4 - Koteshwor", status: "on-route", fuel: 72, nextService: 3200 },
   { id: 2, plate: "BA 2 CHA 5678", driver: "Hari Prasad", speed: 0, route: "B2 - Kalanki", status: "depot", fuel: 45, nextService: 800 },
@@ -48,11 +52,13 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${color}`}>{score}/100</span>;
 }
 
-type Modal = "add-passenger" | "add-driver" | "edit-passenger" | "edit-driver" | null;
+type Modal = "add-passenger" | "add-driver" | null;
+type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; };
 
 export default function AdminPortal() {
+  const { user, login } = useAuth();
   const { data: stations } = useListStations();
-  const { data: announcements } = useListAnnouncements();
+  const { data: announcements, refetch: refetchAnnouncements } = useListAnnouncements();
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
   const { data: drivers, refetch: refetchDrivers } = useListDrivers();
   const queryClient = useQueryClient();
@@ -60,6 +66,20 @@ export default function AdminPortal() {
   const [modal, setModal] = useState<Modal>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  // School settings state
+  const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
+  const [editingSchool, setEditingSchool] = useState(false);
+  const [sName, setSName] = useState("");
+  const [sAddress, setSAddress] = useState("");
+  const [sPhone, setSPhone] = useState("");
+  const [sBanner, setSBanner] = useState("");
+  const [schoolSaving, setSchoolSaving] = useState(false);
+  const [schoolErr, setSchoolErr] = useState("");
+
+  // Notice form
+  const [newNotice, setNewNotice] = useState("");
+  const [noticeSaving, setNoticeSaving] = useState(false);
 
   // Add Passenger form
   const [pName, setPName] = useState("");
@@ -72,10 +92,56 @@ export default function AdminPortal() {
   const [dPhone, setDPhone] = useState("");
   const [dVehicle, setDVehicle] = useState("");
 
-  const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
-  const liveTodayCount = passengers?.filter((p) => p.liveToday === 1).length ?? 0;
-  const onLeaveCount = passengers?.filter((p) => p.quickMessage === "Staying home today").length ?? 0;
-  const onRouteCount = FLEET_VEHICLES.filter(v => v.status === "on-route").length;
+  const tenantId = user?.tenantId ?? 1;
+
+  // Fetch tenant info if not available
+  useEffect(() => {
+    if (!tenant) {
+      fetch(`${BASE}/api/tenants/${tenantId}`)
+        .then((r) => r.json())
+        .then((data: Tenant) => setTenant(data))
+        .catch(() => {});
+    }
+  }, [tenantId, tenant]);
+
+  function openEditSchool() {
+    setSName(tenant?.name ?? "");
+    setSAddress(tenant?.address ?? "");
+    setSPhone(tenant?.contactPhone ?? "");
+    setSBanner(tenant?.bannerUrl ?? "");
+    setSchoolErr("");
+    setEditingSchool(true);
+  }
+
+  async function handleSaveSchool() {
+    setSchoolErr(""); setSchoolSaving(true);
+    try {
+      const updated = await apiPatch(`/tenants/${tenantId}`, {
+        name: sName, address: sAddress, contactPhone: sPhone, bannerUrl: sBanner || null,
+      });
+      setTenant(updated);
+      // Update session so banner shows on dashboard
+      if (user) login({ ...user, tenant: { id: updated.id, name: updated.name, bannerUrl: updated.bannerUrl, address: updated.address } });
+      setEditingSchool(false);
+    } catch (e: unknown) { setSchoolErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSchoolSaving(false); }
+  }
+
+  async function handleAddNotice() {
+    if (!newNotice.trim()) return;
+    setNoticeSaving(true);
+    try {
+      await apiPost("/announcements", { message: newNotice.trim(), severity: "info" });
+      setNewNotice("");
+      refetchAnnouncements();
+    } catch { /* ignore */ }
+    finally { setNoticeSaving(false); }
+  }
+
+  async function handleDeleteNotice(id: number) {
+    await apiDelete(`/announcements/${id}`);
+    refetchAnnouncements();
+  }
 
   const handleAddPassenger = useCallback(async () => {
     setErr(""); setLoading(true);
@@ -99,13 +165,17 @@ export default function AdminPortal() {
     finally { setLoading(false); }
   }, [dName, dPhone, dVehicle, queryClient, refetchDrivers]);
 
+  const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
+  const liveTodayCount = passengers?.filter((p) => p.liveToday === 1).length ?? 0;
+  const onLeaveCount = passengers?.filter((p) => p.quickMessage === "Staying home today").length ?? 0;
+  const onRouteCount = FLEET_VEHICLES.filter(v => v.status === "on-route").length;
+
   return (
     <div className="mx-auto w-full max-w-[860px] p-4 sm:p-6 space-y-6">
-      {/* Header */}
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Admin Dashboard</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Himalayan Edu Transport · Real-time Overview</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{tenant?.name ?? "School"} · Real-time Overview</p>
         </div>
         <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
           Gold Plan
@@ -127,7 +197,114 @@ export default function AdminPortal() {
         ))}
       </div>
 
-      {/* Passengers Management */}
+      {/* ── School Settings ── */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h2 className="font-semibold text-primary">School Settings</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Banner · Contact · Notices shown to students & staff</p>
+          </div>
+          {!editingSchool && (
+            <button onClick={openEditSchool}
+              className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
+              ✏️ Edit
+            </button>
+          )}
+        </div>
+
+        {!editingSchool ? (
+          <div className="p-5 space-y-3">
+            {/* Banner preview */}
+            {tenant?.bannerUrl ? (
+              <div className="relative rounded-xl overflow-hidden" style={{ height: 100 }}>
+                <img src={tenant.bannerUrl} alt="banner" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex items-end p-3">
+                  <p className="text-sm font-bold text-white">{tenant?.name}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border-2 border-dashed border-border p-6 text-center">
+                <p className="text-xs text-muted-foreground">No banner set — click Edit to add a school banner image</p>
+              </div>
+            )}
+            <div className="flex items-center gap-4 text-sm">
+              {tenant?.address && <span className="text-muted-foreground">📍 {tenant.address}</span>}
+              {tenant?.contactPhone && <span className="text-muted-foreground">📞 {tenant.contactPhone}</span>}
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">School Name</label>
+              <input value={sName} onChange={(e) => setSName(e.target.value)}
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Address</label>
+                <input value={sAddress} onChange={(e) => setSAddress(e.target.value)} placeholder="Koteshwor, Kathmandu"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Contact Phone</label>
+                <input value={sPhone} onChange={(e) => setSPhone(e.target.value)} placeholder="+977 01-XXXXXXX"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Banner Image URL (shown at the top of all dashboards)</label>
+              <input value={sBanner} onChange={(e) => setSBanner(e.target.value)} placeholder="https://your-school-banner.jpg"
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              {sBanner && (
+                <img src={sBanner} alt="preview" className="mt-2 h-20 w-full rounded-xl object-cover border border-border"
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+              )}
+            </div>
+            {schoolErr && <p className="text-xs text-red-500">{schoolErr}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => setEditingSchool(false)} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+              <button onClick={handleSaveSchool} disabled={!sName || schoolSaving}
+                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                {schoolSaving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Notices / Announcements ── */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-primary">Notices & Announcements</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Shown on all student & staff dashboards</p>
+        </div>
+        <div className="p-4 space-y-2">
+          {/* Add notice */}
+          <div className="flex gap-2">
+            <input value={newNotice} onChange={(e) => setNewNotice(e.target.value)}
+              placeholder="e.g. Bus will be 15 min late tomorrow…"
+              className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500"
+              onKeyDown={(e) => e.key === "Enter" && handleAddNotice()} />
+            <button onClick={handleAddNotice} disabled={!newNotice.trim() || noticeSaving}
+              className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
+              {noticeSaving ? "…" : "Post"}
+            </button>
+          </div>
+          {/* Existing notices */}
+          {announcements?.map((a) => (
+            <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 p-3">
+              <p className="flex-1 text-sm text-red-900 dark:text-red-300">{a.message}</p>
+              <button onClick={() => handleDeleteNotice(a.id)}
+                className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 text-lg leading-none">×</button>
+            </div>
+          ))}
+          {announcements?.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-3">No notices yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Passengers ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
@@ -162,12 +339,12 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Drivers Management */}
+      {/* ── Drivers ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
             <h2 className="font-semibold text-primary">Drivers</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{drivers?.length ?? 0} registered drivers</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{drivers?.length ?? 0} registered</p>
           </div>
           <button onClick={() => { setModal("add-driver"); setErr(""); }}
             className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
@@ -177,18 +354,14 @@ export default function AdminPortal() {
         <div className="divide-y divide-border">
           {drivers?.map((d) => (
             <div key={d.id} className="flex items-center gap-3 px-4 py-3">
-              <img
-                src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706`}
-                alt={d.name}
-                className="h-10 w-10 rounded-full border border-border object-cover shrink-0"
-              />
+              <img src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706`}
+                alt={d.name} className="h-10 w-10 rounded-full border border-border object-cover shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">{d.name}</p>
                 <p className="text-xs text-muted-foreground">{d.phone} · {d.vehicleNumber}</p>
               </div>
               <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
-                d.isActive
-                  ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                d.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
                   : "bg-muted text-muted-foreground border-border"
               }`}>
                 {d.isActive ? "● Active" : "Inactive"}
@@ -198,7 +371,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Fleet Status */}
+      {/* ── Fleet Status ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Fleet Status</h2>
@@ -217,8 +390,8 @@ export default function AdminPortal() {
                 </div>
                 <p className="text-xs text-muted-foreground">{v.driver} · {v.route}</p>
               </div>
-              <div className="hidden sm:flex items-center gap-4 text-right">
-                <div>
+              <div className="hidden sm:flex items-center gap-4">
+                <div className="text-right">
                   <p className="text-xs text-muted-foreground">Speed</p>
                   <p className={`text-sm font-bold ${v.speed > 50 ? "text-red-500" : "text-foreground"}`}>{v.speed} km/h</p>
                 </div>
@@ -228,7 +401,7 @@ export default function AdminPortal() {
                     <div className="w-12 h-1.5 rounded-full bg-border overflow-hidden">
                       <div className={`h-full rounded-full ${v.fuel < 30 ? "bg-red-500" : v.fuel < 60 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${v.fuel}%` }} />
                     </div>
-                    <p className="text-xs font-medium text-foreground">{v.fuel}%</p>
+                    <p className="text-xs font-medium">{v.fuel}%</p>
                   </div>
                 </div>
               </div>
@@ -237,11 +410,11 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Driver Safety Scores */}
+      {/* ── Driver Safety ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Driver Safety Scores</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Monthly monitoring · AI-analyzed driving behavior</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Monthly AI-analyzed driving behavior</p>
         </div>
         <div className="divide-y divide-border">
           {DRIVER_SCORES.map((d) => (
@@ -260,7 +433,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Maintenance */}
+      {/* ── Maintenance ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Maintenance & Fuel Reminders</h2>
@@ -282,30 +455,16 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Bottom two-column */}
-      <div className="grid gap-5 md:grid-cols-2">
-        {/* Stations */}
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Geofence Stations</h2></div>
-          <div className="divide-y divide-border">
-            {stations?.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="text-amber-500 shrink-0">📍</span>
-                <p className="text-sm text-foreground">{s.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Announcements */}
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Announcements</h2></div>
-          <div className="p-4 space-y-2">
-            {announcements?.map((a) => (
-              <div key={a.id} className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 p-3 text-red-900 dark:text-red-300">
-                <p className="text-sm">{a.message}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── Stations ── */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Geofence Stations</h2></div>
+        <div className="divide-y divide-border">
+          {stations?.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="text-amber-500 shrink-0">📍</span>
+              <p className="text-sm text-foreground">{s.name}</p>
+            </div>
+          ))}
         </div>
       </div>
 

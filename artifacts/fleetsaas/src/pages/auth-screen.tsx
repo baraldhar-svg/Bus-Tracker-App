@@ -26,6 +26,15 @@ async function apiPost(path: string, body: unknown) {
   return data;
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AuthScreen() {
   const { login } = useAuth();
   const [, navigate] = useLocation();
@@ -44,42 +53,45 @@ export default function AuthScreen() {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("Mr.");
   const [role, setRole] = useState("student");
+  const [schoolName, setSchoolName] = useState("");
   const [schoolCode, setSchoolCode] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
+  const [photoPreview, setPhotoPreview] = useState("");
 
   // School admin extra fields
-  const [schoolName, setSchoolName] = useState("");
+  const [saSchoolName, setSaSchoolName] = useState("");
   const [address, setAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-fill OTP in demo mode
   useEffect(() => {
-    if (demoCode && step === "otp") {
-      const digits = demoCode.split("");
-      setOtp(digits);
-    }
+    if (demoCode && step === "otp") setOtp(demoCode.split(""));
   }, [demoCode, step]);
 
+  async function handlePhotoFile(file: File | null) {
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setPhotoUrl(dataUrl);
+    setPhotoPreview(dataUrl);
+  }
+
   async function handleSendOtp() {
-    setErr("");
-    setLoading(true);
+    setErr(""); setLoading(true);
     try {
       const data = await apiPost("/auth/send-otp", { phone });
       setDemoCode(data.demoCode);
       setStep("otp");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function handleVerifyOtp() {
-    setErr("");
-    setLoading(true);
+    setErr(""); setLoading(true);
     const code = otp.join("");
     try {
       const data = await apiPost("/auth/verify-otp", { phone, code });
@@ -87,42 +99,41 @@ export default function AuthScreen() {
         login({ ...data.user, tenant: data.user.tenant ?? null });
         navigate("/dashboard");
       } else {
-        setStep(initialMode === "register" ? "register" : "register");
+        setStep("register");
       }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Invalid code");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function handleRegister() {
     if (role === "admin") { setStep("school-admin"); return; }
-    setErr("");
-    setLoading(true);
+    setErr(""); setLoading(true);
     try {
-      const user = await apiPost("/auth/register", { phone, name, title, role, schoolCode: schoolCode || undefined, photoUrl: photoUrl || undefined });
+      const user = await apiPost("/auth/register", {
+        phone, name, title, role,
+        schoolCode: schoolCode || undefined,
+        photoUrl: photoUrl || undefined,
+      });
       login({ ...user, tenant: null });
       navigate("/dashboard");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Registration failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function handleSchoolRegister() {
-    setErr("");
-    setLoading(true);
+    setErr(""); setLoading(true);
     try {
-      const data = await apiPost("/auth/register-school", { phone, adminName: name, schoolName, address, contactPhone, bannerUrl: bannerUrl || undefined });
+      const data = await apiPost("/auth/register-school", {
+        phone, adminName: name, schoolName: saSchoolName, address, contactPhone,
+        bannerUrl: bannerUrl || undefined,
+      });
       login({ ...data.user, tenant: data.tenant });
       navigate("/dashboard");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Registration failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   function handleOtpKey(idx: number, value: string) {
@@ -135,9 +146,13 @@ export default function AuthScreen() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
-      {/* Card */}
+      {/* Hidden file inputs */}
+      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="user" className="hidden"
+        onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)} />
+
       <div className="w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
-        {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-2">
           <span className="text-5xl bus-float">🚌</span>
           <h1 className="text-2xl font-black text-white">
@@ -156,14 +171,10 @@ export default function AuthScreen() {
               <label className="mb-1.5 block text-xs font-semibold text-slate-300">Mobile Number</label>
               <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
                 <span className="text-sm text-slate-400 select-none">🇳🇵 +977</span>
-                <input
-                  type="tel"
-                  placeholder="98XXXXXXXX"
-                  value={phone}
+                <input type="tel" placeholder="98XXXXXXXX" value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                  onKeyDown={(e) => e.key === "Enter" && handleSendOtp()}
-                />
+                  onKeyDown={(e) => e.key === "Enter" && handleSendOtp()} />
               </div>
             </div>
             {err && <p className="mb-3 text-xs text-red-400">{err}</p>}
@@ -187,16 +198,10 @@ export default function AuthScreen() {
             )}
             <div className="mb-5 flex justify-center gap-2">
               {otp.map((d, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { otpRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={d}
+                <input key={i} ref={(el) => { otpRefs.current[i] = el; }}
+                  type="text" inputMode="numeric" maxLength={1} value={d}
                   onChange={(e) => handleOtpKey(i, e.target.value)}
-                  className="h-12 w-10 rounded-xl border border-slate-600 bg-slate-900 text-center text-lg font-bold text-white focus:border-amber-500 outline-none transition-colors"
-                />
+                  className="h-12 w-10 rounded-xl border border-slate-600 bg-slate-900 text-center text-lg font-bold text-white focus:border-amber-500 outline-none transition-colors" />
               ))}
             </div>
             {err && <p className="mb-3 text-xs text-red-400">{err}</p>}
@@ -214,6 +219,7 @@ export default function AuthScreen() {
             <h2 className="mb-1 text-lg font-bold text-slate-100">Create Your Profile</h2>
             <p className="mb-4 text-xs text-slate-400">Registered as: +977 {phone}</p>
             <div className="space-y-3">
+              {/* Role picker */}
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-300">I am a</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -225,6 +231,7 @@ export default function AuthScreen() {
                   ))}
                 </div>
               </div>
+              {/* Title + Name */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-300">Title</label>
@@ -239,17 +246,49 @@ export default function AuthScreen() {
                     className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
                 </div>
               </div>
+              {/* School Name + Code (for non-admin) */}
               {role !== "admin" && (
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-300">School Code <span className="text-slate-500">(from your school admin)</span></label>
-                  <input value={schoolCode} onChange={(e) => setSchoolCode(e.target.value.toUpperCase())} placeholder="e.g. ORBIT2024"
-                    className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm font-mono text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
-                </div>
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-300">School / College Name</label>
+                    <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Himalayan Public School"
+                      className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-300">
+                      School Code <span className="text-slate-500">(from your school admin)</span>
+                    </label>
+                    <input value={schoolCode} onChange={(e) => setSchoolCode(e.target.value.toUpperCase())} placeholder="e.g. ORBIT2024"
+                      className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm font-mono text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                  </div>
+                </>
               )}
+              {/* Photo picker */}
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-300">Profile Photo URL <span className="text-slate-500">(optional)</span></label>
-                <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..."
-                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                <label className="mb-1.5 block text-xs font-semibold text-slate-300">
+                  Profile Photo <span className="text-slate-500">(optional)</span>
+                </label>
+                {photoPreview ? (
+                  <div className="relative">
+                    <img src={photoPreview} alt="preview"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-amber-500 mx-auto block" />
+                    <button onClick={() => { setPhotoUrl(""); setPhotoPreview(""); }}
+                      className="absolute top-0 right-0 left-0 mx-auto w-fit rounded-full bg-red-600 px-2 py-0.5 text-[10px] text-white mt-1 translate-x-8">
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => galleryInputRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
+                      🖼️ Camera Roll
+                    </button>
+                    <button onClick={() => cameraInputRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
+                      📷 Take Photo
+                    </button>
+                  </div>
+                )}
                 <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-300">
                   📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)
                 </div>
@@ -271,7 +310,7 @@ export default function AuthScreen() {
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-300">School / College Name</label>
-                <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Himalayan Public School"
+                <input value={saSchoolName} onChange={(e) => setSaSchoolName(e.target.value)} placeholder="Himalayan Public School"
                   className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
               </div>
               <div>
@@ -285,14 +324,16 @@ export default function AuthScreen() {
                   className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-300">School Banner Image URL <span className="text-slate-500">(shown on your school page)</span></label>
+                <label className="mb-1 block text-xs font-semibold text-slate-300">
+                  School Banner Image URL <span className="text-slate-500">(shown on your school page)</span>
+                </label>
                 <input value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://your-school-image.jpg"
                   className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
                 {bannerUrl && <img src={bannerUrl} alt="banner preview" className="mt-2 h-20 w-full rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />}
               </div>
             </div>
             {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
-            <button onClick={handleSchoolRegister} disabled={!schoolName || loading}
+            <button onClick={handleSchoolRegister} disabled={!saSchoolName || loading}
               className="mt-5 w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
               {loading ? "Registering school…" : "Create School Account →"}
             </button>
@@ -301,7 +342,6 @@ export default function AuthScreen() {
         )}
       </div>
 
-      {/* Demo hint */}
       <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-center">
         <p className="text-xs text-slate-400">
           <span className="text-amber-400 font-semibold">Demo mode:</span> Use any Nepal number (98XXXXXXXX) — OTP is auto-filled

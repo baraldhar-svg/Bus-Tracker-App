@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import StudentPortal from "@/components/portals/student-portal";
@@ -13,11 +13,14 @@ type Role = "student" | "driver" | "admin" | "superadmin";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Ad = { id: number; title: string; subtitle?: string | null; imageUrl: string; targetUrl?: string | null; };
+type TenantInfo = { id: number; name: string; bannerUrl?: string | null; address?: string | null; contactPhone?: string | null; };
 
 function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void }) {
   const [idx, setIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isUserScrolling = useRef(false);
 
+  // Auto-advance index
   useEffect(() => {
     const interval = setInterval(() => {
       setIdx((i) => (i + 1) % ads.length);
@@ -25,18 +28,25 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
     return () => clearInterval(interval);
   }, [ads.length]);
 
+  // Scroll carousel container only — never the page
   useEffect(() => {
-    if (scrollRef.current) {
-      const child = scrollRef.current.children[idx] as HTMLElement;
-      child?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
+    const el = scrollRef.current;
+    if (!el || isUserScrolling.current) return;
+    const child = el.children[idx] as HTMLElement | undefined;
+    if (!child) return;
+    const targetLeft = child.offsetLeft - (el.clientWidth - child.offsetWidth) / 2;
+    el.scrollTo({ left: targetLeft, behavior: "smooth" });
   }, [idx]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full select-none">
       <p className="px-4 pt-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Featured Schools</p>
-      {/* Carousel */}
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto px-4 pb-3 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto px-4 pb-3 snap-x snap-mandatory scrollbar-hide"
+        onPointerDown={() => { isUserScrolling.current = true; }}
+        onPointerUp={() => { setTimeout(() => { isUserScrolling.current = false; }, 600); }}
+      >
         {ads.map((ad, i) => (
           <button
             key={ad.id}
@@ -50,10 +60,14 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
               {ad.subtitle && <p className="text-xs text-slate-300 mt-0.5 leading-snug">{ad.subtitle}</p>}
             </div>
             <div className="absolute top-2 right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold text-slate-900">AD</div>
+            {ad.targetUrl && (
+              <div className="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-[9px] text-white flex items-center gap-0.5">
+                <span>🌐</span>
+              </div>
+            )}
           </button>
         ))}
       </div>
-      {/* Dots */}
       <div className="flex justify-center gap-1.5 pb-1">
         {ads.map((_, i) => (
           <button key={i} onClick={() => setIdx(i)}
@@ -64,22 +78,39 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
   );
 }
 
+function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
+  if (!tenant.bannerUrl) return null;
+  return (
+    <div className="relative w-full overflow-hidden" style={{ maxHeight: 140 }}>
+      <img src={tenant.bannerUrl} alt={tenant.name} className="w-full object-cover" style={{ height: 140 }} />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex items-end p-4">
+        <div>
+          <p className="text-base font-bold text-white leading-tight">{tenant.name}</p>
+          {tenant.address && <p className="text-xs text-slate-300">{tenant.address}</p>}
+          {tenant.contactPhone && <p className="text-xs text-amber-300 font-medium">{tenant.contactPhone}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [, navigate] = useLocation();
-  const [role, setRole] = useState<Role>(() => {
+  const [dark, setDark] = useState(() => localStorage.getItem("fleetDark") === "1");
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [tenant, setTenant] = useState<TenantInfo | null>(user?.tenant ?? null);
+  const { data: subscription } = useGetMySubscription();
+
+  // Derive single role from logged-in user
+  const userRole: Role = (() => {
     if (user?.role === "admin") return "admin";
     if (user?.role === "driver") return "driver";
     if (user?.role === "superadmin") return "superadmin";
     return "student";
-  });
-  const [dark, setDark] = useState(() => localStorage.getItem("fleetDark") === "1");
-  const [ads, setAds] = useState<Ad[]>([]);
-  const { data: subscription } = useGetMySubscription();
+  })();
 
-  useEffect(() => {
-    localStorage.setItem("fleetDark", dark ? "1" : "0");
-  }, [dark]);
+  useEffect(() => { localStorage.setItem("fleetDark", dark ? "1" : "0"); }, [dark]);
 
   useEffect(() => {
     fetch(`${BASE}/api/advertisements`)
@@ -88,9 +119,25 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
-  function handleAdClick(ad: Ad) {
-    if (ad.targetUrl) navigate(ad.targetUrl);
-  }
+  // Fetch tenant banner if user has a tenantId but no tenant info yet
+  useEffect(() => {
+    if (user?.tenantId && !tenant) {
+      fetch(`${BASE}/api/tenants/me`)
+        .then((r) => r.json())
+        .then((data: TenantInfo) => setTenant(data))
+        .catch(() => {});
+    }
+  }, [user?.tenantId, tenant]);
+
+  const handleAdClick = useCallback((ad: Ad) => {
+    if (!ad.targetUrl) return;
+    // External URLs open in new tab
+    if (ad.targetUrl.startsWith("http://") || ad.targetUrl.startsWith("https://")) {
+      window.open(ad.targetUrl, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(ad.targetUrl);
+    }
+  }, [navigate]);
 
   const ROLE_LABELS: Record<Role, string> = {
     student: "Student / Staff",
@@ -99,7 +146,6 @@ export default function Dashboard() {
     superadmin: "Superadmin",
   };
 
-  const userInitial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
   const avatarSrc = user?.photoUrl ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.name ?? "U")}&backgroundColor=0F172A&textColor=D97706`;
 
@@ -110,7 +156,6 @@ export default function Dashboard() {
         {/* Top Bar */}
         <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur shadow-sm">
           <div className="flex h-14 items-center justify-between px-4">
-            {/* Brand */}
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-[15px]">🚌</span>
               <span className="font-black text-primary text-sm">
@@ -118,25 +163,16 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {/* Tabs */}
-            <nav className="flex items-center gap-1 overflow-x-auto">
-              {(["student", "driver", "admin", "superadmin"] as Role[]).map((r) => (
-                <button key={r} onClick={() => setRole(r)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
-                    role === r ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
-                  }`}>
-                  {ROLE_LABELS[r]}
-                </button>
-              ))}
-            </nav>
+            {/* Single role badge — no switching between roles */}
+            <div className="rounded-full border border-border bg-muted px-4 py-1.5 text-xs font-semibold text-foreground">
+              {ROLE_LABELS[userRole]}
+            </div>
 
-            {/* Right controls */}
             <div className="flex items-center gap-2">
               <button onClick={() => setDark((d) => !d)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-base hover:bg-muted/70 transition-colors">
                 {dark ? "☀️" : "🌙"}
               </button>
-              {/* User avatar + logout */}
               <div className="relative group">
                 <img src={avatarSrc} alt={user?.name} className="h-8 w-8 rounded-full border-2 border-amber-500 cursor-pointer object-cover" />
                 <div className="absolute right-0 top-10 hidden group-hover:block z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-xl p-2">
@@ -162,32 +198,30 @@ export default function Dashboard() {
             <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase">
               {user.role}
             </span>
-            {user.tenant?.name && (
-              <span className="text-xs text-muted-foreground">· {user.tenant.name}</span>
+            {(tenant?.name || user.tenant?.name) && (
+              <span className="text-xs text-muted-foreground">· {tenant?.name ?? user.tenant?.name}</span>
             )}
           </div>
         )}
 
-        {/* School Banner (if school admin and tenant has banner) */}
-        {user?.tenant?.bannerUrl && (
-          <div className="w-full">
-            <img src={user.tenant.bannerUrl} alt={user.tenant.name ?? "School"} className="h-28 w-full object-cover" />
-          </div>
+        {/* School Banner — shown for all users with a tenant */}
+        {(tenant?.bannerUrl || user?.tenant?.bannerUrl) && (
+          <SchoolBanner tenant={tenant ?? user!.tenant!} />
         )}
 
         {/* Ad Carousel */}
         {ads.length > 0 && (
-          <div className="border-b border-border bg-card">
+          <div className="border-b border-border bg-card overflow-hidden">
             <AdCarousel ads={ads} onAdClick={handleAdClick} />
           </div>
         )}
 
         {/* Main Portal */}
         <main className="flex-1 bg-background">
-          {role === "student" && <StudentPortal />}
-          {role === "driver" && <DriverPortal />}
-          {role === "admin" && <AdminPortal />}
-          {role === "superadmin" && <SuperadminPortal />}
+          {userRole === "student" && <StudentPortal />}
+          {userRole === "driver" && <DriverPortal />}
+          {userRole === "admin" && <AdminPortal />}
+          {userRole === "superadmin" && <SuperadminPortal />}
         </main>
 
         {subscription?.paywallActive && <PaywallModal subscription={subscription} />}
