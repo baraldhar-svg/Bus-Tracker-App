@@ -54,20 +54,20 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
           <button
             key={ad.id}
             onClick={() => onAdClick(ad)}
-            className={`relative shrink-0 w-[280px] sm:w-[320px] rounded-2xl overflow-hidden snap-center transition-all ${i === idx ? "ring-2 ring-amber-500 shadow-lg shadow-amber-500/20" : "opacity-80"}`}
+            className={`relative shrink-0 w-[280px] sm:w-[320px] rounded-2xl overflow-hidden snap-center transition-all cursor-pointer ${i === idx ? "ring-2 ring-amber-500 shadow-lg shadow-amber-500/20" : "opacity-80 hover:opacity-100"}`}
           >
             <img src={ad.imageUrl} alt={ad.title} className="h-36 w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
               <p className="font-bold text-white text-sm leading-tight">{ad.title}</p>
               {ad.subtitle && <p className="text-xs text-slate-300 mt-0.5 leading-snug">{ad.subtitle}</p>}
+              {ad.targetUrl && (
+                <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-amber-300">
+                  <Globe size={9} />Visit →
+                </p>
+              )}
             </div>
             <div className="absolute top-2 right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold text-slate-900">AD</div>
-            {ad.targetUrl && (
-              <div className="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-[9px] text-white flex items-center gap-0.5">
-                <Globe size={9} className="text-white" />
-              </div>
-            )}
           </button>
         ))}
       </div>
@@ -380,13 +380,20 @@ function SchoolCodeWidget({ code }: { code: string }) {
 function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
   if (!tenant.bannerUrl) return null;
   return (
-    <div className="relative w-full overflow-hidden" style={{ maxHeight: 140 }}>
-      <img src={tenant.bannerUrl} alt={tenant.name} className="w-full object-cover" style={{ height: 140 }} />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex items-end p-4">
-        <div>
-          <p className="text-base font-bold text-white leading-tight">{tenant.name}</p>
-          {tenant.address && <p className="text-xs text-slate-300">{tenant.address}</p>}
-          {tenant.contactPhone && <p className="text-xs text-amber-300 font-medium">{tenant.contactPhone}</p>}
+    <div className="mx-4 mt-3 mb-1 rounded-xl overflow-hidden border border-amber-500/30 dark:border-amber-600/20 shadow-lg shadow-slate-900/20 ring-1 ring-[#0F172A]/10 dark:ring-[#D97706]/10">
+      <div className="relative w-full" style={{ height: 148 }}>
+        <img src={tenant.bannerUrl} alt={tenant.name} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A]/70 via-[#0F172A]/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/50 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end justify-between">
+          <div>
+            <p className="text-base font-black text-white leading-tight drop-shadow">{tenant.name}</p>
+            {tenant.address && <p className="text-xs text-slate-300 mt-0.5">{tenant.address}</p>}
+            {tenant.contactPhone && <p className="text-xs text-amber-300 font-semibold mt-0.5">{tenant.contactPhone}</p>}
+          </div>
+          <div className="shrink-0 rounded-lg bg-amber-500/20 border border-amber-500/40 px-2 py-1 backdrop-blur-sm">
+            <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Official</span>
+          </div>
         </div>
       </div>
     </div>
@@ -477,16 +484,9 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* School Banner — shown for all users with a tenant */}
+        {/* School Banner — premium institutional poster at top */}
         {(tenant?.bannerUrl || user?.tenant?.bannerUrl) && (
           <SchoolBanner tenant={tenant ?? user!.tenant!} />
-        )}
-
-        {/* Ad Carousel — only for students/staff and superadmin */}
-        {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
-          <div className="border-b border-border bg-card overflow-hidden">
-            <AdCarousel ads={ads} onAdClick={handleAdClick} />
-          </div>
         )}
 
         {/* Welcome bar */}
@@ -501,6 +501,13 @@ export default function Dashboard() {
             {(tenant?.name || user.tenant?.name) && (
               <span className="text-xs text-muted-foreground">· {tenant?.name ?? user.tenant?.name}</span>
             )}
+          </div>
+        )}
+
+        {/* Ad Carousel — pushed below welcome bar; only for students/staff and superadmin */}
+        {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
+          <div className="border-b border-border bg-card overflow-hidden">
+            <AdCarousel ads={ads} onAdClick={handleAdClick} />
           </div>
         )}
 
