@@ -181,7 +181,7 @@ export default function StudentPortal() {
                 : "bg-muted text-muted-foreground border border-border disabled:opacity-50"
             }`}
           >
-            {liveToday && !onLeave ? `✅ ${t.ridingToday}` : `📍 ${t.markLive}`}
+            {liveToday && !onLeave ? t.ridingToday : t.markLive}
           </button>
           <button
             onClick={handleLeaveClick}
@@ -200,7 +200,7 @@ export default function StudentPortal() {
                   {leaveConfirming ? t.tapAgainToCancel : t.tapTwiceToCancel}
                 </span>
               </span>
-            ) : `🏠 ${t.takeLeave}`}
+            ) : t.takeLeave}
           </button>
         </div>
         {sentMsg && (
