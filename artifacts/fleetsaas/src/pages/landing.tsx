@@ -15,7 +15,7 @@ export default function Landing() {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-white">
-              Orbit<span className="text-[#ffee47]">Track</span>
+              Orbit<span className="text-[#ffd000]">Track</span>
             </h1>
             <p className="text-[10px] font-medium text-slate-400 -mt-0.5">Nepal's Smart Bus Platform</p>
           </div>
@@ -36,7 +36,7 @@ export default function Landing() {
         <h2 className="mb-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
           Track Every School Bus.
           <br />
-          <span className="text-[#ffee47]">Every Stop. In Real Time.</span>
+          <span className="text-[#ffd000]">Every Stop. In Real Time.</span>
         </h2>
         <p className="mb-8 max-w-md text-base text-slate-400 leading-relaxed">
           OrbitTrack connects students, drivers and school admins with live GPS tracking, OTP boarding, geofencing alerts and smart fleet management — built for Nepal.

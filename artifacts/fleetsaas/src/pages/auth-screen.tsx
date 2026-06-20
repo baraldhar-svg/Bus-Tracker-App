@@ -206,7 +206,7 @@ export default function AuthScreen() {
         <div className="mb-6 flex flex-col items-center gap-2">
           <span className="text-5xl bus-float">🚌</span>
           <h1 className="text-2xl font-black text-white">
-            Orbit<span className="text-[#ffee47]">Track</span>
+            Orbit<span className="text-[#ffd000]">Track</span>
           </h1>
         </div>
 
@@ -275,7 +275,7 @@ export default function AuthScreen() {
                 <div className="grid grid-cols-2 gap-2">
                   {ROLES.map((r) => (
                     <button key={r.value} onClick={() => setRole(r.value)}
-                      className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${role === r.value ? "border-amber-500 bg-amber-500/10 text-[#ffee47]" : "border-slate-600 text-slate-300 hover:border-slate-500"}`}>
+                      className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${role === r.value ? "border-amber-500 bg-amber-500/10 text-[#ffd000]" : "border-slate-600 text-slate-300 hover:border-slate-500"}`}>
                       {r.label}
                     </button>
                   ))}
@@ -339,7 +339,7 @@ export default function AuthScreen() {
                     </button>
                   </div>
                 )}
-                <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-[#ffee47]">
+                <div className="mt-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-[#ffd000]">
                   {getUniformHint()}
                 </div>
               </div>
@@ -438,7 +438,7 @@ export default function AuthScreen() {
       </div>
       <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-center">
         <p className="text-xs text-slate-400">
-          <span className="font-semibold text-[#ffee47]">Demo mode:</span> Use any Nepal number (98XXXXXXXX) — OTP is auto-filled
+          <span className="font-semibold text-[#ffd000]">Demo mode:</span> Use any Nepal number (98XXXXXXXX) — OTP is auto-filled
         </p>
       </div>
     </div>

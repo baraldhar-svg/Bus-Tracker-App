@@ -50,7 +50,7 @@ export default function SchoolProfile() {
         <button onClick={() => window.history.back()} className="text-slate-400 hover:text-white text-sm">← Back</button>
         <div className="flex items-center gap-2">
           <span className="text-lg">🚌</span>
-          <span className="font-black text-white text-sm">Orbit<span className="text-[#ffee47]">Track</span></span>
+          <span className="font-black text-white text-sm">Orbit<span className="text-[#ffd000]">Track</span></span>
         </div>
       </header>
 
