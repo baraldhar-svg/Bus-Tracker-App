@@ -28,6 +28,11 @@ export function setTenantId(id: number | null): void {
   _tenantId = id;
 }
 
+/** Returns the currently active tenant ID, or null if none has been set. */
+export function getTenantId(): number | null {
+  return _tenantId;
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).

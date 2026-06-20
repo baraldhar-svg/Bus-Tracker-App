@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,20 +8,27 @@ import { useDriverMessages } from "@/lib/driver-messages";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function tenantHeaders(): Record<string, string> {
+  const id = getTenantId();
+  return id !== null ? { "Content-Type": "application/json", "x-tenant-id": String(id) } : { "Content-Type": "application/json" };
+}
+
 async function apiPost(path: string, body: unknown) {
-  const res = await fetch(`${BASE}/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${BASE}/api${path}`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Failed");
   return data;
 }
 async function apiPatch(path: string, body: unknown) {
-  const res = await fetch(`${BASE}/api${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${BASE}/api${path}`, { method: "PATCH", headers: tenantHeaders(), body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Failed");
   return data;
 }
 async function apiDelete(path: string) {
-  await fetch(`${BASE}/api${path}`, { method: "DELETE" });
+  const id = getTenantId();
+  const headers: Record<string, string> = id !== null ? { "x-tenant-id": String(id) } : {};
+  await fetch(`${BASE}/api${path}`, { method: "DELETE", headers });
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -223,7 +230,7 @@ function CalendarManager() {
         : `${adYear}-${String(adMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
       const res = await fetch(`${BASE_URL}/api/calendar-events`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: tenantHeaders(),
         body: JSON.stringify({ title: eTitle.trim(), description: eDesc.trim() || undefined, type: eType, eventDate: adDateStr, autoNotify: eAutoNotify }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed"); }
@@ -235,7 +242,8 @@ function CalendarManager() {
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${BASE_URL}/api/calendar-events/${id}`, { method: "DELETE" });
+    const _tid = getTenantId();
+    await fetch(`${BASE_URL}/api/calendar-events/${id}`, { method: "DELETE", headers: _tid !== null ? { "x-tenant-id": String(_tid) } : {} });
     queryClient.invalidateQueries({ queryKey: getListCalendarEventsQueryKey() });
     refetch();
   }
@@ -901,7 +909,7 @@ function PassengerDetailPanel({
   async function handleDelete() {
     if (!confirm(`Remove ${passenger.name} from the system?`)) return;
     try {
-      await fetch(`${BASE}/api/passengers/${passenger.id}`, { method: "DELETE" });
+      await fetch(`${BASE}/api/passengers/${passenger.id}`, { method: "DELETE", headers: getTenantId() !== null ? { "x-tenant-id": String(getTenantId()) } : {} });
       onRefresh();
       onClose();
     } catch { /* ignore */ }
