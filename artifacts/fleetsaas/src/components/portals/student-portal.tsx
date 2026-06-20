@@ -189,7 +189,6 @@ export default function StudentPortal() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-primary">{t.studentStaff}</h1>
-          <p className="text-xs text-muted-foreground">Aayush Shrestha · Route B4 · Koteshwor</p>
         </div>
         <img
           src="https://api.dicebear.com/7.x/initials/svg?seed=Aayush+Shrestha&backgroundColor=0F172A&textColor=D97706"
