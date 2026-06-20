@@ -90,6 +90,12 @@ export default function BusMap({ route, posIdx }: BusMapProps) {
       });
       const busMarker = L.marker([start.lat, start.lng], { icon: busIcon, zIndexOffset: 1000 }).addTo(map);
 
+      // Open Google Maps on map click
+      map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+        const { lat, lng } = e.latlng;
+        window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+      });
+
       leafletRef.current = map;
       markerRef.current = busMarker;
       currentPosRef.current = { lat: start.lat, lng: start.lng };
@@ -176,5 +182,31 @@ export default function BusMap({ route, posIdx }: BusMapProps) {
     animFrameRef.current = requestAnimationFrame(tick);
   }, [posIdx]);
 
-  return <div ref={mapRef} className="w-full h-full" />;
+  function zoomIn() {
+    const map = leafletRef.current as { zoomIn: () => void } | null;
+    map?.zoomIn();
+  }
+  function zoomOut() {
+    const map = leafletRef.current as { zoomOut: () => void } | null;
+    map?.zoomOut();
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full" />
+      {/* Zoom controls */}
+      <div className="absolute bottom-3 right-3 z-[1000] flex flex-col gap-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground text-lg font-bold hover:bg-muted transition-colors"
+          title="Zoom in"
+        >+</button>
+        <button
+          onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground text-lg font-bold hover:bg-muted transition-colors"
+          title="Zoom out"
+        >−</button>
+      </div>
+    </div>
+  );
 }
