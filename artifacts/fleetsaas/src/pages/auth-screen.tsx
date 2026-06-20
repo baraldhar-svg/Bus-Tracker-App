@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-type Step = "phone" | "otp" | "register" | "school-admin";
+type Step = "phone" | "otp" | "register" | "school-admin" | "school-success";
 
 const ROLES = [
   { value: "student", label: "🎓 Student" },
@@ -97,6 +97,8 @@ export default function AuthScreen() {
   const [address, setAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -165,11 +167,19 @@ export default function AuthScreen() {
         phone, adminName: name, schoolName: saSchoolName, address, contactPhone,
         bannerUrl: bannerUrl || undefined,
       });
-      login({ ...data.user, tenant: data.tenant });
-      navigate("/dashboard");
+      login({ ...data.user, tenant: { ...data.tenant, schoolCode: data.schoolCode } });
+      setGeneratedCode(data.schoolCode);
+      setStep("school-success");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Registration failed");
     } finally { setLoading(false); }
+  }
+
+  async function handleCopyCode() {
+    if (!generatedCode) return;
+    await navigator.clipboard.writeText(generatedCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2500);
   }
 
   function handleOtpKey(idx: number, value: string) {
@@ -339,6 +349,37 @@ export default function AuthScreen() {
             <button onClick={handleRegister} disabled={!name || loading}
               className="mt-5 w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
               {loading ? "Creating account…" : role === "admin" ? "Continue →" : "Join OrbitTrack →"}
+            </button>
+          </>
+        )}
+
+        {/* STEP: School Created Success */}
+        {step === "school-success" && (
+          <>
+            <div className="mb-5 flex flex-col items-center gap-2 text-center">
+              <span className="text-4xl">🎉</span>
+              <h2 className="text-lg font-bold text-slate-100">School Registered!</h2>
+              <p className="text-xs text-slate-400">Share this code with your students, staff, and drivers so they can join your school on OrbitTrack.</p>
+            </div>
+            <div className="rounded-2xl border border-amber-500/50 bg-amber-500/10 p-5 space-y-3 mb-5">
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider text-center">Your School Code</p>
+              <p className="text-2xl font-black text-white text-center tracking-widest font-mono">{generatedCode}</p>
+              <button
+                onClick={handleCopyCode}
+                className={`w-full rounded-xl py-2.5 text-sm font-bold transition-all ${codeCopied ? "bg-green-600 text-white" : "bg-amber-500 text-slate-900 hover:bg-amber-400"}`}
+              >
+                {codeCopied ? "✓ Copied to Clipboard!" : "📋 Copy Code"}
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-xs text-slate-400 space-y-1 mb-5">
+              <p className="font-semibold text-slate-300">How to share:</p>
+              <p>• Students & staff enter this code when registering</p>
+              <p>• They'll be automatically linked to <span className="text-amber-400 font-medium">{saSchoolName}</span></p>
+              <p>• You can always find this code in your Admin dashboard</p>
+            </div>
+            <button onClick={() => navigate("/dashboard")}
+              className="w-full rounded-xl bg-slate-700 py-3 font-bold text-white hover:bg-slate-600 transition-colors">
+              Go to Dashboard →
             </button>
           </>
         )}

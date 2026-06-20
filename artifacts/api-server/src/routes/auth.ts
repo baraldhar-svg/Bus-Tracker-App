@@ -75,7 +75,11 @@ router.post("/register-school", async (req, res) => {
   };
   if (!phone || !adminName || !schoolName) return res.status(400).json({ error: "Missing required fields" });
 
-  const schoolCode = schoolName.replace(/\s+/g, "").toUpperCase().slice(0, 8) + Math.floor(1000 + Math.random() * 9000);
+  const WORDS_A = ["APEX","BOLT","CORE","DOVE","FLUX","GLOW","HAWK","JADE","KITE","LION","MINT","NOVA","PEAK","RISE","SAGE","TREK","VAST","WAVE","ZEAL","FERN","CREST","DRIFT","EMBER","GROVE","HAVEN","PRISM","QUEST","SCOUT","SHARP","SWIFT"];
+  const WORDS_B = ["ALPHA","BRAVE","CLEAR","DELTA","EAGLE","FIELD","GRACE","HONOR","INDEX","UNITY","PRIME","ROUTE","SIGMA","TRAIL","VALOR","NEXUS","ORBIT","PILOT","RELAY","SOLAR","TERRA","ULTRA","VANCE","WINDS","XENON","YUKON","ZENITH","ATLAS","BEACON","CRANE"];
+  const wa = WORDS_A[Math.floor(Math.random() * WORDS_A.length)];
+  const wb = WORDS_B[Math.floor(Math.random() * WORDS_B.length)];
+  const schoolCode = `${wa}-${wb}-${Math.floor(1000 + Math.random() * 9000)}`;
   const [tenant] = await db.insert(tenantsTable).values({
     name: schoolName,
     address: address ?? null,

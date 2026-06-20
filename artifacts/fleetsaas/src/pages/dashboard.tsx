@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Bus, Globe, Phone, Building2, Sun, Moon, Upload, Camera } from "lucide-react";
+import { Bus, Globe, Phone, Building2, Sun, Moon, Upload, Camera, Copy, Check } from "lucide-react";
 import { useAuth, type AuthUser } from "@/hooks/use-auth";
 import { useLang, useT, LANGUAGES } from "@/lib/i18n";
 import StudentPortal from "@/components/portals/student-portal";
@@ -16,7 +16,7 @@ type Role = "student" | "driver" | "admin" | "superadmin";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Ad = { id: number; title: string; subtitle?: string | null; imageUrl: string; targetUrl?: string | null; };
-type TenantInfo = { id: number; name: string; bannerUrl?: string | null; address?: string | null; contactPhone?: string | null; };
+type TenantInfo = { id: number; name: string; bannerUrl?: string | null; address?: string | null; contactPhone?: string | null; schoolCode?: string | null; };
 
 function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void }) {
   const [idx, setIdx] = useState(0);
@@ -352,6 +352,31 @@ function ProfilePanel({
   );
 }
 
+function SchoolCodeWidget({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5">
+      <div className="hidden sm:block">
+        <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide leading-none mb-0.5">School Code</p>
+        <p className="text-xs font-black text-foreground font-mono tracking-wider leading-none">{code}</p>
+      </div>
+      <p className="block sm:hidden text-xs font-black text-foreground font-mono tracking-wider">{code}</p>
+      <button
+        onClick={handleCopy}
+        title="Copy school code"
+        className="ml-1 rounded-md p-1 hover:bg-amber-500/20 transition-colors text-amber-500"
+      >
+        {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+      </button>
+    </div>
+  );
+}
+
 function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
   if (!tenant.bannerUrl) return null;
   return (
@@ -440,6 +465,9 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              {userRole === "admin" && (tenant?.schoolCode || user?.tenant?.schoolCode) && (
+                <SchoolCodeWidget code={(tenant?.schoolCode ?? user?.tenant?.schoolCode)!} />
+              )}
               <button onClick={() => setProfileOpen(true)}
                 className="relative rounded-full ring-2 ring-amber-500 hover:ring-amber-400 transition-all focus:outline-none"
                 title="My Profile">

@@ -9,7 +9,7 @@ export type AuthUser = {
   schoolCode?: string | null;
   tenantId?: number | null;
   photoUrl?: string | null;
-  tenant?: { id: number; name: string; bannerUrl?: string | null; address?: string | null } | null;
+  tenant?: { id: number; name: string; bannerUrl?: string | null; address?: string | null; schoolCode?: string | null } | null;
 };
 
 const SESSION_KEY = "orbittrack_user";
