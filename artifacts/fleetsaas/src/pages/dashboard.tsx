@@ -489,22 +489,7 @@ export default function Dashboard() {
           <SchoolBanner tenant={tenant ?? user!.tenant!} />
         )}
 
-        {/* Welcome bar */}
-        {user && (
-          <div className="border-b border-border bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-2 flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              {user.title ? `${user.title} ` : ""}{user.name}
-            </span>
-            <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase">
-              {user.role}
-            </span>
-            {(tenant?.name || user.tenant?.name) && (
-              <span className="text-xs text-muted-foreground">· {tenant?.name ?? user.tenant?.name}</span>
-            )}
-          </div>
-        )}
-
-        {/* Ad Carousel — pushed below welcome bar; only for students/staff and superadmin */}
+        {/* Ad Carousel — only for students/staff and superadmin */}
         {ads.length > 0 && (userRole === "student" || userRole === "superadmin") && (
           <div className="border-b border-border bg-card overflow-hidden">
             <AdCarousel ads={ads} onAdClick={handleAdClick} />
