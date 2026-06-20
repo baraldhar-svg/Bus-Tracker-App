@@ -171,6 +171,14 @@ export interface DriverInput {
   vehicleNumber: string;
 }
 
+export interface DriverUpdate {
+  name?: string;
+  phone?: string;
+  vehicleNumber?: string;
+  photoUrl?: string | null;
+  isActive?: boolean;
+}
+
 export interface Vehicle {
   id: number;
   plateNumber: string;

@@ -121,6 +121,39 @@ export const CreateDriverBody = zod.object({
 
 
 /**
+ * @summary Update driver details (admin)
+ */
+export const PatchDriverParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PatchDriverBody = zod.object({
+  "name": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "vehicleNumber": zod.string().optional(),
+  "photoUrl": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const PatchDriverResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string(),
+  "photoUrl": zod.string().nullish(),
+  "vehicleNumber": zod.string(),
+  "isActive": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Remove a driver (admin)
+ */
+export const DeleteDriverParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary Get currently assigned active driver
  */
 export const GetActiveDriverResponse = zod.object({

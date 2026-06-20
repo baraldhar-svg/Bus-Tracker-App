@@ -29,6 +29,7 @@ import type {
   DashboardStats,
   Driver,
   DriverInput,
+  DriverUpdate,
   FleetSwapInput,
   GeocodeAddressParams,
   GeocodeResult,
@@ -805,6 +806,148 @@ export const useCreateDriver = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateDriverMutationOptions(options));
+    }
+
+export const getPatchDriverUrl = (id: number,) => {
+
+
+
+
+  return `/api/drivers/${id}`
+}
+
+/**
+ * @summary Update driver details (admin)
+ */
+export const patchDriver = async (id: number,
+    driverUpdate: DriverUpdate, options?: RequestInit): Promise<Driver> => {
+
+  return customFetch<Driver>(getPatchDriverUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      driverUpdate,)
+  }
+);}
+
+
+
+
+export const getPatchDriverMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchDriver>>, TError,{id: number;data: BodyType<DriverUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchDriver>>, TError,{id: number;data: BodyType<DriverUpdate>}, TContext> => {
+
+const mutationKey = ['patchDriver'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchDriver>>, {id: number;data: BodyType<DriverUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  patchDriver(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchDriverMutationResult = NonNullable<Awaited<ReturnType<typeof patchDriver>>>
+    export type PatchDriverMutationBody = BodyType<DriverUpdate>
+    export type PatchDriverMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update driver details (admin)
+ */
+export const usePatchDriver = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchDriver>>, TError,{id: number;data: BodyType<DriverUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof patchDriver>>,
+        TError,
+        {id: number;data: BodyType<DriverUpdate>},
+        TContext
+      > => {
+      return useMutation(getPatchDriverMutationOptions(options));
+    }
+
+export const getDeleteDriverUrl = (id: number,) => {
+
+
+
+
+  return `/api/drivers/${id}`
+}
+
+/**
+ * @summary Remove a driver (admin)
+ */
+export const deleteDriver = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDriverUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteDriverMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDriver>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDriver>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDriver'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDriver>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDriver(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDriverMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDriver>>>
+
+    export type DeleteDriverMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a driver (admin)
+ */
+export const useDeleteDriver = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDriver>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDriver>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDriverMutationOptions(options));
     }
 
 export const getGetActiveDriverUrl = () => {

@@ -569,6 +569,277 @@ function StatsDetailPanel({
   );
 }
 
+type DriverRow = { id: number; name: string; phone: string; vehicleNumber: string; isActive: boolean; photoUrl?: string | null };
+
+function DriverDetailPanel({
+  driver, vehicles, routes, onClose, onRefresh,
+}: {
+  driver: DriverRow;
+  vehicles: VehicleRow[] | undefined;
+  routes: RouteRow[] | undefined;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const assignedRoutes = (routes ?? []).filter((r) => r.driverId === driver.id);
+  const unassignedRoutes = (routes ?? []).filter((r) => r.driverId !== driver.id);
+
+  const [saving, setSaving] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState(driver.name);
+  const [editPhone, setEditPhone] = useState(driver.phone);
+
+  // Vehicle change
+  const [changingVehicle, setChangingVehicle] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+
+  // Route assign
+  const [assigningRoute, setAssigningRoute] = useState(false);
+  const [pickRouteId, setPickRouteId] = useState("");
+  const [routeErr, setRouteErr] = useState("");
+
+  const [err, setErr] = useState("");
+
+  async function handleSaveInfo() {
+    setSaving(true); setErr("");
+    try {
+      await apiPatch(`/drivers/${driver.id}`, { name: editName.trim(), phone: editPhone.trim() });
+      onRefresh();
+      setEditingName(false);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleToggleActive() {
+    setSaving(true);
+    try {
+      await apiPatch(`/drivers/${driver.id}`, { isActive: !driver.isActive });
+      onRefresh();
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  }
+
+  async function handleChangeVehicle() {
+    if (!selectedVehicleId) return;
+    const v = (vehicles ?? []).find((x) => x.id === Number(selectedVehicleId));
+    if (!v) return;
+    setSaving(true); setErr("");
+    try {
+      await apiPatch(`/drivers/${driver.id}`, { vehicleNumber: v.plateNumber });
+      onRefresh();
+      setChangingVehicle(false);
+      setSelectedVehicleId("");
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleAssignRoute() {
+    if (!pickRouteId) return;
+    setRouteErr(""); setSaving(true);
+    try {
+      await apiPatch(`/routes/${pickRouteId}`, { driverId: driver.id });
+      queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+      onRefresh();
+      setAssigningRoute(false);
+      setPickRouteId("");
+    } catch (e: unknown) { setRouteErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRemoveFromRoute(routeId: number) {
+    await apiPatch(`/routes/${routeId}`, { driverId: null });
+    queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+    onRefresh();
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Remove driver ${driver.name}?`)) return;
+    await apiDelete(`/drivers/${driver.id}`);
+    queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
+    onRefresh();
+    onClose();
+  }
+
+  const currentVehicle = (vehicles ?? []).find((v) => v.plateNumber === driver.vehicleNumber);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[90vh] flex flex-col">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <img
+              src={driver.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(driver.name)}&backgroundColor=0F172A&textColor=D97706`}
+              alt={driver.name}
+              className="h-10 w-10 rounded-full border-2 border-amber-500 object-cover shrink-0"
+            />
+            <div>
+              <h2 className="text-base font-bold text-foreground">{driver.name}</h2>
+              <span className={`text-[10px] font-semibold ${driver.isActive ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                {driver.isActive ? "● Active" : "● Inactive"}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {err && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded-xl px-3 py-2">{err}</p>}
+
+          {/* Driver Info */}
+          <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Driver Info</p>
+              <button onClick={() => setEditingName((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold hover:underline">
+                <Pencil size={10} />{editingName ? "Cancel" : "Edit"}
+              </button>
+            </div>
+            {editingName ? (
+              <div className="space-y-2">
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500" />
+                <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="+977 98XXXXXXXX"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500" />
+                <button onClick={handleSaveInfo} disabled={!editName.trim() || saving}
+                  className="w-full rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Phone size={13} className="text-muted-foreground shrink-0" />
+                  <p className="text-sm text-foreground">{driver.phone}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Bus size={13} className="text-muted-foreground shrink-0" />
+                  <p className="text-sm text-foreground">{driver.vehicleNumber}</p>
+                </div>
+              </div>
+            )}
+            {/* Active toggle */}
+            <button onClick={handleToggleActive} disabled={saving}
+              className={`w-full rounded-xl border py-2 text-xs font-semibold transition-colors ${driver.isActive
+                ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/30"
+                : "border-border bg-muted text-muted-foreground hover:border-amber-500 hover:text-amber-600"}`}>
+              {driver.isActive ? "✓ Mark Inactive" : "✓ Mark Active"}
+            </button>
+          </div>
+
+          {/* Assigned Bus */}
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Bus size={11} />Assigned Bus</p>
+            {currentVehicle ? (
+              <div className="flex items-center gap-3 rounded-xl bg-muted/40 p-3">
+                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${currentVehicle.isActive ? "bg-green-500" : "bg-slate-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">{currentVehicle.plateNumber}</p>
+                  <p className="text-[10px] text-muted-foreground">{currentVehicle.model} · {currentVehicle.capacity} seats{currentVehicle.tag ? ` · ${currentVehicle.tag}` : ""}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Plate: {driver.vehicleNumber} (not in vehicle registry)</p>
+            )}
+            {changingVehicle ? (
+              <div className="space-y-2">
+                <select value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                  <option value="">Select bus…</option>
+                  {(vehicles ?? []).map((v) => (
+                    <option key={v.id} value={v.id}>{v.tag ? `${v.tag} — ` : ""}{v.plateNumber} ({v.model})</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={() => setChangingVehicle(false)}
+                    className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                  <button onClick={handleChangeVehicle} disabled={!selectedVehicleId || saving}
+                    className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                    {saving ? "Saving…" : "Assign Bus"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setChangingVehicle(true)}
+                className="w-full rounded-xl border border-border py-2 text-xs font-semibold text-muted-foreground hover:border-amber-500 hover:text-amber-600 transition-colors flex items-center justify-center gap-1.5">
+                <RefreshCw size={11} />Change Bus
+              </button>
+            )}
+          </div>
+
+          {/* Assigned Routes */}
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Route size={11} />Assigned Routes</p>
+              <button onClick={() => setAssigningRoute((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold hover:underline">
+                <Plus size={10} />Add to Route
+              </button>
+            </div>
+            {assignedRoutes.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">Not assigned to any route yet</p>
+            )}
+            {assignedRoutes.map((r) => (
+              <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+                <div className={`h-2 w-2 rounded-full shrink-0 ${r.isActive ? "bg-green-500" : "bg-slate-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{r.vehiclePlate ?? "No vehicle"}</p>
+                </div>
+                <button onClick={() => handleRemoveFromRoute(r.id)}
+                  className="shrink-0 rounded-lg border border-border p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+            {assigningRoute && (
+              <div className="space-y-2 pt-1 border-t border-border">
+                {routeErr && <p className="text-xs text-red-500">{routeErr}</p>}
+                {unassignedRoutes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No more routes available</p>
+                ) : (
+                  <>
+                    <select value={pickRouteId} onChange={(e) => setPickRouteId(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      <option value="">Pick a route…</option>
+                      {unassignedRoutes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={() => setAssigningRoute(false)}
+                        className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                      <button onClick={handleAssignRoute} disabled={!pickRouteId || saving}
+                        className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                        {saving ? "Saving…" : "Assign"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Delete */}
+          <button onClick={handleDelete}
+            className="w-full rounded-xl border border-red-300 dark:border-red-800 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-2">
+            <Trash2 size={13} />Remove Driver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: () => void }) {
   const messages = useDriverMessages(vehicle.plate);
   const score = DRIVER_SCORES.find((d) => d.name === vehicle.driver);
@@ -1329,12 +1600,14 @@ export default function AdminPortal() {
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
   const { data: drivers, refetch: refetchDrivers } = useListDrivers();
   const { data: vehicles, refetch: refetchVehicles } = useListVehicles();
+  const { data: adminRoutes } = useListRoutes();
   const queryClient = useQueryClient();
 
   const [modal, setModal] = useState<Modal>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
   const [statsFilter, setStatsFilter] = useState<StatsFilter>(null);
 
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
@@ -1731,20 +2004,25 @@ export default function AdminPortal() {
         </div>
         <div className="divide-y divide-border">
           {drivers?.map((d) => (
-            <div key={d.id} className="flex items-center gap-3 px-4 py-3">
+            <button key={d.id}
+              onClick={() => setSelectedDriver({ id: d.id, name: d.name, phone: d.phone, vehicleNumber: d.vehicleNumber, isActive: d.isActive ?? false, photoUrl: d.photoUrl })}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors">
               <img src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706`}
                 alt={d.name} className="h-10 w-10 rounded-full border border-border object-cover shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{d.name}</p>
-                <p className="text-xs text-muted-foreground">{d.phone} · {d.vehicleNumber}</p>
+                <p className="text-xs text-muted-foreground truncate">{d.phone} · {d.vehicleNumber}</p>
               </div>
-              <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
-                d.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}>
-                {d.isActive ? "● Active" : "Inactive"}
-              </span>
-            </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
+                  d.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                    : "bg-muted text-muted-foreground border-border"
+                }`}>
+                  {d.isActive ? "● Active" : "Inactive"}
+                </span>
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </div>
+            </button>
           ))}
         </div>
       </div>
@@ -1875,6 +2153,19 @@ export default function AdminPortal() {
           filter={statsFilter}
           passengers={(passengers ?? []) as Passenger[]}
           onClose={() => setStatsFilter(null)}
+        />
+      )}
+      {/* Driver Detail Panel */}
+      {selectedDriver && (
+        <DriverDetailPanel
+          driver={selectedDriver}
+          vehicles={vehicles as VehicleRow[] | undefined}
+          routes={adminRoutes as RouteRow[] | undefined}
+          onClose={() => setSelectedDriver(null)}
+          onRefresh={() => {
+            refetchDrivers();
+            queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
+          }}
         />
       )}
       {/* Bus Detail Panel */}

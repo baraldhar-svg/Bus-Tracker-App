@@ -191,6 +191,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/Driver"
 
+  /drivers/{id}:
+    patch:
+      operationId: patchDriver
+      tags: [drivers]
+      summary: Update driver details (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverUpdate"
+      responses:
+        "200":
+          description: Updated driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+    delete:
+      operationId: deleteDriver
+      tags: [drivers]
+      summary: Remove a driver (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /drivers/active:
     get:
       operationId: getActiveDriver
@@ -1022,6 +1060,21 @@ components:
           type: string
         vehicleNumber:
           type: string
+
+    DriverUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        vehicleNumber:
+          type: string
+        photoUrl:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
 
     Vehicle:
       type: object
