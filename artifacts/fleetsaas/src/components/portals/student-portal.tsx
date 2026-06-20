@@ -202,8 +202,8 @@ export default function StudentPortal() {
           </button>
         </div>
         {sentMsg && (
-          <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 dark:text-blue-300 bg-background text-[#000] text-xs font-extrabold">
-            Driver notified: <span className="font-semibold text-[#FF0000] border-t-[#000] border-r-[#000] border-b-[#000] border-l-[#000]">{onLeave ? "Not Riding Today" : "Coming to School Today"}</span>
+          <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 dark:text-blue-300 bg-background text-xs font-extrabold text-[#000]">
+            Driver notified: <span className="font-semibold border-t-[#000] border-r-[#000] border-b-[#000] border-l-[#000] text-[#007500]">{onLeave ? "Not Riding Today" : "Coming to School Today"}</span>
           </div>
         )}
       </div>
