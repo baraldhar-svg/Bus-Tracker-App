@@ -55,7 +55,7 @@ export default function AppFooter({ variant = "light" }: { variant?: "light" | "
         >
           <span className="transition-transform duration-300 group-hover:rotate-12">⚡</span>
           Powered by{" "}
-          <span className={`font-bold ${dark ? "text-[#FFCF38]" : "text-amber-600"}`}>
+          <span className={`font-bold ${dark ? "text-[#FFF078]" : "text-amber-600"}`}>
             Istuti Soft Tec
           </span>
         </div>

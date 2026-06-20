@@ -277,7 +277,7 @@ export default function StudentPortal() {
           ) : (
             <div className="px-4 py-6 text-center">
               <p className="text-sm text-amber-700 dark:text-amber-400">No notices at this time</p>
-              <p className="text-xs text-amber-600/60 dark:text-[#FFCF38]/50 mt-0.5">Check back later for updates from your school</p>
+              <p className="text-xs text-amber-600/60 dark:text-[#FFF078]/50 mt-0.5">Check back later for updates from your school</p>
             </div>
           )}
         </div>
@@ -385,7 +385,7 @@ export default function StudentPortal() {
           className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/40 transition-colors"
         >
           <div className="flex items-center gap-2.5">
-            <Route size={15} className="text-[#FFCF38] shrink-0" />
+            <Route size={15} className="text-[#FFF078] shrink-0" />
             <div className="text-left">
               <p className="text-sm font-semibold text-foreground">Transport Configuration</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -439,13 +439,13 @@ export default function StudentPortal() {
                             : "border-border bg-muted/30 hover:border-amber-300"
                         }`}
                       >
-                        <span className="text-[10px] font-bold text-[#FFCF38] w-4 shrink-0">{idx + 1}</span>
+                        <span className="text-[10px] font-bold text-[#FFF078] w-4 shrink-0">{idx + 1}</span>
                         <div className="flex-1">
                           <p className="text-xs font-medium text-foreground">{rs.stationName ?? `Station #${rs.stationId}`}</p>
                           {rs.radius && <p className="text-[9px] text-muted-foreground">{rs.radius}m geofence</p>}
                         </div>
                         {selectedStationId === String(rs.stationId) && (
-                          <CheckCircle size={13} className="text-[#FFCF38] shrink-0" />
+                          <CheckCircle size={13} className="text-[#FFF078] shrink-0" />
                         )}
                       </button>
                     ))}

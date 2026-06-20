@@ -247,7 +247,7 @@ function CalendarManager() {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-[#FFCF38]" />
+          <CalendarDays size={16} className="text-[#FFF078]" />
           <div>
             <h2 className="font-semibold text-primary">विद्यालय क्यालेन्डर</h2>
             <p className="text-xs text-muted-foreground mt-0.5">School Calendar · Events &amp; Holidays</p>
@@ -474,11 +474,11 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => galleryRef.current?.click()}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
             <Upload size={13} className="shrink-0" /> Upload Photo
           </button>
           <button onClick={() => cameraRef.current?.click()}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
             <Camera size={13} className="shrink-0" /> Take Photo
           </button>
         </div>
@@ -1067,7 +1067,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
             </div>
             <div className="rounded-xl border border-border bg-card p-3 text-center">
               <p className="text-xs text-muted-foreground mb-0.5">Fuel</p>
-              <p className={`text-lg font-bold ${vehicle.fuel < 30 ? "text-red-500" : vehicle.fuel < 60 ? "text-[#FFCF38]" : "text-green-600"}`}>{vehicle.fuel}%</p>
+              <p className={`text-lg font-bold ${vehicle.fuel < 30 ? "text-red-500" : vehicle.fuel < 60 ? "text-[#FFF078]" : "text-green-600"}`}>{vehicle.fuel}%</p>
               <p className="text-[9px] text-muted-foreground">level</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-3 text-center">
@@ -1082,7 +1082,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
             {/* Map header */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border">
               <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-[#FFCF38] shrink-0" />
+                <MapPin size={14} className="text-[#FFF078] shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-foreground">{vehicle.route}</p>
                   <p className="text-[10px] text-muted-foreground">
@@ -1320,7 +1320,7 @@ function RouteStationsPanel({
           {routeStations.length === 0 && <p className="text-xs text-muted-foreground italic">No stations assigned yet</p>}
           {routeStations.map((rs, idx) => (
             <div key={rs.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2">
-              <span className="text-[10px] font-bold text-[#FFCF38] w-4 shrink-0">{idx + 1}</span>
+              <span className="text-[10px] font-bold text-[#FFF078] w-4 shrink-0">{idx + 1}</span>
               <Navigation size={11} className="text-muted-foreground shrink-0" />
               <p className="flex-1 text-xs text-foreground">{rs.stationName ?? `Station #${rs.stationId}`}</p>
               {rs.radius && <span className="text-[9px] text-muted-foreground">{rs.radius}m</span>}
@@ -1629,7 +1629,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
               <div className="space-y-1">
                 {stagedStations.map((s, idx) => (
                   <div key={s.stationId} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
-                    <span className="text-[10px] font-bold text-[#FFCF38] w-4 shrink-0">{idx + 1}</span>
+                    <span className="text-[10px] font-bold text-[#FFF078] w-4 shrink-0">{idx + 1}</span>
                     <p className="flex-1 text-xs text-foreground">{s.name}</p>
                     <button onClick={() => setStagedStations((prev) => prev.filter((x) => x.stationId !== s.stationId))}
                       className="text-red-400 hover:text-red-600 shrink-0"><X size={11} /></button>
@@ -1791,16 +1791,16 @@ function StationManager({ stations, onCreated }: { stations: StationItem[] | und
               onClick={() => setSelectedId(isSelected ? null : s.id)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-amber-500/10" : "hover:bg-muted/50"}`}
             >
-              <MapPin size={13} className={`shrink-0 ${isSelected ? "text-[#FFCF38]" : "text-amber-400/60"}`} />
+              <MapPin size={13} className={`shrink-0 ${isSelected ? "text-[#FFF078]" : "text-amber-400/60"}`} />
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isSelected ? "text-[#FFCF38]" : "text-foreground"}`}>{s.name}</p>
+                <p className={`text-sm font-medium truncate ${isSelected ? "text-[#FFF078]" : "text-foreground"}`}>{s.name}</p>
                 {s.lat != null && (
                   <p className="text-[10px] text-muted-foreground">
                     {(s.lat as number).toFixed(4)}, {(s.lng as number)?.toFixed(4)} · {s.radius ?? 200}m
                   </p>
                 )}
               </div>
-              {isSelected && <span className="shrink-0 text-[#FFCF38] text-sm">✓</span>}
+              {isSelected && <span className="shrink-0 text-[#FFF078] text-sm">✓</span>}
             </button>
           );
         })}
@@ -2160,11 +2160,11 @@ export default function AdminPortal() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => bannerEditGalleryRef.current?.click()}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
                         <Upload size={13} className="inline mr-1" />Change Photo
                       </button>
                       <button onClick={() => bannerEditCameraRef.current?.click()}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-medium text-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
                         <Camera size={13} className="inline mr-1" />Take Photo
                       </button>
                     </div>
@@ -2235,11 +2235,11 @@ export default function AdminPortal() {
                     }} />
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => bannerGalleryRef.current?.click()}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
                       <Upload size={13} className="inline mr-1" />Upload Photo
                     </button>
                     <button onClick={() => bannerCameraRef.current?.click()}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFCF38] transition-colors">
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-3 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors">
                       <Camera size={13} className="inline mr-1" />Take Photo
                     </button>
                   </div>
