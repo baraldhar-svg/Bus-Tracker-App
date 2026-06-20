@@ -256,6 +256,18 @@ function CalendarManager() {
         </button>
       </div>
 
+      {/* Today banner */}
+      <div className="flex items-center justify-center gap-2 px-5 py-2 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800">
+        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Today</span>
+        <span className="text-xs font-bold text-foreground">
+          {BS_MONTH_NAMES_NE[todayB.month - 1]} {todayB.day}, {todayB.year} BS
+        </span>
+        <span className="text-[10px] text-muted-foreground">·</span>
+        <span className="text-xs font-bold text-foreground">
+          {AD_MONTH_NAMES[todayAd.getMonth()]} {todayAd.getDate()}, {todayAd.getFullYear()} AD
+        </span>
+      </div>
+
       {/* Calendar Grid */}
       <div className="p-4">
         <div className="grid grid-cols-7 mb-1">
@@ -276,16 +288,21 @@ function CalendarManager() {
             const hasEvent = dayEvents.some(e => e.type === "event");
             return (
               <button key={day} onClick={() => setSelectedDay(isSelected ? null : day)}
-                className={`relative flex flex-col items-center rounded-xl py-1.5 transition-all text-xs font-medium
-                  ${isSelected ? "bg-amber-500 text-slate-900 shadow-sm"
-                    : isToday ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
-                    : hasHoliday ? "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    : "hover:bg-muted text-foreground"}
+                className={`relative flex flex-col items-center rounded-xl py-1.5 transition-all text-xs
+                  ${isSelected
+                    ? "bg-amber-500 text-slate-900 shadow-sm font-bold"
+                    : isToday
+                    ? "bg-amber-400 dark:bg-amber-500 text-white font-extrabold ring-2 ring-amber-500 ring-offset-1 dark:ring-offset-card shadow-sm"
+                    : hasHoliday
+                    ? "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 font-semibold hover:bg-red-200 dark:hover:bg-red-950/50"
+                    : "hover:bg-muted text-foreground font-medium"}
                 `}>
-                <span>{day}</span>
+                <span className={isToday ? "text-sm" : ""}>{day}</span>
                 <div className="flex gap-0.5 mt-0.5">
-                  {hasHoliday && <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-slate-900" : "bg-red-500"}`} />}
-                  {hasEvent && <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-slate-900" : "bg-blue-500"}`} />}
+                  {hasHoliday && !isSelected && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+                  {hasHoliday && isSelected && <span className="h-1.5 w-1.5 rounded-full bg-slate-900" />}
+                  {hasEvent && !isSelected && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
+                  {hasEvent && isSelected && <span className="h-1.5 w-1.5 rounded-full bg-slate-900" />}
                 </div>
               </button>
             );
@@ -294,11 +311,14 @@ function CalendarManager() {
 
         {/* Legend */}
         <div className="flex items-center gap-4 mt-3 px-1">
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-red-500 inline-block" />सार्वजनिक बिदा (Holiday)
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="h-3 w-3 rounded bg-amber-400 inline-block" />आज (Today)
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />कार्यक्रम (Event)
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="h-3 w-3 rounded bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-700 inline-block" />सार्वजनिक बिदा
+          </span>
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />कार्यक्रम
           </span>
         </div>
       </div>
@@ -306,30 +326,47 @@ function CalendarManager() {
       {/* Selected day panel */}
       {selectedDay && (
         <div className="border-t border-border mx-4 mb-4 pt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">{selectedDayLabel}</p>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold text-foreground">{selectedDayLabel}</p>
+              {/* show the other system's date underneath */}
+              <p className="text-[10px] text-muted-foreground">
+                {calSystem === "bs"
+                  ? (() => { const ad = bsDateToAd(bsYear, bsMonth, selectedDay); return ad; })()
+                  : (() => { const bs = adToBs(adYear, adMonth, selectedDay); return `${BS_MONTH_NAMES_NE[bs.month - 1]} ${bs.day}, ${bs.year} BS`; })()
+                }
+              </p>
+            </div>
             <button onClick={() => openAddForm(selectedDay)}
-              className="flex items-center gap-1 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
-              <Plus size={12} />थप्नुस् / Add
+              className="shrink-0 flex items-center gap-1 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
+              <Plus size={12} />Add Event
             </button>
           </div>
           {selectedDayEvents.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">कुनै कार्यक्रम छैन — थप्न + बटन थिच्नुहोस्</p>
+            <div className="rounded-xl border border-dashed border-border py-4 text-center">
+              <p className="text-xs text-muted-foreground">No events on this day</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Click Add Event to create one</p>
+            </div>
           )}
           {selectedDayEvents.map(ev => (
             <div key={ev.id} className={`flex items-start gap-3 rounded-xl border p-3
-              ${ev.type === "holiday" ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20" : "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20"}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${ev.type === "holiday" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"}`}>
-                    {ev.type === "holiday" ? "बिदा" : "कार्यक्रम"}
-                  </span>
-                  {ev.autoNotify && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">🔔 T-1 alert</span>}
-                </div>
-                <p className="text-sm font-medium text-foreground mt-1">{ev.title}</p>
-                {ev.description && <p className="text-xs text-muted-foreground">{ev.description}</p>}
+              ${ev.type === "holiday"
+                ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30"
+                : "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20"}`}>
+              <div className={`mt-0.5 shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-base ${ev.type === "holiday" ? "bg-red-100 dark:bg-red-900/40" : "bg-blue-100 dark:bg-blue-900/40"}`}>
+                {ev.type === "holiday" ? "🎉" : "📅"}
               </div>
-              <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-red-500 transition-colors mt-0.5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${ev.type === "holiday" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"}`}>
+                    {ev.type === "holiday" ? "सार्वजनिक बिदा" : "कार्यक्रम"}
+                  </span>
+                  {ev.autoNotify && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">🔔 Alert</span>}
+                </div>
+                <p className={`text-sm font-bold mt-1 ${ev.type === "holiday" ? "text-red-700 dark:text-red-400" : "text-foreground"}`}>{ev.title}</p>
+                {ev.description && <p className="text-xs text-muted-foreground mt-0.5">{ev.description}</p>}
+              </div>
+              <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-red-500 transition-colors mt-0.5 shrink-0">
                 <Trash2 size={14} />
               </button>
             </div>
