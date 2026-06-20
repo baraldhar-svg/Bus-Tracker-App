@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, getListPassengersQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +19,15 @@ async function apiPatch(path: string, body: unknown) {
 }
 async function apiDelete(path: string) {
   await fetch(`${BASE}/api${path}`, { method: "DELETE" });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 const FLEET_VEHICLES = [
@@ -52,6 +61,43 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${color}`}>{score}/100</span>;
 }
 
+function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File | null) {
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    onChange(dataUrl);
+  }
+
+  return (
+    <div>
+      <input ref={galleryRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
+      {value ? (
+        <div className="flex items-center gap-3">
+          <img src={value} alt="preview" className="h-12 w-12 rounded-full object-cover border border-border shrink-0" />
+          <button onClick={() => onChange("")} className="text-xs text-red-500 hover:text-red-400">Remove</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => galleryRef.current?.click()}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+            📁 Upload Photo
+          </button>
+          <button onClick={() => cameraRef.current?.click()}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-500 transition-colors">
+            📷 Take Photo
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Modal = "add-passenger" | "add-driver" | null;
 type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; };
 
@@ -67,7 +113,6 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // School settings state
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
   const [editingSchool, setEditingSchool] = useState(false);
   const [sName, setSName] = useState("");
@@ -77,24 +122,21 @@ export default function AdminPortal() {
   const [schoolSaving, setSchoolSaving] = useState(false);
   const [schoolErr, setSchoolErr] = useState("");
 
-  // Notice form
   const [newNotice, setNewNotice] = useState("");
   const [noticeSaving, setNoticeSaving] = useState(false);
 
-  // Add Passenger form
   const [pName, setPName] = useState("");
   const [pRole, setPRole] = useState("student");
   const [pStation, setPStation] = useState("1");
   const [pPhoto, setPPhoto] = useState("");
 
-  // Add Driver form
   const [dName, setDName] = useState("");
   const [dPhone, setDPhone] = useState("");
   const [dVehicle, setDVehicle] = useState("");
+  const [dPhoto, setDPhoto] = useState("");
 
   const tenantId = user?.tenantId ?? 1;
 
-  // Fetch tenant info if not available
   useEffect(() => {
     if (!tenant) {
       fetch(`${BASE}/api/tenants/${tenantId}`)
@@ -120,7 +162,6 @@ export default function AdminPortal() {
         name: sName, address: sAddress, contactPhone: sPhone, bannerUrl: sBanner || null,
       });
       setTenant(updated);
-      // Update session so banner shows on dashboard
       if (user) login({ ...user, tenant: { id: updated.id, name: updated.name, bannerUrl: updated.bannerUrl, address: updated.address } });
       setEditingSchool(false);
     } catch (e: unknown) { setSchoolErr(e instanceof Error ? e.message : "Failed"); }
@@ -157,13 +198,13 @@ export default function AdminPortal() {
   const handleAddDriver = useCallback(async () => {
     setErr(""); setLoading(true);
     try {
-      await apiPost("/drivers", { name: dName, phone: dPhone, vehicleNumber: dVehicle });
+      await apiPost("/drivers", { name: dName, phone: dPhone, vehicleNumber: dVehicle, photoUrl: dPhoto || undefined });
       queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
       refetchDrivers();
-      setModal(null); setDName(""); setDPhone(""); setDVehicle("");
+      setModal(null); setDName(""); setDPhone(""); setDVehicle(""); setDPhoto("");
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
-  }, [dName, dPhone, dVehicle, queryClient, refetchDrivers]);
+  }, [dName, dPhone, dVehicle, dPhoto, queryClient, refetchDrivers]);
 
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
   const liveTodayCount = passengers?.filter((p) => p.liveToday === 1).length ?? 0;
@@ -197,7 +238,7 @@ export default function AdminPortal() {
         ))}
       </div>
 
-      {/* ── School Settings ── */}
+      {/* School Settings */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
@@ -211,10 +252,8 @@ export default function AdminPortal() {
             </button>
           )}
         </div>
-
         {!editingSchool ? (
           <div className="p-5 space-y-3">
-            {/* Banner preview */}
             {tenant?.bannerUrl ? (
               <div className="relative rounded-xl overflow-hidden" style={{ height: 100 }}>
                 <img src={tenant.bannerUrl} alt="banner" className="w-full h-full object-cover" />
@@ -272,14 +311,13 @@ export default function AdminPortal() {
         )}
       </div>
 
-      {/* ── Notices / Announcements ── */}
+      {/* Notices */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Notices & Announcements</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Shown on all student & staff dashboards</p>
         </div>
         <div className="p-4 space-y-2">
-          {/* Add notice */}
           <div className="flex gap-2">
             <input value={newNotice} onChange={(e) => setNewNotice(e.target.value)}
               placeholder="e.g. Bus will be 15 min late tomorrow…"
@@ -290,7 +328,6 @@ export default function AdminPortal() {
               {noticeSaving ? "…" : "Post"}
             </button>
           </div>
-          {/* Existing notices */}
           {announcements?.map((a) => (
             <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 p-3">
               <p className="flex-1 text-sm text-red-900 dark:text-red-300">{a.message}</p>
@@ -304,14 +341,14 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Passengers ── */}
+      {/* Passengers */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
             <h2 className="font-semibold text-primary">Passengers</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{passengers?.length ?? 0} students & staff</p>
           </div>
-          <button onClick={() => { setModal("add-passenger"); setErr(""); }}
+          <button onClick={() => { setModal("add-passenger"); setErr(""); setPPhoto(""); }}
             className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
             + Add Student/Staff
           </button>
@@ -339,14 +376,14 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Drivers ── */}
+      {/* Drivers */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
             <h2 className="font-semibold text-primary">Drivers</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{drivers?.length ?? 0} registered</p>
           </div>
-          <button onClick={() => { setModal("add-driver"); setErr(""); }}
+          <button onClick={() => { setModal("add-driver"); setErr(""); setDPhoto(""); }}
             className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
             + Add Driver
           </button>
@@ -371,7 +408,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Fleet Status ── */}
+      {/* Fleet Status */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Fleet Status</h2>
@@ -410,7 +447,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Driver Safety ── */}
+      {/* Driver Safety */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Driver Safety Scores</h2>
@@ -433,7 +470,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Maintenance ── */}
+      {/* Maintenance */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Maintenance & Fuel Reminders</h2>
@@ -455,7 +492,7 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* ── Stations ── */}
+      {/* Stations */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Geofence Stations</h2></div>
         <div className="divide-y divide-border">
@@ -470,7 +507,8 @@ export default function AdminPortal() {
 
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
             <h3 className="text-lg font-bold text-primary">Add Student / Staff</h3>
             <div>
@@ -496,9 +534,10 @@ export default function AdminPortal() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Photo URL (optional)</label>
-              <input value={pPhoto} onChange={(e) => setPPhoto(e.target.value)} placeholder="https://..."
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                Profile Photo <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <PhotoPicker value={pPhoto} onChange={setPPhoto} />
             </div>
             {err && <p className="text-xs text-red-500">{err}</p>}
             <div className="flex gap-2">
@@ -514,7 +553,8 @@ export default function AdminPortal() {
 
       {/* MODAL: Add Driver */}
       {modal === "add-driver" && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
             <h3 className="text-lg font-bold text-primary">Add Driver</h3>
             <div>
@@ -531,6 +571,12 @@ export default function AdminPortal() {
               <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle / Plate Number</label>
               <input value={dVehicle} onChange={(e) => setDVehicle(e.target.value)} placeholder="BA 4 KHA 5678"
                 className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                Driver Photo <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <PhotoPicker value={dPhoto} onChange={setDPhoto} />
             </div>
             {err && <p className="text-xs text-red-500">{err}</p>}
             <div className="flex gap-2">

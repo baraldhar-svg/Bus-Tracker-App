@@ -281,7 +281,7 @@ export default function AuthScreen() {
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => galleryInputRef.current?.click()}
                       className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
-                      🖼️ Camera Roll
+                      📁 Upload Photo
                     </button>
                     <button onClick={() => cameraInputRef.current?.click()}
                       className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
