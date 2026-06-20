@@ -6,12 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PassengerUpdate {
+export interface RouteUpdate {
   name?: string;
-  photoUrl?: string;
-  stationId?: number;
   /** @nullable */
-  routeId?: number | null;
-  liveToday?: number;
-  quickMessage?: string;
+  driverId?: number | null;
+  /** @nullable */
+  vehicleId?: number | null;
+  isActive?: boolean;
 }

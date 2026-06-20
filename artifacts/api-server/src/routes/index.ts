@@ -12,6 +12,8 @@ import subscriptionsRouter from "./subscriptions";
 import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
 import advertisementsRouter from "./advertisements";
+import routesRouter from "./routes";
+import geocodeRouter from "./geocode";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use("/passengers", passengersRouter);
 router.use("/trips", tripsRouter);
 router.use("/subscriptions", subscriptionsRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/routes", routesRouter);
+router.use("/geocode", geocodeRouter);
 
 export default router;

@@ -17,6 +17,8 @@ export interface Passenger {
   status: PassengerStatus;
   stationId: number;
   /** @nullable */
+  routeId?: number | null;
+  /** @nullable */
   stationName?: string | null;
   /** @nullable */
   boardedAt?: Date | null;

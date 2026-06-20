@@ -82,11 +82,68 @@ export interface AnnouncementInput {
   severity: AnnouncementInputSeverity;
 }
 
+export interface Route {
+  id: number;
+  tenantId: number;
+  name: string;
+  /** @nullable */
+  driverId?: number | null;
+  /** @nullable */
+  vehicleId?: number | null;
+  isActive: boolean;
+  /** @nullable */
+  driverName?: string | null;
+  /** @nullable */
+  vehiclePlate?: string | null;
+}
+
+export interface RouteInput {
+  name: string;
+  driverId?: number;
+  vehicleId?: number;
+}
+
+export interface RouteUpdate {
+  name?: string;
+  /** @nullable */
+  driverId?: number | null;
+  /** @nullable */
+  vehicleId?: number | null;
+  isActive?: boolean;
+}
+
+export interface RouteStation {
+  id: number;
+  routeId: number;
+  stationId: number;
+  position: number;
+  stationName?: string;
+  lat?: number;
+  lng?: number;
+  radius?: number;
+}
+
+export interface RouteStationInput {
+  stationId: number;
+  position?: number;
+}
+
+export interface ReorderStationsInput {
+  orderedStationIds: number[];
+}
+
+export interface GeocodeResult {
+  displayName: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Station {
   id: number;
   name: string;
   lat: number;
   lng: number;
+  radius?: number;
   tenantId?: number;
 }
 
@@ -94,6 +151,7 @@ export interface StationInput {
   name: string;
   lat: number;
   lng: number;
+  radius?: number;
 }
 
 export interface Driver {
@@ -153,6 +211,8 @@ export interface Passenger {
   status: PassengerStatus;
   stationId: number;
   /** @nullable */
+  routeId?: number | null;
+  /** @nullable */
   stationName?: string | null;
   /** @nullable */
   boardedAt?: string | null;
@@ -184,6 +244,8 @@ export interface PassengerUpdate {
   name?: string;
   photoUrl?: string;
   stationId?: number;
+  /** @nullable */
+  routeId?: number | null;
   liveToday?: number;
   quickMessage?: string;
 }
@@ -294,4 +356,8 @@ export interface DashboardStats {
   activeTodayCount: number;
   subscriptionBreakdown?: DashboardStatsSubscriptionBreakdown;
 }
+
+export type GeocodeAddressParams = {
+q: string;
+};
 

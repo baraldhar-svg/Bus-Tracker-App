@@ -36,8 +36,33 @@ export const stationsTable = pgTable("stations", {
   name: text("name").notNull(),
   lat: real("lat").notNull(),
   lng: real("lng").notNull(),
+  radius: integer("radius").notNull().default(200),
 });
 
 export const insertStationSchema = createInsertSchema(stationsTable).omit({ id: true });
 export type InsertStation = z.infer<typeof insertStationSchema>;
 export type Station = typeof stationsTable.$inferSelect;
+
+export const routesTable = pgTable("routes", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  name: text("name").notNull(),
+  driverId: integer("driver_id").references(() => driversTable.id),
+  vehicleId: integer("vehicle_id").references(() => vehiclesTable.id),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertRouteSchema = createInsertSchema(routesTable).omit({ id: true });
+export type InsertRoute = z.infer<typeof insertRouteSchema>;
+export type Route = typeof routesTable.$inferSelect;
+
+export const routeStationsTable = pgTable("route_stations", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").notNull().references(() => routesTable.id, { onDelete: "cascade" }),
+  stationId: integer("station_id").notNull().references(() => stationsTable.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+});
+
+export const insertRouteStationSchema = createInsertSchema(routeStationsTable).omit({ id: true });
+export type InsertRouteStation = z.infer<typeof insertRouteStationSchema>;
+export type RouteStation = typeof routeStationsTable.$inferSelect;

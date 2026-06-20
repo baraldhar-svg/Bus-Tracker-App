@@ -70,6 +70,7 @@ export const ListStationsResponseItem = zod.object({
   "name": zod.string(),
   "lat": zod.number(),
   "lng": zod.number(),
+  "radius": zod.number().optional(),
   "tenantId": zod.number().optional()
 })
 export const ListStationsResponse = zod.array(ListStationsResponseItem)
@@ -81,7 +82,8 @@ export const ListStationsResponse = zod.array(ListStationsResponseItem)
 export const CreateStationBody = zod.object({
   "name": zod.string(),
   "lat": zod.number(),
-  "lng": zod.number()
+  "lng": zod.number(),
+  "radius": zod.number().optional()
 })
 
 
@@ -173,6 +175,7 @@ export const ListPassengersResponseItem = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -206,6 +209,7 @@ export const GetPassengerResponse = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -224,6 +228,7 @@ export const UpdatePassengerBody = zod.object({
   "name": zod.string().optional(),
   "photoUrl": zod.string().optional(),
   "stationId": zod.number().optional(),
+  "routeId": zod.number().nullish(),
   "liveToday": zod.number().optional(),
   "quickMessage": zod.string().optional()
 })
@@ -235,6 +240,7 @@ export const UpdatePassengerResponse = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -256,6 +262,7 @@ export const BoardPassengerResponse = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -277,6 +284,7 @@ export const UnboardPassengerResponse = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -298,6 +306,7 @@ export const MarkPassengerLeaveResponse = zod.object({
   "role": zod.enum(['student', 'staff']),
   "status": zod.enum(['pending', 'boarded', 'leave']),
   "stationId": zod.number(),
+  "routeId": zod.number().nullish(),
   "stationName": zod.string().nullish(),
   "boardedAt": zod.coerce.date().nullish(),
   "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
@@ -347,6 +356,147 @@ export const TriggerSosResponse = zod.object({
   "acknowledged": zod.boolean(),
   "message": zod.string()
 })
+
+
+/**
+ * @summary List all routes for this tenant
+ */
+export const ListRoutesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "driverId": zod.number().nullish(),
+  "vehicleId": zod.number().nullish(),
+  "isActive": zod.boolean(),
+  "driverName": zod.string().nullish(),
+  "vehiclePlate": zod.string().nullish()
+})
+export const ListRoutesResponse = zod.array(ListRoutesResponseItem)
+
+
+/**
+ * @summary Create a new route
+ */
+export const CreateRouteBody = zod.object({
+  "name": zod.string(),
+  "driverId": zod.number().optional(),
+  "vehicleId": zod.number().optional()
+})
+
+
+/**
+ * @summary Update route name or assigned driver/vehicle (fleet swap)
+ */
+export const UpdateRouteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRouteBody = zod.object({
+  "name": zod.string().optional(),
+  "driverId": zod.number().nullish(),
+  "vehicleId": zod.number().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateRouteResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "driverId": zod.number().nullish(),
+  "vehicleId": zod.number().nullish(),
+  "isActive": zod.boolean(),
+  "driverName": zod.string().nullish(),
+  "vehiclePlate": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete a route
+ */
+export const DeleteRouteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Get ordered stations for a route
+ */
+export const ListRouteStationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListRouteStationsResponseItem = zod.object({
+  "id": zod.number(),
+  "routeId": zod.number(),
+  "stationId": zod.number(),
+  "position": zod.number(),
+  "stationName": zod.string().optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional(),
+  "radius": zod.number().optional()
+})
+export const ListRouteStationsResponse = zod.array(ListRouteStationsResponseItem)
+
+
+/**
+ * @summary Add a station to a route
+ */
+export const AddRouteStationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddRouteStationBody = zod.object({
+  "stationId": zod.number(),
+  "position": zod.number().optional()
+})
+
+
+/**
+ * @summary Remove a station from a route
+ */
+export const RemoveRouteStationParams = zod.object({
+  "id": zod.coerce.number(),
+  "stationId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Reorder stations within a route
+ */
+export const ReorderRouteStationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReorderRouteStationsBody = zod.object({
+  "orderedStationIds": zod.array(zod.number())
+})
+
+export const ReorderRouteStationsResponseItem = zod.object({
+  "id": zod.number(),
+  "routeId": zod.number(),
+  "stationId": zod.number(),
+  "position": zod.number(),
+  "stationName": zod.string().optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional(),
+  "radius": zod.number().optional()
+})
+export const ReorderRouteStationsResponse = zod.array(ReorderRouteStationsResponseItem)
+
+
+/**
+ * @summary Look up coordinates for a station name or address (Nominatim)
+ */
+export const GeocodeAddressQueryParams = zod.object({
+  "q": zod.coerce.string()
+})
+
+export const GeocodeAddressResponseItem = zod.object({
+  "displayName": zod.string(),
+  "lat": zod.number(),
+  "lng": zod.number()
+})
+export const GeocodeAddressResponse = zod.array(GeocodeAddressResponseItem)
 
 
 /**

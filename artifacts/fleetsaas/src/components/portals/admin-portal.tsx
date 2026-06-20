@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, getListPassengersQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone } from "lucide-react";
+import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey } from "@workspace/api-client-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
@@ -385,12 +385,303 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
   );
 }
 
+type GeocodeResult = { displayName: string; lat: number; lng: number };
+type RouteStation = { id: number; routeId: number; stationId: number; position: number; stationName: string | null; lat: number | null; lng: number | null; radius: number | null };
+type RouteRow = { id: number; name: string; driverId: number | null; vehicleId: number | null; isActive: boolean | null; driverName: string | null; vehiclePlate: string | null };
+
+function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const { data: stations } = useListStations();
+  const [routeStations, setRouteStations] = useState<RouteStation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addingId, setAddingId] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/routes/${routeId}/stations`);
+      const data = await r.json();
+      setRouteStations(data);
+    } finally { setLoading(false); }
+  }, [routeId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAdd() {
+    if (!addingId) return;
+    await apiPost(`/routes/${routeId}/stations`, { stationId: Number(addingId) });
+    setAddingId("");
+    load();
+  }
+
+  async function handleRemove(stationId: number) {
+    await apiDelete(`/routes/${routeId}/stations/${stationId}`);
+    load();
+    queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+  }
+
+  const assignedIds = new Set(routeStations.map((rs) => rs.stationId));
+  const available = (stations ?? []).filter((s) => !assignedIds.has(s.id));
+
+  return (
+    <div className="bg-muted/30 border border-border rounded-xl p-4 mt-2 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground">Stations on this route ({routeStations.length})</p>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+      </div>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="space-y-1">
+          {routeStations.length === 0 && <p className="text-xs text-muted-foreground italic">No stations assigned yet</p>}
+          {routeStations.map((rs, idx) => (
+            <div key={rs.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2">
+              <span className="text-[10px] font-bold text-amber-500 w-4 shrink-0">{idx + 1}</span>
+              <Navigation size={11} className="text-muted-foreground shrink-0" />
+              <p className="flex-1 text-xs text-foreground">{rs.stationName ?? `Station #${rs.stationId}`}</p>
+              {rs.radius && <span className="text-[9px] text-muted-foreground">{rs.radius}m</span>}
+              <button onClick={() => handleRemove(rs.stationId)} className="text-red-400 hover:text-red-600 shrink-0"><Trash2 size={11} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {available.length > 0 && (
+        <div className="flex gap-2">
+          <select value={addingId} onChange={(e) => setAddingId(e.target.value)}
+            className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500">
+            <option value="">Add a station…</option>
+            {available.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <button onClick={handleAdd} disabled={!addingId}
+            className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400">
+            <Plus size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name: string }> | undefined; vehicles: Array<{ id: number; plateNumber: string }> | undefined }) {
+  const queryClient = useQueryClient();
+  const { data: routes, refetch } = useListRoutes();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [rName, setRName] = useState("");
+  const [rDriver, setRDriver] = useState("");
+  const [rVehicle, setRVehicle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleCreate() {
+    if (!rName.trim()) return;
+    setErr(""); setSaving(true);
+    try {
+      await apiPost("/routes", { name: rName.trim(), driverId: rDriver ? Number(rDriver) : undefined, vehicleId: rVehicle ? Number(rVehicle) : undefined });
+      setRName(""); setRDriver(""); setRVehicle(""); setCreating(false);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleToggleActive(r: RouteRow) {
+    await apiPatch(`/routes/${r.id}`, { isActive: !r.isActive });
+    refetch();
+  }
+
+  async function handleDelete(id: number) {
+    await apiDelete(`/routes/${id}`);
+    refetch();
+    queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2"><Route size={15} />Route Management</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{(routes ?? []).length} route{(routes ?? []).length !== 1 ? "s" : ""} configured</p>
+        </div>
+        <button onClick={() => setCreating((v) => !v)}
+          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
+          <Plus size={12} />New Route
+        </button>
+      </div>
+
+      {creating && (
+        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Route Name</label>
+            <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="e.g. Route B4 – Koteshwor"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Assign Driver</label>
+              <select value={rDriver} onChange={(e) => setRDriver(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                <option value="">Unassigned</option>
+                {(drivers ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Assign Vehicle</label>
+              <select value={rVehicle} onChange={(e) => setRVehicle(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                <option value="">Unassigned</option>
+                {(vehicles ?? []).map((v) => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
+              </select>
+            </div>
+          </div>
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => { setCreating(false); setRName(""); setErr(""); }}
+              className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+            <button onClick={handleCreate} disabled={!rName.trim() || saving}
+              className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+              {saving ? "Creating…" : "Create Route"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="divide-y divide-border">
+        {(routes ?? []).length === 0 && !creating && (
+          <p className="px-5 py-6 text-center text-xs text-muted-foreground">No routes yet — create one above</p>
+        )}
+        {(routes as RouteRow[] ?? []).map((r) => (
+          <div key={r.id} className="px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${r.isActive ? "bg-green-500" : "bg-gray-400"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {r.driverName ?? "No driver"} · {r.vehiclePlate ?? "No vehicle"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button onClick={() => handleToggleActive(r)}
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-colors ${r.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800" : "bg-muted text-muted-foreground border-border hover:border-amber-500"}`}>
+                  {r.isActive ? "Active" : "Inactive"}
+                </button>
+                <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                  className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted">
+                  {expandedId === r.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+                <button onClick={() => handleDelete(r.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+              </div>
+            </div>
+            {expandedId === r.id && (
+              <RouteStationsPanel routeId={r.id} onClose={() => setExpandedId(null)} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GeocodeStationCreator({ onCreated }: { onCreated: () => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [stationName, setStationName] = useState("");
+  const [radius, setRadius] = useState("200");
+  const [picked, setPicked] = useState<GeocodeResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [searchErr, setSearchErr] = useState("");
+
+  async function handleSearch() {
+    if (!query.trim()) return;
+    setSearchErr(""); setSearching(true); setResults([]); setPicked(null);
+    try {
+      const r = await fetch(`${BASE}/api/geocode?q=${encodeURIComponent(query)}`);
+      const data: GeocodeResult[] = await r.json();
+      if (data.length === 0) setSearchErr("No locations found — try a different search term");
+      setResults(data);
+    } catch { setSearchErr("Geocode search failed"); }
+    finally { setSearching(false); }
+  }
+
+  async function handleSave() {
+    if (!picked || !stationName.trim()) return;
+    setSaving(true);
+    try {
+      await apiPost("/stations", { name: stationName.trim(), lat: picked.lat, lng: picked.lng, radius: Number(radius) || 200 });
+      setQuery(""); setResults([]); setPicked(null); setStationName(""); setRadius("200");
+      onCreated();
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="border-t border-border pt-4 space-y-3">
+      <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Search size={11} />Add Geofence Station (address lookup)</p>
+      <div className="flex gap-2">
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Koteshwor, Kathmandu"
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+        <button onClick={handleSearch} disabled={!query.trim() || searching}
+          className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+          {searching ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
+        </button>
+      </div>
+      {searchErr && <p className="text-xs text-red-500">{searchErr}</p>}
+      {results.length > 0 && !picked && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-muted-foreground">Pick a location:</p>
+          {results.map((r, i) => (
+            <button key={i} onClick={() => { setPicked(r); setStationName(r.displayName.split(",")[0]?.trim() ?? ""); }}
+              className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-left hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors">
+              <p className="text-xs font-medium text-foreground line-clamp-1">{r.displayName}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</p>
+            </button>
+          ))}
+        </div>
+      )}
+      {picked && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">Selected location</p>
+              <p className="text-xs text-foreground mt-0.5 line-clamp-2">{picked.displayName}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">{picked.lat.toFixed(5)}, {picked.lng.toFixed(5)}</p>
+            </div>
+            <button onClick={() => { setPicked(null); setResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"><X size={13} /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Station Name</label>
+              <input value={stationName} onChange={(e) => setStationName(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Geofence Radius</label>
+              <div className="flex items-center gap-1">
+                <input type="number" min="50" max="2000" value={radius} onChange={(e) => setRadius(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500" />
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">m</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={handleSave} disabled={!stationName.trim() || saving}
+            className="w-full rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+            {saving ? "Saving…" : "Save Station"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user, login } = useAuth();
-  const { data: stations } = useListStations();
+  const { data: stations, refetch: refetchStations } = useListStations();
   const { data: announcements, refetch: refetchAnnouncements } = useListAnnouncements();
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
   const { data: drivers, refetch: refetchDrivers } = useListDrivers();
+  const { data: vehicles } = useListVehicles();
   const queryClient = useQueryClient();
 
   const [modal, setModal] = useState<Modal>(null);
@@ -894,18 +1185,36 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-      {/* Stations */}
+      {/* Geofence Stations */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold text-primary">Geofence Stations</h2></div>
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-primary flex items-center gap-2"><MapPin size={14} />Geofence Stations</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations · OSM address lookup</p>
+        </div>
         <div className="divide-y divide-border">
           {stations?.map((s) => (
             <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
               <MapPin size={14} className="text-amber-500 shrink-0" />
-              <p className="text-sm text-foreground">{s.name}</p>
+              <div className="flex-1">
+                <p className="text-sm text-foreground">{s.name}</p>
+                {(s as unknown as { lat?: number; radius?: number }).lat && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {(s as unknown as { lat: number }).lat.toFixed(4)}, {(s as unknown as { lng: number }).lng?.toFixed(4)} · {(s as unknown as { radius?: number }).radius ?? 200}m
+                  </p>
+                )}
+              </div>
             </div>
           ))}
+          {stations?.length === 0 && (
+            <p className="px-4 py-4 text-xs text-muted-foreground text-center italic">No stations yet — add one below</p>
+          )}
+        </div>
+        <div className="px-5 pb-5">
+          <GeocodeStationCreator onCreated={() => { refetchStations(); queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() }); }} />
         </div>
       </div>
+      {/* Route Management */}
+      <RouteManager drivers={drivers} vehicles={vehicles} />
       {/* Stats Detail Panel */}
       {statsFilter && (
         <StatsDetailPanel

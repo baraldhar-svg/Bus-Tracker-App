@@ -27,10 +27,18 @@ import type {
   Driver,
   DriverInput,
   FleetSwapInput,
+  GeocodeAddressParams,
+  GeocodeResult,
   HealthStatus,
   Passenger,
   PassengerInput,
   PassengerUpdate,
+  ReorderStationsInput,
+  Route,
+  RouteInput,
+  RouteStation,
+  RouteStationInput,
+  RouteUpdate,
   SosResponse,
   Station,
   StationInput,
@@ -1747,6 +1755,673 @@ export const useTriggerSos = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getTriggerSosMutationOptions(options));
     }
+
+export const getListRoutesUrl = () => {
+
+
+
+
+  return `/api/routes`
+}
+
+/**
+ * @summary List all routes for this tenant
+ */
+export const listRoutes = async ( options?: RequestInit): Promise<Route[]> => {
+
+  return customFetch<Route[]>(getListRoutesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRoutesQueryKey = () => {
+    return [
+    `/api/routes`
+    ] as const;
+    }
+
+
+export const getListRoutesQueryOptions = <TData = Awaited<ReturnType<typeof listRoutes>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRoutesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRoutes>>> = ({ signal }) => listRoutes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRoutes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRoutesQueryResult = NonNullable<Awaited<ReturnType<typeof listRoutes>>>
+export type ListRoutesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all routes for this tenant
+ */
+
+export function useListRoutes<TData = Awaited<ReturnType<typeof listRoutes>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoutes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRoutesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateRouteUrl = () => {
+
+
+
+
+  return `/api/routes`
+}
+
+/**
+ * @summary Create a new route
+ */
+export const createRoute = async (routeInput: RouteInput, options?: RequestInit): Promise<Route> => {
+
+  return customFetch<Route>(getCreateRouteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      routeInput,)
+  }
+);}
+
+
+
+
+export const getCreateRouteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoute>>, TError,{data: BodyType<RouteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRoute>>, TError,{data: BodyType<RouteInput>}, TContext> => {
+
+const mutationKey = ['createRoute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRoute>>, {data: BodyType<RouteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRoute(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRouteMutationResult = NonNullable<Awaited<ReturnType<typeof createRoute>>>
+    export type CreateRouteMutationBody = BodyType<RouteInput>
+    export type CreateRouteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new route
+ */
+export const useCreateRoute = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoute>>, TError,{data: BodyType<RouteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRoute>>,
+        TError,
+        {data: BodyType<RouteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRouteMutationOptions(options));
+    }
+
+export const getUpdateRouteUrl = (id: number,) => {
+
+
+
+
+  return `/api/routes/${id}`
+}
+
+/**
+ * @summary Update route name or assigned driver/vehicle (fleet swap)
+ */
+export const updateRoute = async (id: number,
+    routeUpdate: RouteUpdate, options?: RequestInit): Promise<Route> => {
+
+  return customFetch<Route>(getUpdateRouteUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      routeUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateRouteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRoute>>, TError,{id: number;data: BodyType<RouteUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRoute>>, TError,{id: number;data: BodyType<RouteUpdate>}, TContext> => {
+
+const mutationKey = ['updateRoute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRoute>>, {id: number;data: BodyType<RouteUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRoute(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRouteMutationResult = NonNullable<Awaited<ReturnType<typeof updateRoute>>>
+    export type UpdateRouteMutationBody = BodyType<RouteUpdate>
+    export type UpdateRouteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update route name or assigned driver/vehicle (fleet swap)
+ */
+export const useUpdateRoute = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRoute>>, TError,{id: number;data: BodyType<RouteUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRoute>>,
+        TError,
+        {id: number;data: BodyType<RouteUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRouteMutationOptions(options));
+    }
+
+export const getDeleteRouteUrl = (id: number,) => {
+
+
+
+
+  return `/api/routes/${id}`
+}
+
+/**
+ * @summary Delete a route
+ */
+export const deleteRoute = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteRouteUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteRouteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRoute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRoute>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteRoute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRoute>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRoute(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRouteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRoute>>>
+
+    export type DeleteRouteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a route
+ */
+export const useDeleteRoute = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRoute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRoute>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRouteMutationOptions(options));
+    }
+
+export const getListRouteStationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/routes/${id}/stations`
+}
+
+/**
+ * @summary Get ordered stations for a route
+ */
+export const listRouteStations = async (id: number, options?: RequestInit): Promise<RouteStation[]> => {
+
+  return customFetch<RouteStation[]>(getListRouteStationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRouteStationsQueryKey = (id: number,) => {
+    return [
+    `/api/routes/${id}/stations`
+    ] as const;
+    }
+
+
+export const getListRouteStationsQueryOptions = <TData = Awaited<ReturnType<typeof listRouteStations>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRouteStations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRouteStationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRouteStations>>> = ({ signal }) => listRouteStations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRouteStations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRouteStationsQueryResult = NonNullable<Awaited<ReturnType<typeof listRouteStations>>>
+export type ListRouteStationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get ordered stations for a route
+ */
+
+export function useListRouteStations<TData = Awaited<ReturnType<typeof listRouteStations>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRouteStations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRouteStationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAddRouteStationUrl = (id: number,) => {
+
+
+
+
+  return `/api/routes/${id}/stations`
+}
+
+/**
+ * @summary Add a station to a route
+ */
+export const addRouteStation = async (id: number,
+    routeStationInput: RouteStationInput, options?: RequestInit): Promise<RouteStation> => {
+
+  return customFetch<RouteStation>(getAddRouteStationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      routeStationInput,)
+  }
+);}
+
+
+
+
+export const getAddRouteStationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRouteStation>>, TError,{id: number;data: BodyType<RouteStationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addRouteStation>>, TError,{id: number;data: BodyType<RouteStationInput>}, TContext> => {
+
+const mutationKey = ['addRouteStation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addRouteStation>>, {id: number;data: BodyType<RouteStationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addRouteStation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddRouteStationMutationResult = NonNullable<Awaited<ReturnType<typeof addRouteStation>>>
+    export type AddRouteStationMutationBody = BodyType<RouteStationInput>
+    export type AddRouteStationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a station to a route
+ */
+export const useAddRouteStation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRouteStation>>, TError,{id: number;data: BodyType<RouteStationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addRouteStation>>,
+        TError,
+        {id: number;data: BodyType<RouteStationInput>},
+        TContext
+      > => {
+      return useMutation(getAddRouteStationMutationOptions(options));
+    }
+
+export const getRemoveRouteStationUrl = (id: number,
+    stationId: number,) => {
+
+
+
+
+  return `/api/routes/${id}/stations/${stationId}`
+}
+
+/**
+ * @summary Remove a station from a route
+ */
+export const removeRouteStation = async (id: number,
+    stationId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveRouteStationUrl(id,stationId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveRouteStationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext> => {
+
+const mutationKey = ['removeRouteStation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeRouteStation>>, {id: number;stationId: number}> = (props) => {
+          const {id,stationId} = props ?? {};
+
+          return  removeRouteStation(id,stationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveRouteStationMutationResult = NonNullable<Awaited<ReturnType<typeof removeRouteStation>>>
+
+    export type RemoveRouteStationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a station from a route
+ */
+export const useRemoveRouteStation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeRouteStation>>,
+        TError,
+        {id: number;stationId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveRouteStationMutationOptions(options));
+    }
+
+export const getReorderRouteStationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/routes/${id}/stations/reorder`
+}
+
+/**
+ * @summary Reorder stations within a route
+ */
+export const reorderRouteStations = async (id: number,
+    reorderStationsInput: ReorderStationsInput, options?: RequestInit): Promise<RouteStation[]> => {
+
+  return customFetch<RouteStation[]>(getReorderRouteStationsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reorderStationsInput,)
+  }
+);}
+
+
+
+
+export const getReorderRouteStationsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderRouteStations>>, TError,{id: number;data: BodyType<ReorderStationsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderRouteStations>>, TError,{id: number;data: BodyType<ReorderStationsInput>}, TContext> => {
+
+const mutationKey = ['reorderRouteStations'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderRouteStations>>, {id: number;data: BodyType<ReorderStationsInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reorderRouteStations(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderRouteStationsMutationResult = NonNullable<Awaited<ReturnType<typeof reorderRouteStations>>>
+    export type ReorderRouteStationsMutationBody = BodyType<ReorderStationsInput>
+    export type ReorderRouteStationsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reorder stations within a route
+ */
+export const useReorderRouteStations = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderRouteStations>>, TError,{id: number;data: BodyType<ReorderStationsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderRouteStations>>,
+        TError,
+        {id: number;data: BodyType<ReorderStationsInput>},
+        TContext
+      > => {
+      return useMutation(getReorderRouteStationsMutationOptions(options));
+    }
+
+export const getGeocodeAddressUrl = (params: GeocodeAddressParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/geocode?${stringifiedParams}` : `/api/geocode`
+}
+
+/**
+ * @summary Look up coordinates for a station name or address (Nominatim)
+ */
+export const geocodeAddress = async (params: GeocodeAddressParams, options?: RequestInit): Promise<GeocodeResult[]> => {
+
+  return customFetch<GeocodeResult[]>(getGeocodeAddressUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGeocodeAddressQueryKey = (params?: GeocodeAddressParams,) => {
+    return [
+    `/api/geocode`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGeocodeAddressQueryOptions = <TData = Awaited<ReturnType<typeof geocodeAddress>>, TError = ErrorType<unknown>>(params: GeocodeAddressParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof geocodeAddress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGeocodeAddressQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof geocodeAddress>>> = ({ signal }) => geocodeAddress(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof geocodeAddress>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GeocodeAddressQueryResult = NonNullable<Awaited<ReturnType<typeof geocodeAddress>>>
+export type GeocodeAddressQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Look up coordinates for a station name or address (Nominatim)
+ */
+
+export function useGeocodeAddress<TData = Awaited<ReturnType<typeof geocodeAddress>>, TError = ErrorType<unknown>>(
+ params: GeocodeAddressParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof geocodeAddress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGeocodeAddressQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetMySubscriptionUrl = () => {
 

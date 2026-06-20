@@ -11,5 +11,6 @@ export interface Station {
   name: string;
   lat: number;
   lng: number;
+  radius?: number;
   tenantId?: number;
 }

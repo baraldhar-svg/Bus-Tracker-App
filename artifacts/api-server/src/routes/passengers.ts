@@ -21,6 +21,7 @@ const PASSENGER_SELECT = {
   role: passengersTable.role,
   status: passengersTable.status,
   stationId: passengersTable.stationId,
+  routeId: passengersTable.routeId,
   stationName: stationsTable.name,
   boardedAt: passengersTable.boardedAt,
   tenantId: passengersTable.tenantId,
@@ -76,6 +77,7 @@ router.patch("/:id", async (req, res) => {
   if (bodyParsed.data.name) updates.name = bodyParsed.data.name;
   if (bodyParsed.data.photoUrl) updates.photoUrl = bodyParsed.data.photoUrl;
   if (bodyParsed.data.stationId) updates.stationId = bodyParsed.data.stationId;
+  if ("routeId" in bodyParsed.data) updates.routeId = bodyParsed.data.routeId;
   if (bodyParsed.data.liveToday !== undefined) updates.liveToday = bodyParsed.data.liveToday;
   if (bodyParsed.data.quickMessage !== undefined) updates.quickMessage = bodyParsed.data.quickMessage;
   if (Object.keys(updates).length === 0) {

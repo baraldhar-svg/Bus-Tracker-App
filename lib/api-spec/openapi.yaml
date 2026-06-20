@@ -29,6 +29,10 @@ tags:
     description: Subscription & paywall
   - name: dashboard
     description: SuperAdmin analytics
+  - name: routes
+    description: Route & fleet assignment management
+  - name: geocode
+    description: Address-to-coordinate lookup
 
 paths:
   /healthz:
@@ -410,6 +414,190 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosResponse"
 
+  # ─── ROUTES ─────────────────────────────────────────────────────────────────
+  /routes:
+    get:
+      operationId: listRoutes
+      tags: [routes]
+      summary: List all routes for this tenant
+      responses:
+        "200":
+          description: Route list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Route"
+    post:
+      operationId: createRoute
+      tags: [routes]
+      summary: Create a new route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteInput"
+      responses:
+        "201":
+          description: Created route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+
+  /routes/{id}:
+    patch:
+      operationId: updateRoute
+      tags: [routes]
+      summary: Update route name or assigned driver/vehicle (fleet swap)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteUpdate"
+      responses:
+        "200":
+          description: Updated route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+    delete:
+      operationId: deleteRoute
+      tags: [routes]
+      summary: Delete a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /routes/{id}/stations:
+    get:
+      operationId: listRouteStations
+      tags: [routes]
+      summary: Get ordered stations for a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ordered station list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RouteStation"
+    post:
+      operationId: addRouteStation
+      tags: [routes]
+      summary: Add a station to a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteStationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteStation"
+
+  /routes/{id}/stations/{stationId}:
+    delete:
+      operationId: removeRouteStation
+      tags: [routes]
+      summary: Remove a station from a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /routes/{id}/stations/reorder:
+    post:
+      operationId: reorderRouteStations
+      tags: [routes]
+      summary: Reorder stations within a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderStationsInput"
+      responses:
+        "200":
+          description: Reordered stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RouteStation"
+
+  # ─── GEOCODE ────────────────────────────────────────────────────────────────
+  /geocode:
+    get:
+      operationId: geocodeAddress
+      tags: [geocode]
+      summary: Look up coordinates for a station name or address (Nominatim)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Geocode results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeocodeResult"
+
   # ─── SUBSCRIPTIONS ──────────────────────────────────────────────────────────
   /subscriptions/me:
     get:
@@ -551,6 +739,100 @@ components:
           type: string
           enum: [info, warning, emergency]
 
+    Route:
+      type: object
+      required: [id, tenantId, name, isActive]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        name:
+          type: string
+        driverId:
+          type: ["integer", "null"]
+        vehicleId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+        driverName:
+          type: ["string", "null"]
+        vehiclePlate:
+          type: ["string", "null"]
+
+    RouteInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        driverId:
+          type: integer
+        vehicleId:
+          type: integer
+
+    RouteUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        driverId:
+          type: ["integer", "null"]
+        vehicleId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+
+    RouteStation:
+      type: object
+      required: [id, routeId, stationId, position]
+      properties:
+        id:
+          type: integer
+        routeId:
+          type: integer
+        stationId:
+          type: integer
+        position:
+          type: integer
+        stationName:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        radius:
+          type: integer
+
+    RouteStationInput:
+      type: object
+      required: [stationId]
+      properties:
+        stationId:
+          type: integer
+        position:
+          type: integer
+
+    ReorderStationsInput:
+      type: object
+      required: [orderedStationIds]
+      properties:
+        orderedStationIds:
+          type: array
+          items:
+            type: integer
+
+    GeocodeResult:
+      type: object
+      required: [displayName, lat, lng]
+      properties:
+        displayName:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+
     Station:
       type: object
       required: [id, name, lat, lng]
@@ -563,6 +845,8 @@ components:
           type: number
         lng:
           type: number
+        radius:
+          type: integer
         tenantId:
           type: integer
 
@@ -576,6 +860,8 @@ components:
           type: number
         lng:
           type: number
+        radius:
+          type: integer
 
     Driver:
       type: object
@@ -651,6 +937,8 @@ components:
           enum: [pending, boarded, leave]
         stationId:
           type: integer
+        routeId:
+          type: ["integer", "null"]
         stationName:
           type: ["string", "null"]
         boardedAt:
@@ -686,6 +974,8 @@ components:
           type: string
         stationId:
           type: integer
+        routeId:
+          type: ["integer", "null"]
         liveToday:
           type: integer
         quickMessage:

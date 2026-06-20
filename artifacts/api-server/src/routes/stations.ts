@@ -20,10 +20,10 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
-  const { name, lat, lng } = parsed.data;
+  const { name, lat, lng, radius } = parsed.data as { name: string; lat: number; lng: number; radius?: number };
   const [row] = await db
     .insert(stationsTable)
-    .values({ tenantId: DEFAULT_TENANT_ID, name, lat, lng })
+    .values({ tenantId: DEFAULT_TENANT_ID, name, lat, lng, radius: radius ?? 200 })
     .returning();
   res.status(201).json(row);
 });

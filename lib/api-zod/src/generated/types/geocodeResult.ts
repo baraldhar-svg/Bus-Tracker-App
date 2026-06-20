@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface StationInput {
-  name: string;
+export interface GeocodeResult {
+  displayName: string;
   lat: number;
   lng: number;
-  radius?: number;
 }

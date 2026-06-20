@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface StationInput {
+export interface RouteInput {
   name: string;
-  lat: number;
-  lng: number;
-  radius?: number;
+  driverId?: number;
+  vehicleId?: number;
 }

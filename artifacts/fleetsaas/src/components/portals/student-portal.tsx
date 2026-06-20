@@ -4,6 +4,7 @@ import {
   useGetTripTimeline,
   useUpdatePassenger,
   useListPassengers,
+  useListRoutes,
   getListPassengersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,8 +12,10 @@ import BusMap from "@/components/bus-map";
 import { useT } from "@/lib/i18n";
 import {
   Bus, ClipboardList, Map, Clock, MessageSquare, X,
-  User, Timer, Home, MapPin, HeartPulse, ThumbsUp,
+  User, Timer, Home, MapPin, HeartPulse, ThumbsUp, Route, Navigation, CheckCircle, RefreshCw,
 } from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const DEMO_PASSENGER_ID = 1;
 
@@ -40,11 +43,14 @@ const BUS_POSITIONS = [
 // Student's home stop is Kalanki — bus is close when ETA <= 4 min
 const GEO_ALERT_THRESHOLD_ETA = 5;
 
+type RouteStationItem = { id: number; stationId: number; stationName: string | null; position: number; radius: number | null };
+
 export default function StudentPortal() {
   const t = useT();
   const { data: announcements } = useListAnnouncements();
   const { data: timeline } = useGetTripTimeline(1);
   const { data: passengers } = useListPassengers();
+  const { data: routes } = useListRoutes();
   const updatePassenger = useUpdatePassenger();
   const queryClient = useQueryClient();
 
@@ -57,12 +63,52 @@ export default function StudentPortal() {
   const leaveClickRef = useRef(0);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Transport Config state
+  const [transportOpen, setTransportOpen] = useState(false);
+  const [selectedRouteId, setSelectedRouteId] = useState<string>("");
+  const [routeStations, setRouteStations] = useState<RouteStationItem[]>([]);
+  const [selectedStationId, setSelectedStationId] = useState<string>("");
+  const [loadingStations, setLoadingStations] = useState(false);
+  const [transportSaving, setTransportSaving] = useState(false);
+  const [transportSaved, setTransportSaved] = useState(false);
+
   const me = passengers?.find((p) => p.id === DEMO_PASSENGER_ID);
 
   useEffect(() => {
     if (me?.liveToday === 1) setLiveToday(true);
     if (me?.quickMessage) setSentMsg(me.quickMessage);
-  }, [me]);
+    if (me?.routeId) setSelectedRouteId(String(me.routeId));
+    if (me?.stationId) setSelectedStationId(String(me.stationId));
+  }, [me?.liveToday, me?.quickMessage, me?.routeId, me?.stationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load stations when selected route changes
+  useEffect(() => {
+    if (!selectedRouteId) { setRouteStations([]); return; }
+    setLoadingStations(true);
+    fetch(`${BASE}/api/routes/${selectedRouteId}/stations`)
+      .then((r) => r.json())
+      .then((data: RouteStationItem[]) => setRouteStations(data))
+      .catch(() => setRouteStations([]))
+      .finally(() => setLoadingStations(false));
+  }, [selectedRouteId]);
+
+  const handleSaveTransport = useCallback(async () => {
+    setTransportSaving(true);
+    setTransportSaved(false);
+    try {
+      await updatePassenger.mutateAsync({
+        id: DEMO_PASSENGER_ID,
+        data: {
+          routeId: selectedRouteId ? Number(selectedRouteId) : undefined,
+          stationId: selectedStationId ? Number(selectedStationId) : undefined,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+      setTransportSaved(true);
+      setTimeout(() => setTransportSaved(false), 3000);
+    } catch { /* ignore */ }
+    finally { setTransportSaving(false); }
+  }, [selectedRouteId, selectedStationId, updatePassenger, queryClient]);
 
   // Bus position simulation every 4 seconds
   useEffect(() => {
@@ -341,6 +387,105 @@ export default function StudentPortal() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Transport Configuration */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <button
+          onClick={() => setTransportOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <Route size={15} className="text-amber-500 shrink-0" />
+            <div className="text-left">
+              <p className="text-sm font-semibold text-foreground">Transport Configuration</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {me?.routeId
+                  ? `Route ${(routes ?? []).find((r) => r.id === me.routeId)?.name ?? `#${me.routeId}`} · station configured`
+                  : "No route assigned — tap to configure"}
+              </p>
+            </div>
+          </div>
+          <span className="text-muted-foreground text-xs">{transportOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {transportOpen && (
+          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+            {/* Route picker */}
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Your Route</label>
+              <select
+                value={selectedRouteId}
+                onChange={(e) => { setSelectedRouteId(e.target.value); setSelectedStationId(""); }}
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500"
+              >
+                <option value="">Select a route…</option>
+                {(routes ?? []).filter((r) => r.isActive).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Station picker */}
+            {selectedRouteId && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Navigation size={10} />Your Pickup / Drop-off Station
+                </label>
+                {loadingStations ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <RefreshCw size={11} className="animate-spin" />Loading stations…
+                  </div>
+                ) : routeStations.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-2">No stations on this route yet</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {routeStations.map((rs, idx) => (
+                      <button
+                        key={rs.id}
+                        onClick={() => setSelectedStationId(String(rs.stationId))}
+                        className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
+                          selectedStationId === String(rs.stationId)
+                            ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30"
+                            : "border-border bg-muted/30 hover:border-amber-300"
+                        }`}
+                      >
+                        <span className="text-[10px] font-bold text-amber-500 w-4 shrink-0">{idx + 1}</span>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-foreground">{rs.stationName ?? `Station #${rs.stationId}`}</p>
+                          {rs.radius && <p className="text-[9px] text-muted-foreground">{rs.radius}m geofence</p>}
+                        </div>
+                        {selectedStationId === String(rs.stationId) && (
+                          <CheckCircle size={13} className="text-amber-500 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Save button */}
+            <div className="pt-1 flex items-center gap-3">
+              <button
+                onClick={handleSaveTransport}
+                disabled={!selectedRouteId || !selectedStationId || transportSaving}
+                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+              >
+                {transportSaving ? "Saving…" : "Save Transport Config"}
+              </button>
+              {transportSaved && (
+                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle size={12} />Saved!
+                </span>
+              )}
+            </div>
+
+            <p className="text-[10px] text-muted-foreground text-center">
+              Your driver will see your assigned station on the boarding checklist
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
