@@ -863,20 +863,22 @@ function DriverDetailPanel({
   );
 }
 
-type PassengerRow = { id: number; name: string; phone?: string | null; photoUrl?: string | null; role: string; stationId: number; stationName?: string | null };
+type PassengerRow = { id: number; name: string; phone?: string | null; photoUrl?: string | null; role: string; stationId: number; stationName?: string | null; routeId?: number | null };
 type StationOption = { id: number; name: string };
 
 function PassengerDetailPanel({
-  passenger, stations, onClose, onRefresh,
+  passenger, stations, routes, onClose, onRefresh,
 }: {
   passenger: PassengerRow;
   stations: StationOption[] | undefined;
+  routes: RouteRow[] | undefined;
   onClose: () => void;
   onRefresh: () => void;
 }) {
   const [editName, setEditName] = useState(passenger.name);
   const [editPhone, setEditPhone] = useState(passenger.phone ?? "");
   const [editStationId, setEditStationId] = useState(String(passenger.stationId));
+  const [editRouteId, setEditRouteId] = useState(String(passenger.routeId ?? ""));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -888,6 +890,7 @@ function PassengerDetailPanel({
         name: editName.trim(),
         phone: editPhone.trim() || undefined,
         stationId: Number(editStationId),
+        routeId: editRouteId ? Number(editRouteId) : null,
       });
       onRefresh();
       onClose();
@@ -958,7 +961,7 @@ function PassengerDetailPanel({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Route / Stop</label>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pickup Stop</label>
               <select
                 value={editStationId}
                 onChange={(e) => setEditStationId(e.target.value)}
@@ -966,6 +969,19 @@ function PassengerDetailPanel({
               >
                 {(stations ?? []).map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Route</label>
+              <select
+                value={editRouteId}
+                onChange={(e) => setEditRouteId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
+              >
+                <option value="">— No route assigned —</option>
+                {(routes ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
@@ -2364,6 +2380,7 @@ export default function AdminPortal() {
         <PassengerDetailPanel
           passenger={selectedPassenger}
           stations={stations as StationOption[] | undefined}
+          routes={adminRoutes as RouteRow[] | undefined}
           onClose={() => setSelectedPassenger(null)}
           onRefresh={() => {
             refetchPassengers();
