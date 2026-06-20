@@ -698,7 +698,7 @@ export default function AdminPortal() {
       </div>
       {/* Notices */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-5 py-4 border-b border-border border-t-[#ffb900] border-r-[#ffb900] border-b-[#ffb900] border-l-[#ffb900] bg-[#ffb900] rounded-tl-[12px] rounded-tr-[12px] rounded-br-[12px] rounded-bl-[12px]">
           <h2 className="font-semibold text-primary">Notices & Announcements</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Shown on all student & staff dashboards</p>
         </div>

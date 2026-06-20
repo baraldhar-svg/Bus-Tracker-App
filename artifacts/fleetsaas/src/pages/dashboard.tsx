@@ -108,6 +108,8 @@ function ProfilePanel({
   const cameraRef = useRef<HTMLInputElement>(null);
   const { lang, setLang } = useLang();
   const t = useT();
+  const { logout } = useAuth();
+  const [, navigate] = useLocation();
 
   const avatarSrc = photo ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=0F172A&textColor=D97706`;
