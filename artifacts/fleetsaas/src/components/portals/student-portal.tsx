@@ -174,7 +174,7 @@ export default function StudentPortal() {
           </button>
         </div>
         {sentMsg && (
-          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
+          <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs dark:text-blue-300 text-foreground bg-background">
             Driver notified: <span className="font-semibold">"{sentMsg}"</span>
           </div>
         )}
@@ -198,11 +198,11 @@ export default function StudentPortal() {
         <div className="divide-y divide-amber-200 dark:divide-amber-800/30">
           {announcements?.length ? (
             announcements.map((a, idx) => (
-              <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+              <div key={a.id} className="flex items-start gap-3 px-4 py-3 bg-background">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-900">
                   {idx + 1}
                 </span>
-                <p className="text-sm text-amber-900 dark:text-amber-200 leading-snug">{a.message}</p>
+                <p className="text-sm dark:text-amber-200 leading-snug text-[#FF9F00] font-bold">{a.message}</p>
               </div>
             ))
           ) : (
