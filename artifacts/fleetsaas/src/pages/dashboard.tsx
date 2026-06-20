@@ -438,10 +438,6 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setDark((d) => !d)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-base hover:bg-muted/70 transition-colors">
-                {dark ? "☀️" : "🌙"}
-              </button>
               <button onClick={() => setProfileOpen(true)}
                 className="relative rounded-full ring-2 ring-amber-500 hover:ring-amber-400 transition-all focus:outline-none"
                 title="My Profile">
