@@ -34,7 +34,7 @@ export default function Landing() {
         </div>
 
         <h2 className="mb-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-          Track Every Bus.
+          Track Every School Bus.
           <br />
           <span className="text-[#ffee47]">Every Stop. In Real Time.</span>
         </h2>
