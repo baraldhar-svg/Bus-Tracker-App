@@ -31,7 +31,12 @@ router.post("/verify-otp", async (req, res) => {
   if (!otp) return res.status(401).json({ error: "Invalid or expired code" });
   await db.update(otpCodesTable).set({ used: 1 }).where(eq(otpCodesTable.id, otp.id));
   const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
-  return res.json({ verified: true, user: user ?? null, isNewUser: !user });
+  let tenant = null;
+  if (user?.tenantId) {
+    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    tenant = t ?? null;
+  }
+  return res.json({ verified: true, user: user ? { ...user, tenant } : null, isNewUser: !user });
 });
 
 router.post("/register", async (req, res) => {
@@ -66,7 +71,13 @@ router.post("/register", async (req, res) => {
     tenantId,
   }).returning();
 
-  return res.status(201).json(user);
+  let tenant = null;
+  if (user.tenantId) {
+    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    tenant = t ?? null;
+  }
+
+  return res.status(201).json({ ...user, tenant });
 });
 
 router.post("/register-school", async (req, res) => {

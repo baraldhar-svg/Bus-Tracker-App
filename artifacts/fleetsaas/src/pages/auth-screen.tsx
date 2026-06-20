@@ -153,7 +153,7 @@ export default function AuthScreen() {
         schoolCode: schoolCode || undefined,
         photoUrl: photoUrl || undefined,
       });
-      login({ ...user, tenant: null });
+      login({ ...user, tenant: user.tenant ?? null });
       navigate("/dashboard");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Registration failed");
