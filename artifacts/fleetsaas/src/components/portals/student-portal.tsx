@@ -60,9 +60,7 @@ export default function StudentPortal() {
   const [liveToday, setLiveToday] = useState(false);
   const [onLeave, setOnLeave] = useState(false);
   const [geoAlertDismissed, setGeoAlertDismissed] = useState(false);
-  const [leaveConfirming, setLeaveConfirming] = useState(false);
-  const leaveClickRef = useRef(0);
-  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   // Transport Config state
   const [transportOpen, setTransportOpen] = useState(false);
@@ -140,9 +138,6 @@ export default function StudentPortal() {
   const handleLeave = useCallback(async () => {
     const next = !onLeave;
     setOnLeave(next);
-    setLeaveConfirming(false);
-    leaveClickRef.current = 0;
-    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     if (next) {
       setLiveToday(false);
       setSentMsg("Staying home today");
@@ -158,23 +153,8 @@ export default function StudentPortal() {
   }, [onLeave, updatePassenger, queryClient]);
 
   const handleLeaveClick = useCallback(() => {
-    if (!onLeave) {
-      handleLeave();
-      return;
-    }
-    // When already on leave, require two taps within 500ms to cancel
-    leaveClickRef.current += 1;
-    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
-    if (leaveClickRef.current >= 2) {
-      handleLeave();
-    } else {
-      setLeaveConfirming(true);
-      leaveTimerRef.current = setTimeout(() => {
-        leaveClickRef.current = 0;
-        setLeaveConfirming(false);
-      }, 500);
-    }
-  }, [onLeave, handleLeave]);
+    handleLeave();
+  }, [handleLeave]);
 
   const handleQuickMessage = useCallback(async (msg: string) => {
     setSentMsg(msg);
@@ -253,19 +233,12 @@ export default function StudentPortal() {
             onClick={handleLeaveClick}
             className={`rounded-xl py-3 text-sm font-semibold transition-all select-none ${
               onLeave
-                ? leaveConfirming
-                  ? "bg-red-400 text-white shadow-md scale-95"
-                  : "bg-red-600 text-white shadow-md"
+                ? "bg-red-600 text-white shadow-md"
                 : "bg-muted text-muted-foreground border border-border"
             }`}
           >
             {onLeave ? (
-              <span className="flex flex-col items-center leading-tight">
-                <span className="flex items-center justify-center gap-1"><X size={12} /> {t.onLeave}</span>
-                <span className="text-[9px] font-normal text-red-200 mt-0.5">
-                  {leaveConfirming ? t.tapAgainToCancel : t.tapTwiceToCancel}
-                </span>
-              </span>
+              <span className="flex items-center justify-center gap-1"><X size={12} /> {t.onLeave}</span>
             ) : t.takeLeave}
           </button>
         </div>
