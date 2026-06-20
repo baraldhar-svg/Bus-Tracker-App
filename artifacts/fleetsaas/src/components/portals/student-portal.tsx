@@ -207,7 +207,7 @@ export default function StudentPortal() {
           </div>
           <div className="mt-3 h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
             <div
-              className="h-full rounded-full bg-white transition-all duration-[3500ms] text-[#47FF69]"
+              className="h-full rounded-full transition-all duration-[3500ms] bg-[#47FF69] text-background"
               style={{ width: `${etaProgress}%` }}
             />
           </div>

@@ -74,7 +74,7 @@ function AdCarousel({ ads, onAdClick }: { ads: Ad[]; onAdClick: (ad: Ad) => void
       <div className="flex justify-center gap-1.5 pb-1">
         {ads.map((_, i) => (
           <button key={i} onClick={() => setIdx(i)}
-            className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-amber-500" : "w-1.5 bg-border"}`} />
+            className={`h-1.5 rounded-full transition-all ${i === idx ? "w-5 bg-[#ffee47]" : "w-1.5 bg-border"}`} />
         ))}
       </div>
     </div>
