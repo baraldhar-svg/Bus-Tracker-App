@@ -65,65 +65,50 @@ export default function Landing() {
 
       {/* Fleet Picker */}
       {vehicles && vehicles.length > 0 && (
-        <div className="relative z-10 px-4 pb-6">
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-slate-500">
-            Live Fleet · {vehicles.length} Buses
-          </p>
+        <div className="relative z-10 px-4 pb-6 max-w-md mx-auto w-full">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Select a Bus</p>
+            <p className="text-[10px] text-slate-600">{vehicles.length} buses</p>
+          </div>
 
-          {/* Scrolling bus cards */}
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory px-1">
+          {/* Scrollable list */}
+          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden divide-y divide-slate-700/60 max-h-52 overflow-y-auto">
             {vehicles.map((v) => {
               const isSelected = v.id === selectedId;
               return (
                 <button
                   key={v.id}
                   onClick={() => setSelectedId(isSelected ? null : v.id)}
-                  className={`snap-center shrink-0 w-44 rounded-2xl border p-4 text-left transition-all duration-200 ${
-                    isSelected
-                      ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/20"
-                      : "border-slate-700 bg-slate-800/60 hover:border-slate-500"
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    isSelected ? "bg-amber-500/10" : "hover:bg-slate-700/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">🚌</span>
-                    <span className={`h-2 w-2 rounded-full ${v.isActive ? "bg-green-500 animate-pulse" : "bg-slate-600"}`} />
+                  <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${v.isActive ? "bg-green-500 animate-pulse" : "bg-slate-600"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold leading-tight ${isSelected ? "text-amber-400" : "text-white"}`}>{v.plateNumber}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{v.model} · {v.capacity} seats</p>
                   </div>
                   {v.tag && (
-                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isSelected ? "text-amber-400" : "text-slate-500"}`}>
-                      {v.tag}
-                    </p>
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                      isSelected
+                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                        : "bg-slate-700 text-slate-400 border-slate-600"
+                    }`}>{v.tag}</span>
                   )}
-                  <p className="text-xs font-bold text-white leading-tight">{v.plateNumber}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{v.model}</p>
-                  <p className={`text-[10px] mt-1.5 font-semibold ${v.isActive ? "text-green-400" : "text-slate-500"}`}>
-                    {v.isActive ? "● On Route" : "● At Depot"}
-                  </p>
+                  {isSelected && <span className="shrink-0 text-amber-400 text-sm">✓</span>}
                 </button>
               );
             })}
           </div>
 
-          {/* Selected bus detail card */}
+          {/* Track button appears when a bus is selected */}
           {selected && (
-            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-slate-800/80 backdrop-blur p-4 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <div className="text-4xl">🚌</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  {selected.tag && <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">{selected.tag}</span>}
-                  <span className={`text-[10px] font-semibold ${selected.isActive ? "text-green-400" : "text-slate-400"}`}>
-                    {selected.isActive ? "● Active" : "● Inactive"}
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-white">{selected.plateNumber}</p>
-                <p className="text-xs text-slate-400">{selected.model} · {selected.capacity} seats</p>
-              </div>
-              <button
-                onClick={() => navigate("/auth?mode=login")}
-                className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors"
-              >
-                Track →
-              </button>
-            </div>
+            <button
+              onClick={() => navigate("/auth?mode=login")}
+              className="mt-3 w-full rounded-2xl bg-amber-500 py-3 text-sm font-bold text-slate-900 hover:bg-amber-400 transition-all hover:scale-[1.02] shadow-lg shadow-amber-500/25"
+            >
+              Track {selected.plateNumber} →
+            </button>
           )}
         </div>
       )}
