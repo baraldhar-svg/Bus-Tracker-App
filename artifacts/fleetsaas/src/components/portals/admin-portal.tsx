@@ -600,7 +600,7 @@ function StatsDetailPanel({
   );
 }
 
-type DriverRow = { id: number; name: string; phone: string; vehicleNumber: string; isActive: boolean; photoUrl?: string | null };
+type DriverRow = { id: number; name: string; phone: string; vehicleNumber: string; isActive: boolean; isOnline: boolean; photoUrl?: string | null };
 
 function DriverDetailPanel({
   driver, vehicles, routes, onClose, onRefresh,
@@ -714,9 +714,16 @@ function DriverDetailPanel({
             />
             <div>
               <h2 className="text-base font-bold text-foreground">{driver.name}</h2>
-              <span className={`text-[10px] font-semibold ${driver.isActive ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
-                {driver.isActive ? "● Active" : "● Inactive"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-semibold ${driver.isActive ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                  {driver.isActive ? "● Active" : "● Inactive"}
+                </span>
+                {driver.isActive && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${driver.isOnline ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 animate-pulse" : "border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                    {driver.isOnline ? "● LIVE" : "○ Offline"}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose}
@@ -2346,7 +2353,7 @@ export default function AdminPortal() {
         <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {drivers?.map((d) => (
             <button key={d.id}
-              onClick={() => setSelectedDriver({ id: d.id, name: d.name, phone: d.phone, vehicleNumber: d.vehicleNumber, isActive: d.isActive ?? false, photoUrl: d.photoUrl })}
+              onClick={() => setSelectedDriver({ id: d.id, name: d.name, phone: d.phone, vehicleNumber: d.vehicleNumber, isActive: d.isActive ?? false, isOnline: d.isOnline ?? false, photoUrl: d.photoUrl })}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors">
               <img src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706`}
                 alt={d.name} className="h-10 w-10 rounded-full border border-border object-cover shrink-0" />
@@ -2355,12 +2362,20 @@ export default function AdminPortal() {
                 <p className="text-xs text-muted-foreground truncate">{d.phone} · {d.vehicleNumber}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
-                  d.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
-                    : "bg-muted text-muted-foreground border-border"
-                }`}>
-                  {d.isActive ? "● Active" : "Inactive"}
-                </span>
+                {d.isActive && (
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
+                    d.isOnline
+                      ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 animate-pulse"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                  }`}>
+                    {d.isOnline ? "● Live" : "○ Offline"}
+                  </span>
+                )}
+                {!d.isActive && (
+                  <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground border-border">
+                    Inactive
+                  </span>
+                )}
                 <ChevronRight size={14} className="text-muted-foreground" />
               </div>
             </button>

@@ -60,6 +60,12 @@ router.post("/start", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
+  // Mark active driver as online
+  await db
+    .update(driversTable)
+    .set({ isOnline: true })
+    .where(eq(driversTable.tenantId, req.tenantId));
+
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
     message: `🚌 Bus journey started at ${timeStr}. The driver is on the way — students will be picked up at their stops shortly.`,
@@ -76,6 +82,12 @@ router.post("/sos", async (_req, res) => {
 router.post("/complete", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
+
+  // Mark all drivers for this tenant as offline
+  await db
+    .update(driversTable)
+    .set({ isOnline: false })
+    .where(eq(driversTable.tenantId, req.tenantId));
 
   // Create a journey-complete announcement visible to all portals
   await db.insert(announcementsTable).values({

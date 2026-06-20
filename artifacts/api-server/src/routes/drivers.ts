@@ -42,15 +42,16 @@ router.post("/", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   const id = Number(req.params["id"]);
-  const { name, phone, vehicleNumber, photoUrl, isActive } = req.body as {
-    name?: string; phone?: string; vehicleNumber?: string; photoUrl?: string | null; isActive?: boolean;
+  const { name, phone, vehicleNumber, photoUrl, isActive, isOnline } = req.body as {
+    name?: string; phone?: string; vehicleNumber?: string; photoUrl?: string | null; isActive?: boolean; isOnline?: boolean;
   };
-  const updates: Partial<{ name: string; phone: string; vehicleNumber: string; photoUrl: string | null; isActive: boolean }> = {};
+  const updates: Partial<{ name: string; phone: string; vehicleNumber: string; photoUrl: string | null; isActive: boolean; isOnline: boolean }> = {};
   if (name !== undefined) updates.name = name;
   if (phone !== undefined) updates.phone = phone;
   if (vehicleNumber !== undefined) updates.vehicleNumber = vehicleNumber;
   if (photoUrl !== undefined) updates.photoUrl = photoUrl;
   if (isActive !== undefined) updates.isActive = isActive;
+  if (isOnline !== undefined) updates.isOnline = isOnline;
   const updated = await db
     .update(driversTable)
     .set(updates)

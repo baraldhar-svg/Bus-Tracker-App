@@ -11,6 +11,7 @@ export const driversTable = pgTable("drivers", {
   photoUrl: text("photo_url"),
   vehicleNumber: text("vehicle_number").notNull(),
   isActive: boolean("is_active").notNull().default(false),
+  isOnline: boolean("is_online").notNull().default(false),
 });
 
 export const insertDriverSchema = createInsertSchema(driversTable).omit({ id: true });

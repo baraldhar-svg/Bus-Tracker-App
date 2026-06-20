@@ -104,7 +104,8 @@ export const ListDriversResponseItem = zod.object({
   "phone": zod.string(),
   "photoUrl": zod.string().nullish(),
   "vehicleNumber": zod.string(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 })
 export const ListDriversResponse = zod.array(ListDriversResponseItem)
 
@@ -132,7 +133,8 @@ export const PatchDriverBody = zod.object({
   "phone": zod.string().optional(),
   "vehicleNumber": zod.string().optional(),
   "photoUrl": zod.string().nullish(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 })
 
 export const PatchDriverResponse = zod.object({
@@ -141,7 +143,8 @@ export const PatchDriverResponse = zod.object({
   "phone": zod.string(),
   "photoUrl": zod.string().nullish(),
   "vehicleNumber": zod.string(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 })
 
 
@@ -162,7 +165,8 @@ export const GetActiveDriverResponse = zod.object({
   "phone": zod.string(),
   "photoUrl": zod.string().nullish(),
   "vehicleNumber": zod.string(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 })
 
 
@@ -235,7 +239,8 @@ export const SwapFleetResponse = zod.object({
   "phone": zod.string(),
   "photoUrl": zod.string().nullish(),
   "vehicleNumber": zod.string(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 })
 
 
@@ -423,7 +428,8 @@ export const GetActiveTripResponse = zod.object({
   "phone": zod.string(),
   "photoUrl": zod.string().nullish(),
   "vehicleNumber": zod.string(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isOnline": zod.boolean().optional()
 }).optional()
 })
 

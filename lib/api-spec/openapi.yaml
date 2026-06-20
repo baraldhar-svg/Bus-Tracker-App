@@ -1086,6 +1086,8 @@ components:
           type: string
         isActive:
           type: boolean
+        isOnline:
+          type: boolean
 
     DriverInput:
       type: object
@@ -1113,6 +1115,8 @@ components:
           type: string
           nullable: true
         isActive:
+          type: boolean
+        isOnline:
           type: boolean
 
     Vehicle:

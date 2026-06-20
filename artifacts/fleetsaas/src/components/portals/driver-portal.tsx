@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, getListPassengersQueryKey, getListAnnouncementsQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
 import {
@@ -56,7 +56,12 @@ export default function DriverPortal() {
   const unboardPassenger = useUnboardPassenger();
   const startJourney = useStartJourney();
   const completeJourney = useCompleteJourney();
+  const patchDriver = usePatchDriver();
+  const { data: drivers } = useListDrivers();
   const queryClient = useQueryClient();
+
+  // First active driver — used for isOnline PATCH
+  const activeDriverId = drivers?.find((d) => d.isActive)?.id ?? drivers?.[0]?.id;
 
   const [stationIdx, setStationIdx] = useState(0);
   const [boardingId, setBoardingId] = useState<number | null>(null);
@@ -100,7 +105,7 @@ export default function DriverPortal() {
     } finally { setUnboardingId(null); }
   };
 
-  function handleToggleOffline() {
+  async function handleToggleOffline() {
     const goingOffline = !isOffline;
     setIsOffline(goingOffline);
     sendDriverMessage({
@@ -111,6 +116,12 @@ export default function DriverPortal() {
         : `🟢 Driver is back ONLINE — location sharing resumed`,
       isCustom: false,
     });
+    if (activeDriverId) {
+      try {
+        await patchDriver.mutateAsync({ id: activeDriverId, data: { isOnline: !goingOffline } });
+        queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
+      } catch { /* non-blocking */ }
+    }
   }
 
   async function handleStartJourney() {

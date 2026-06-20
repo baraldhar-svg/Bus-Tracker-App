@@ -162,6 +162,7 @@ export interface Driver {
   photoUrl?: string | null;
   vehicleNumber: string;
   isActive?: boolean;
+  isOnline?: boolean;
 }
 
 export interface DriverInput {
@@ -177,6 +178,7 @@ export interface DriverUpdate {
   vehicleNumber?: string;
   photoUrl?: string | null;
   isActive?: boolean;
+  isOnline?: boolean;
 }
 
 export interface Vehicle {
