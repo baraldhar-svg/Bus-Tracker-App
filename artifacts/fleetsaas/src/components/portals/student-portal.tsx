@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import BusMap from "@/components/bus-map";
+import { useT } from "@/lib/i18n";
 
 const DEMO_PASSENGER_ID = 1;
 
@@ -36,6 +37,7 @@ const BUS_POSITIONS = [
 const GEO_ALERT_THRESHOLD_ETA = 5;
 
 export default function StudentPortal() {
+  const t = useT();
   const { data: announcements } = useListAnnouncements();
   const { data: timeline } = useGetTripTimeline(1);
   const { data: passengers } = useListPassengers();
@@ -130,7 +132,7 @@ export default function StudentPortal() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-primary">Student / Staff</h1>
+          <h1 className="text-xl font-bold text-primary">{t.studentStaff}</h1>
           <p className="text-xs text-muted-foreground">Aayush Shrestha · Route B4 · Koteshwor</p>
         </div>
         <img
@@ -168,7 +170,7 @@ export default function StudentPortal() {
       )}
       {/* Riding Today / Leave Status */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
-        <p className="text-sm font-semibold text-foreground">Today's Status</p>
+        <p className="text-sm font-semibold text-foreground">{t.todaysStatus}</p>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleLiveToday}
@@ -179,7 +181,7 @@ export default function StudentPortal() {
                 : "bg-muted text-muted-foreground border border-border disabled:opacity-50"
             }`}
           >
-            {liveToday && !onLeave ? "✅ Riding Today" : "📍 Mark Live"}
+            {liveToday && !onLeave ? `✅ ${t.ridingToday}` : `📍 ${t.markLive}`}
           </button>
           <button
             onClick={handleLeaveClick}
@@ -193,12 +195,12 @@ export default function StudentPortal() {
           >
             {onLeave ? (
               <span className="flex flex-col items-center leading-tight">
-                <span>❌ On Leave</span>
+                <span>❌ {t.onLeave}</span>
                 <span className="text-[9px] font-normal text-red-200 mt-0.5">
-                  {leaveConfirming ? "tap again to cancel ✕" : "tap twice to cancel"}
+                  {leaveConfirming ? t.tapAgainToCancel : t.tapTwiceToCancel}
                 </span>
               </span>
-            ) : "🏠 Take Leave"}
+            ) : `🏠 ${t.takeLeave}`}
           </button>
         </div>
         {sentMsg && (

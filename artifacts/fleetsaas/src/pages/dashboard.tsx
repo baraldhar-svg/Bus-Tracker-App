@@ -130,145 +130,184 @@ function ProfilePanel({
     } finally { setSaving(false); }
   }
 
+  const currentLang = LANGUAGES.find((l) => l.code === lang);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300">
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="h-1 w-10 rounded-full bg-border" />
-        </div>
+    <>
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90dvh]">
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="h-1 w-10 rounded-full bg-border" />
+          </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h2 className="text-base font-bold text-foreground">{t.myProfile}</h2>
-          <div className="flex items-center gap-2">
-            {!editing && (
-              <button onClick={() => setEditing(true)}
-                className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
-                {t.edit}
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+            <h2 className="text-base font-bold text-foreground">{t.myProfile}</h2>
+            <div className="flex items-center gap-2">
+              {!editing && (
+                <button onClick={() => setEditing(true)}
+                  className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
+                  {t.edit}
+                </button>
+              )}
+              <button onClick={onClose}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+                ✕
               </button>
+            </div>
+          </div>
+
+          {/* Hidden file inputs */}
+          <input ref={galleryRef} type="file" accept="image/*" className="hidden"
+            onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
+            onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
+
+          {/* Scrollable body */}
+          <div className="overflow-y-auto flex-1 px-5 py-5 space-y-5">
+            {/* Avatar */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative">
+                <img src={avatarSrc} alt={user.name}
+                  className="h-20 w-20 rounded-full border-4 border-amber-500 object-cover shadow-lg" />
+                {editing && (
+                  <div className="absolute -bottom-1 -right-1 flex gap-1">
+                    <button onClick={() => galleryRef.current?.click()}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📁</button>
+                    <button onClick={() => cameraRef.current?.click()}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📷</button>
+                  </div>
+                )}
+              </div>
+              {editing && photo && (
+                <button onClick={() => setPhoto("")} className="text-xs text-red-500 hover:text-red-400">{t.removePhoto}</button>
+              )}
+            </div>
+
+            {/* Fields */}
+            <div className="space-y-3">
+              {editing ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.titleLabel}</label>
+                      <select value={title} onChange={(e) => setTitle(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-muted px-2 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        {TITLES.map((tt) => <option key={tt} value={tt}>{tt || "—"}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.fullName}</label>
+                      <input value={name} onChange={(e) => setName(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-foreground">{user.title ? `${user.title} ` : ""}{user.name}</p>
+                  <span className="inline-block rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase mt-1">
+                    {user.role}
+                  </span>
+                </div>
+              )}
+
+              {/* Read-only info */}
+              <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-muted-foreground">📞 {t.phone}</span>
+                  <span className="text-sm font-medium text-foreground">{user.phone}</span>
+                </div>
+                {user.schoolCode && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-xs text-muted-foreground">🏫 {t.schoolCode}</span>
+                    <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
+                  </div>
+                )}
+                {user.tenant?.name && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-xs text-muted-foreground">🏫 {t.school}</span>
+                    <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Language picker — compact trigger */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">🌐 {t.appLanguage}</p>
+              <button
+                onClick={() => setLangPickerOpen(true)}
+                className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 hover:border-amber-500 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🌐</span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">{currentLang?.native ?? "English"}</p>
+                    <p className="text-xs text-muted-foreground">{currentLang?.name ?? "English"}</p>
+                  </div>
+                </div>
+                <span className="text-muted-foreground group-hover:text-amber-500 transition-colors text-xs">▼</span>
+              </button>
+            </div>
+
+            {err && <p className="text-xs text-red-500">{err}</p>}
+
+            {editing && (
+              <div className="flex gap-2 pb-2">
+                <button onClick={() => { setEditing(false); setName(user.name); setTitle(user.title ?? ""); setPhoto(user.photoUrl ?? ""); setErr(""); }}
+                  className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+                  {t.cancel}
+                </button>
+                <button onClick={handleSave} disabled={saving || !name.trim()}
+                  className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                  {saving ? t.saving : t.saveChanges}
+                </button>
+              </div>
             )}
-            <button onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
-              ✕
-            </button>
           </div>
         </div>
+      </div>
 
-        {/* Hidden file inputs */}
-        <input ref={galleryRef} type="file" accept="image/*" className="hidden"
-          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
-        <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
-          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await fileToDataUrl(f)); }} />
-
-        <div className="px-5 py-5 space-y-5">
-          {/* Avatar */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative">
-              <img src={avatarSrc} alt={user.name}
-                className="h-20 w-20 rounded-full border-4 border-amber-500 object-cover shadow-lg" />
-              {editing && (
-                <div className="absolute -bottom-1 -right-1 flex gap-1">
-                  <button onClick={() => galleryRef.current?.click()}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📁</button>
-                  <button onClick={() => cameraRef.current?.click()}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow text-sm hover:bg-muted">📷</button>
-                </div>
-              )}
+      {/* Language picker bottom sheet — z above the profile panel */}
+      {langPickerOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setLangPickerOpen(false); }}>
+          <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl flex flex-col max-h-[70dvh] animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="h-1 w-10 rounded-full bg-border" />
             </div>
-            {editing && photo && (
-              <button onClick={() => setPhoto("")} className="text-xs text-red-500 hover:text-red-400">{t.removePhoto}</button>
-            )}
-          </div>
-
-          {/* Fields */}
-          <div className="space-y-3">
-            {editing ? (
-              <>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.titleLabel}</label>
-                    <select value={title} onChange={(e) => setTitle(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-muted px-2 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                      {TITLES.map((t) => <option key={t} value={t}>{t || "—"}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t.fullName}</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{user.title ? `${user.title} ` : ""}{user.name}</p>
-                <span className="inline-block rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase mt-1">
-                  {user.role}
-                </span>
-              </div>
-            )}
-
-            {/* Read-only info */}
-            <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs text-muted-foreground">📞 {t.phone}</span>
-                <span className="text-sm font-medium text-foreground">{user.phone}</span>
-              </div>
-              {user.schoolCode && (
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs text-muted-foreground">🏫 {t.schoolCode}</span>
-                  <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
-                </div>
-              )}
-              {user.tenant?.name && (
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-xs text-muted-foreground">🏫 {t.school}</span>
-                  <span className="text-sm font-medium text-foreground">{user.tenant.name}</span>
-                </div>
-              )}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <h2 className="text-base font-bold text-foreground">🌐 {t.selectLanguage}</h2>
+              <button onClick={() => setLangPickerOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+                ✕
+              </button>
             </div>
-          </div>
-
-          {/* Language picker — always visible */}
-          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🌐 App Language</p>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="overflow-y-auto flex-1 divide-y divide-border">
               {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setLang(l.code)}
-                  className={`rounded-xl border py-2 px-1 text-center transition-all ${
-                    lang === l.code
-                      ? "border-amber-500 bg-amber-500/10 text-amber-500 font-bold"
-                      : "border-border text-muted-foreground hover:border-amber-400 hover:text-foreground"
-                  }`}
-                >
-                  <p className="text-[11px] font-medium leading-tight truncate">{l.native}</p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{l.name}</p>
+                <button key={l.code}
+                  onClick={() => { setLang(l.code); setLangPickerOpen(false); }}
+                  className={`w-full flex items-center justify-between px-5 py-3.5 text-left transition-colors ${
+                    lang === l.code ? "bg-amber-50 dark:bg-amber-950/20" : "hover:bg-muted/40"
+                  }`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${lang === l.code ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                      {l.native}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{l.name}</p>
+                  </div>
+                  {lang === l.code && <span className="text-amber-500 font-bold text-base">✓</span>}
                 </button>
               ))}
             </div>
+            <div className="pb-6 shrink-0" />
           </div>
-
-          {err && <p className="text-xs text-red-500">{err}</p>}
-
-          {editing && (
-            <div className="flex gap-2 pb-2">
-              <button onClick={() => { setEditing(false); setName(user.name); setTitle(user.title ?? ""); setPhoto(user.photoUrl ?? ""); setErr(""); }}
-                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving || !name.trim()}
-                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-                {saving ? "Saving…" : "Save Changes"}
-              </button>
-            </div>
-          )}
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -291,6 +330,7 @@ function SchoolBanner({ tenant }: { tenant: TenantInfo }) {
 export default function Dashboard() {
   const { user, logout, login } = useAuth();
   const [, navigate] = useLocation();
+  const t = useT();
   const [dark, setDark] = useState(() => localStorage.getItem("fleetDark") === "1");
   const [profileOpen, setProfileOpen] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
@@ -370,7 +410,7 @@ export default function Dashboard() {
               </button>
               <button onClick={() => { logout(); navigate("/"); }}
                 className="flex items-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
-                Sign Out
+                {t.signOut}
               </button>
             </div>
           </div>
