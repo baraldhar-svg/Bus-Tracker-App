@@ -450,6 +450,15 @@ export const TriggerSosResponse = zod.object({
 
 
 /**
+ * @summary Mark the current journey as complete and notify all passengers and admins
+ */
+export const CompleteJourneyResponse = zod.object({
+  "acknowledged": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
  * @summary List all routes for this tenant
  */
 export const ListRoutesResponseItem = zod.object({

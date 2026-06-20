@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useCompleteJourney, getListPassengersQueryKey, getListAnnouncementsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
 import {
@@ -54,6 +54,7 @@ export default function DriverPortal() {
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
   const unboardPassenger = useUnboardPassenger();
+  const completeJourney = useCompleteJourney();
   const queryClient = useQueryClient();
 
   const [stationIdx, setStationIdx] = useState(0);
@@ -118,12 +119,21 @@ export default function DriverPortal() {
     setJourneyTime(timeStr);
   }
 
-  function handleJourneyComplete() {
+  async function handleJourneyComplete() {
     if (journeyCompleted) return;
     setJourneyCompleted(true);
     setCountdown(60);
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
+    try {
+      await completeJourney.mutateAsync();
+      // Refresh passenger list (statuses reset to pending) and announcement boards
+      queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
+      refetch();
+    } catch {
+      // Non-blocking — UI already shows completed state
+    }
   }
 
   // 60-second countdown after journey is completed

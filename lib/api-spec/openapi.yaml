@@ -520,6 +520,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosResponse"
 
+  /trips/complete:
+    post:
+      operationId: completeJourney
+      tags: [trips]
+      summary: Mark the current journey as complete and notify all passengers and admins
+      responses:
+        "200":
+          description: Journey marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosResponse"
+
   # ─── ROUTES ─────────────────────────────────────────────────────────────────
   /routes:
     get:

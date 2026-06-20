@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { driversTable, passengersTable, stationsTable } from "@workspace/db";
+import { driversTable, passengersTable, stationsTable, announcementsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 
 const router = Router();
@@ -57,7 +57,27 @@ router.get("/timeline", async (_req, res) => {
 });
 
 router.post("/sos", async (_req, res) => {
-  res.json({ acknowledged: true, message: "Emergency SOS broadcast sent to all admins and parents." });
+  return res.json({ acknowledged: true, message: "Emergency SOS broadcast sent to all admins and parents." });
+});
+
+router.post("/complete", async (req, res) => {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  // Create a journey-complete announcement visible to all portals
+  await db.insert(announcementsTable).values({
+    tenantId: req.tenantId,
+    message: `✅ Bus journey completed at ${timeStr}. All students have arrived safely. The driver has signed off for this trip.`,
+    severity: "info",
+  });
+
+  // Reset all passengers back to "pending" so they're ready for the next journey
+  await db
+    .update(passengersTable)
+    .set({ status: "pending", boardedAt: null })
+    .where(eq(passengersTable.tenantId, req.tenantId));
+
+  return res.json({ acknowledged: true, message: `Journey completed at ${timeStr}. All passengers and admins notified.` });
 });
 
 export default router;

@@ -2189,6 +2189,76 @@ export const useTriggerSos = <TError = ErrorType<unknown>,
       return useMutation(getTriggerSosMutationOptions(options));
     }
 
+export const getCompleteJourneyUrl = () => {
+
+
+
+
+  return `/api/trips/complete`
+}
+
+/**
+ * @summary Mark the current journey as complete and notify all passengers and admins
+ */
+export const completeJourney = async ( options?: RequestInit): Promise<SosResponse> => {
+
+  return customFetch<SosResponse>(getCompleteJourneyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCompleteJourneyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJourney>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeJourney>>, TError,void, TContext> => {
+
+const mutationKey = ['completeJourney'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeJourney>>, void> = () => {
+
+
+          return  completeJourney(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteJourneyMutationResult = NonNullable<Awaited<ReturnType<typeof completeJourney>>>
+
+    export type CompleteJourneyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the current journey as complete and notify all passengers and admins
+ */
+export const useCompleteJourney = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJourney>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeJourney>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCompleteJourneyMutationOptions(options));
+    }
+
 export const getListRoutesUrl = () => {
 
 
