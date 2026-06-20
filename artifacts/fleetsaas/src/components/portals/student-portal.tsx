@@ -454,7 +454,7 @@ export default function StudentPortal() {
               <button
                 onClick={handleSaveTransport}
                 disabled={!selectedRouteId || !selectedStationId || transportSaving}
-                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-xl py-2.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors bg-[#ffee47]"
               >
                 {transportSaving ? "Saving…" : "Save Transport Config"}
               </button>
