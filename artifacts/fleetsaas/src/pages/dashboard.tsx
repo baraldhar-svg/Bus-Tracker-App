@@ -235,7 +235,7 @@ function ProfilePanel({
                 {user.schoolCode && (
                   <div className="flex items-center justify-between px-4 py-3">
                     <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 size={11} />{t.schoolCode}</span>
-                    <span className="text-sm font-mono font-bold text-amber-500">{user.schoolCode}</span>
+                    <span className="text-sm font-mono font-bold text-[#FFCF38]">{user.schoolCode}</span>
                   </div>
                 )}
                 {user.tenant?.name && (
@@ -277,7 +277,7 @@ function ProfilePanel({
                     <p className="text-xs text-muted-foreground">{currentLang?.name ?? "English"}</p>
                   </div>
                 </div>
-                <span className="text-muted-foreground group-hover:text-amber-500 transition-colors text-xs">▼</span>
+                <span className="text-muted-foreground group-hover:text-[#FFCF38] transition-colors text-xs">▼</span>
               </button>
             </div>
 
@@ -340,7 +340,7 @@ function ProfilePanel({
                     </p>
                     <p className="text-xs text-muted-foreground">{l.name}</p>
                   </div>
-                  {lang === l.code && <span className="text-amber-500 font-bold text-base">✓</span>}
+                  {lang === l.code && <span className="text-[#FFCF38] font-bold text-base">✓</span>}
                 </button>
               ))}
             </div>
@@ -362,14 +362,14 @@ function SchoolCodeWidget({ code }: { code: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5">
       <div className="hidden sm:block">
-        <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide leading-none mb-0.5">School Code</p>
+        <p className="text-[9px] font-bold text-[#FFCF38] uppercase tracking-wide leading-none mb-0.5">School Code</p>
         <p className="text-xs font-black text-foreground font-mono tracking-wider leading-none">{code}</p>
       </div>
       <p className="block sm:hidden text-xs font-black text-foreground font-mono tracking-wider">{code}</p>
       <button
         onClick={handleCopy}
         title="Copy school code"
-        className="ml-1 rounded-md p-1 hover:bg-amber-500/20 transition-colors text-amber-500"
+        className="ml-1 rounded-md p-1 hover:bg-amber-500/20 transition-colors text-[#FFCF38]"
       >
         {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
       </button>
@@ -467,7 +467,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500"><Bus size={15} className="text-slate-900" /></span>
               <span className="font-black text-primary text-sm">
-                Orbit<span className="text-amber-500">Track</span>
+                Orbit<span className="text-[#FFCF38]">Track</span>
               </span>
             </div>
 

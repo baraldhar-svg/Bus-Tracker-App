@@ -93,7 +93,7 @@ export default function ParentPortal() {
     <div className="mx-auto w-full max-w-[480px] bg-card p-4 shadow-md sm:my-8 sm:rounded-xl space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-primary flex items-center gap-2">
-          <Bus size={20} className="text-amber-500" />OrbitTrack
+          <Bus size={20} className="text-[#FFCF38]" />OrbitTrack
         </h1>
         <span className="rounded-full bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Parent</span>
       </div>
@@ -198,12 +198,12 @@ export default function ParentPortal() {
                       disabled={locked}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${selectedStationId === s.stationId ? "bg-amber-50 dark:bg-amber-950/30 border-l-2 border-amber-500" : "hover:bg-muted"}`}
                     >
-                      <span className="text-[10px] font-bold text-amber-500 w-5 shrink-0">{s.position}</span>
+                      <span className="text-[10px] font-bold text-[#FFCF38] w-5 shrink-0">{s.position}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{s.stationName}</p>
                         {s.lat && s.lng && <p className="text-[10px] text-muted-foreground">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</p>}
                       </div>
-                      {selectedStationId === s.stationId && <CheckCircle size={14} className="text-amber-500 shrink-0" />}
+                      {selectedStationId === s.stationId && <CheckCircle size={14} className="text-[#FFCF38] shrink-0" />}
                     </button>
                   ))}
                 </div>
