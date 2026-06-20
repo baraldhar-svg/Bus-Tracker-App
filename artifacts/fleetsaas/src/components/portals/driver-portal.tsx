@@ -179,35 +179,50 @@ export default function DriverPortal() {
                   Journey Completed
                 </button>
               ) : (
-                /* Completion confirmed card */
-                <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
-                      🏁
+                /* Completion confirmed card + new journey button */
+                <div className="space-y-3">
+                  <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white text-lg font-bold">
+                        🏁
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
+                        <p className="text-xs text-red-500/80">All passengers & admin notified</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-red-300">Journey Completed · {completedTime}</p>
-                      <p className="text-xs text-red-500/80">All passengers & admin notified</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-red-800/40">
-                    <p className="text-[10px] text-red-500 uppercase tracking-wider font-semibold mb-2">Arrival notification sent to</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {passengers?.filter((p) => p.status === "boarded").slice(0, 6).map((p) => (
-                        <div key={p.id} className="flex items-center gap-1 rounded-full bg-red-900/30 border border-red-700/30 px-2 py-0.5">
-                          <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
-                          <span className="text-[10px] text-red-200">{p.name.split(" ")[0]}</span>
-                          <span className="text-[9px] text-red-400">✓</span>
+                    <div className="mt-3 pt-3 border-t border-red-800/40">
+                      <p className="text-[10px] text-red-500 uppercase tracking-wider font-semibold mb-2">Arrival notification sent to</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {passengers?.filter((p) => p.status === "boarded").slice(0, 6).map((p) => (
+                          <div key={p.id} className="flex items-center gap-1 rounded-full bg-red-900/30 border border-red-700/30 px-2 py-0.5">
+                            <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                            <span className="text-[10px] text-red-200">{p.name.split(" ")[0]}</span>
+                            <span className="text-[9px] text-red-400">✓</span>
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
+                          <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
                         </div>
-                      ))}
-                      <div className="flex items-center gap-1 rounded-full bg-blue-900/40 border border-blue-700/30 px-2.5 py-0.5">
-                        <span className="text-[10px] text-blue-300">🏫 Admin ✓</span>
-                      </div>
-                      <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
-                        <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
+                        <div className="flex items-center gap-1 rounded-full bg-purple-900/40 border border-purple-700/30 px-2.5 py-0.5">
+                          <span className="text-[10px] text-purple-300">👨‍👩‍👧 Parents ✓</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setJourneyStarted(false);
+                      setJourneyCompleted(false);
+                      setJourneyTime(null);
+                      setCompletedTime(null);
+                      setStationIdx(0);
+                    }}
+                    className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
+                  >
+                    <span className="text-xl mr-2">🚦</span>
+                    Start Journey
+                  </button>
                 </div>
               )}
             </div>
