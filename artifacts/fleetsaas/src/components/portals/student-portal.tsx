@@ -203,7 +203,7 @@ export default function StudentPortal() {
         </div>
         {sentMsg && (
           <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs dark:text-blue-300 bg-background text-ring">
-            Driver notified: <span className="font-semibold text-[FF0000]">{onLeave ? "Not Riding Today" : "Coming to School Today"}</span>
+            Driver notified: <span className="font-semibold text-[#FF0000] border-t-[#000] border-r-[#000] border-b-[#000] border-l-[#000]">{onLeave ? "Not Riding Today" : "Coming to School Today"}</span>
           </div>
         )}
       </div>
