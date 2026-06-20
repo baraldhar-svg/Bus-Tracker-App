@@ -268,7 +268,7 @@ export default function StudentPortal() {
           {announcements?.length ? (
             announcements.map((a, idx) => (
               <div key={a.id} className="flex items-start gap-3 px-4 py-3 bg-background">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-900">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-slate-900 bg-[#fff647]">
                   {idx + 1}
                 </span>
                 <p className="text-sm dark:text-amber-200 leading-snug text-[#FF9F00] font-bold">{a.message}</p>
