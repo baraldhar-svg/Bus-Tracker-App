@@ -58,7 +58,7 @@ router.get("/timeline", async (_req, res) => {
 
 router.post("/start", async (req, res) => {
   const now = new Date();
-  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
@@ -75,7 +75,7 @@ router.post("/sos", async (_req, res) => {
 
 router.post("/complete", async (req, res) => {
   const now = new Date();
-  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
   // Create a journey-complete announcement visible to all portals
   await db.insert(announcementsTable).values({
