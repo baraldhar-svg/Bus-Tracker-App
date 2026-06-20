@@ -10,10 +10,14 @@ import passengersRouter from "./passengers";
 import tripsRouter from "./trips";
 import subscriptionsRouter from "./subscriptions";
 import dashboardRouter from "./dashboard";
+import authRouter from "./auth";
+import advertisementsRouter from "./advertisements";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth", authRouter);
+router.use("/advertisements", advertisementsRouter);
 router.use("/tenants", tenantsRouter);
 router.use("/announcements", announcementsRouter);
 router.use("/stations", stationsRouter);

@@ -1,0 +1,107 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { usersTable, otpCodesTable, tenantsTable } from "@workspace/db";
+import { eq, and, gt } from "drizzle-orm";
+
+const router = Router();
+
+function generateOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+router.post("/send-otp", async (req, res) => {
+  const { phone } = req.body as { phone?: string };
+  if (!phone || !/^9[6-9]\d{8}$/.test(phone.replace(/\s/g, ""))) {
+    return res.status(400).json({ error: "Enter a valid Nepal mobile number (98xxxxxxxx)" });
+  }
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await db.insert(otpCodesTable).values({ phone, code, expiresAt, used: 0 });
+  return res.json({ success: true, demoCode: code });
+});
+
+router.post("/verify-otp", async (req, res) => {
+  const { phone, code } = req.body as { phone?: string; code?: string };
+  if (!phone || !code) return res.status(400).json({ error: "Phone and code required" });
+  const [otp] = await db
+    .select()
+    .from(otpCodesTable)
+    .where(and(eq(otpCodesTable.phone, phone), eq(otpCodesTable.code, code), eq(otpCodesTable.used, 0), gt(otpCodesTable.expiresAt, new Date())))
+    .limit(1);
+  if (!otp) return res.status(401).json({ error: "Invalid or expired code" });
+  await db.update(otpCodesTable).set({ used: 1 }).where(eq(otpCodesTable.id, otp.id));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  return res.json({ verified: true, user: user ?? null, isNewUser: !user });
+});
+
+router.post("/register", async (req, res) => {
+  const { phone, name, title, role, schoolCode, photoUrl } = req.body as {
+    phone?: string; name?: string; title?: string; role?: string; schoolCode?: string; photoUrl?: string;
+  };
+  if (!phone || !name) return res.status(400).json({ error: "Phone and name are required" });
+
+  let tenantId: number | null = null;
+  if (schoolCode) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.schoolCode, schoolCode)).limit(1);
+    if (tenant) tenantId = tenant.id;
+  }
+
+  const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (existing.length > 0) {
+    return res.status(409).json({ error: "Phone already registered. Please log in." });
+  }
+
+  const [user] = await db.insert(usersTable).values({
+    phone, name,
+    title: title ?? null,
+    photoUrl: photoUrl ?? null,
+    role: role ?? "student",
+    schoolCode: schoolCode ?? null,
+    tenantId,
+  }).returning();
+
+  return res.status(201).json(user);
+});
+
+router.post("/register-school", async (req, res) => {
+  const { phone, adminName, schoolName, address, contactPhone, bannerUrl } = req.body as {
+    phone?: string; adminName?: string; schoolName?: string; address?: string; contactPhone?: string; bannerUrl?: string;
+  };
+  if (!phone || !adminName || !schoolName) return res.status(400).json({ error: "Missing required fields" });
+
+  const schoolCode = schoolName.replace(/\s+/g, "").toUpperCase().slice(0, 8) + Math.floor(1000 + Math.random() * 9000);
+  const [tenant] = await db.insert(tenantsTable).values({
+    name: schoolName,
+    address: address ?? null,
+    contactPhone: contactPhone ?? null,
+    bannerUrl: bannerUrl ?? null,
+    schoolCode,
+  }).returning();
+
+  const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  let user;
+  if (existing.length > 0) {
+    [user] = await db.update(usersTable).set({ tenantId: tenant.id, role: "admin" }).where(eq(usersTable.phone, phone)).returning();
+  } else {
+    [user] = await db.insert(usersTable).values({
+      phone, name: adminName, role: "admin", schoolCode, tenantId: tenant.id,
+    }).returning();
+  }
+
+  return res.status(201).json({ user, tenant, schoolCode });
+});
+
+router.get("/me", async (req, res) => {
+  const { phone } = req.query as { phone?: string };
+  if (!phone) return res.status(400).json({ error: "Phone required" });
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!user) return res.status(404).json({ error: "Not found" });
+  let tenant = null;
+  if (user.tenantId) {
+    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    tenant = t ?? null;
+  }
+  return res.json({ ...user, tenant });
+});
+
+export default router;

@@ -102,7 +102,6 @@ export default function StudentPortal() {
 
   return (
     <div className="mx-auto w-full max-w-[480px] bg-card px-4 pb-8 pt-4 shadow-md sm:my-8 sm:rounded-2xl flex flex-col gap-5">
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -115,7 +114,6 @@ export default function StudentPortal() {
           className="h-11 w-11 rounded-full border-2 border-amber-500 shadow"
         />
       </div>
-
       {/* Geofencing Alert */}
       {nearbyAlert && (
         <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once">
@@ -143,14 +141,12 @@ export default function StudentPortal() {
           <p className="mt-1 text-right text-[10px] text-amber-100">Route progress {Math.round(etaProgress)}%</p>
         </div>
       )}
-
       {/* Uniform photo notice */}
       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center">
         <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
           📸 Please upload uniform photos only! (कृपया युनिफर्म सहितको फोटोमात्र मान्य हुने छ !)
         </p>
       </div>
-
       {/* Riding Today / Leave Status */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
         <p className="text-sm font-semibold text-foreground">Today's Status</p>
@@ -183,19 +179,17 @@ export default function StudentPortal() {
           </div>
         )}
       </div>
-
       {/* Announcements */}
       {announcements?.length ? (
         <div className="space-y-2">
           <h2 className="font-semibold text-primary text-sm">📢 Notices</h2>
           {announcements.map((a) => (
-            <div key={a.id} className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3 text-red-900 dark:text-red-300">
+            <div key={a.id} className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3 text-red-900 dark:text-red-300 text-[18px] font-bold">
               <p className="text-sm">{a.message}</p>
             </div>
           ))}
         </div>
       ) : null}
-
       {/* Live Bus Map */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -235,7 +229,6 @@ export default function StudentPortal() {
         </div>
         <p className="text-xs text-muted-foreground text-center">Next stop: Kalanki Chowk</p>
       </div>
-
       {/* Tracking Timeline */}
       <div className="space-y-2">
         <h2 className="font-semibold text-primary text-sm">🕐 Tracking Timeline</h2>
@@ -268,7 +261,6 @@ export default function StudentPortal() {
           )}
         </div>
       </div>
-
       {/* Quick Message Bar */}
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
