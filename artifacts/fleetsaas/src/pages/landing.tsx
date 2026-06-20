@@ -20,15 +20,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Auth Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/auth?mode=register")}
-            className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/25"
-          >
-            Register
-          </button>
-        </div>
       </header>
 
       {/* Hero */}
