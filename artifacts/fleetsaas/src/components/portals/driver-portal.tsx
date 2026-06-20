@@ -419,7 +419,7 @@ export default function DriverPortal() {
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Passenger Checklist</p>
           <div className="space-y-2">
-            {passengers?.map((p) => (
+            {passengers?.filter((p) => p.status !== "leave" && p.quickMessage !== "Staying home today").map((p) => (
               <div key={p.id} className={`flex items-center gap-3 rounded-2xl p-3 border transition-all ${
                 p.status === "boarded" ? "bg-emerald-900/20 border-emerald-700/30"
                   : p.quickMessage === "Staying home today" ? "bg-slate-800/40 border-slate-700/40 opacity-60"
