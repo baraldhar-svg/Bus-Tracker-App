@@ -100,8 +100,110 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 type Modal = "add-passenger" | "add-driver" | null;
+type StatsFilter = "boarded" | "live" | "leave" | "buses" | null;
 type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; };
 type FleetVehicle = typeof FLEET_VEHICLES[number];
+
+type Passenger = {
+  id: number; name: string; role: string; status: string;
+  liveToday: number; stationName?: string | null; quickMessage?: string | null; photoUrl?: string | null;
+};
+
+function StatsDetailPanel({
+  filter, passengers, onClose,
+}: {
+  filter: StatsFilter;
+  passengers: Passenger[];
+  onClose: () => void;
+}) {
+  const filtered = (() => {
+    if (filter === "boarded") return passengers.filter((p) => p.status === "boarded");
+    if (filter === "live") return passengers.filter((p) => p.liveToday === 1);
+    if (filter === "leave") return passengers.filter((p) => p.quickMessage === "Staying home today");
+    return [];
+  })();
+
+  const META: Record<NonNullable<Exclude<StatsFilter, "buses">>, { title: string; icon: string; empty: string }> = {
+    boarded: { title: "On Board", icon: "✅", empty: "No passengers boarded yet" },
+    live:    { title: "Live Today", icon: "📍", empty: "No passengers marked live" },
+    leave:   { title: "On Leave Today", icon: "🏠", empty: "No passengers on leave" },
+  };
+
+  const isBuses = filter === "buses";
+  const meta = isBuses ? null : META[filter as keyof typeof META];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-foreground">
+              {isBuses ? "🚌 Active Buses" : `${meta!.icon} ${meta!.title}`}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {isBuses
+                ? `${FLEET_VEHICLES.filter((v) => v.status === "on-route").length} of ${FLEET_VEHICLES.length} on route`
+                : `${filtered.length} ${filtered.length === 1 ? "person" : "people"}`}
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 divide-y divide-border">
+          {isBuses ? (
+            FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
+              <div key={v.id} className="flex items-center gap-3 px-5 py-3">
+                <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center text-lg shrink-0">🚌</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{v.plate}</p>
+                  <p className="text-xs text-muted-foreground truncate">{v.driver} · {v.route}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="rounded-full bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2 py-0.5 text-[10px] font-bold">
+                    ● On Route
+                  </span>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · ⛽ {v.fuel}%</p>
+                </div>
+              </div>
+            ))
+          ) : filtered.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-3xl mb-2">{meta!.icon}</p>
+              <p className="text-sm text-muted-foreground">{meta!.empty}</p>
+            </div>
+          ) : (
+            filtered.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                    <span className="rounded-full bg-muted border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">{p.role}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{p.stationName ?? "—"}</p>
+                  {p.quickMessage && (
+                    <p className="text-[10px] text-blue-500 italic truncate">💬 "{p.quickMessage}"</p>
+                  )}
+                </div>
+                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
+                  {STATUS_LABELS[p.status] ?? p.status}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="pb-6 shrink-0" />
+      </div>
+    </div>
+  );
+}
 
 function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: () => void }) {
   const messages = useDriverMessages(vehicle.plate);
@@ -275,6 +377,7 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
+  const [statsFilter, setStatsFilter] = useState<StatsFilter>(null);
 
   const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
   const [editingSchool, setEditingSchool] = useState(false);
@@ -414,15 +517,17 @@ export default function AdminPortal() {
       {/* Key Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "On Board", value: boardedCount, color: "text-primary", bg: "bg-card" },
-          { label: "Live Today", value: liveTodayCount, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/20" },
-          { label: "On Leave", value: onLeaveCount, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950/20" },
-          { label: "Buses Active", value: onRouteCount, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
+          { label: "On Board", value: boardedCount, color: "text-primary", bg: "bg-card", filter: "boarded" as StatsFilter },
+          { label: "Live Today", value: liveTodayCount, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/20", filter: "live" as StatsFilter },
+          { label: "On Leave", value: onLeaveCount, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950/20", filter: "leave" as StatsFilter },
+          { label: "Buses Active", value: onRouteCount, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20", filter: "buses" as StatsFilter },
         ].map((s) => (
-          <div key={s.label} className={`rounded-2xl border border-border ${s.bg} p-4 text-center shadow-sm`}>
+          <button key={s.label} onClick={() => setStatsFilter(s.filter)}
+            className={`rounded-2xl border border-border ${s.bg} p-4 text-center shadow-sm hover:ring-2 hover:ring-amber-500/40 active:scale-95 transition-all cursor-pointer`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-          </div>
+            <p className="text-[9px] text-muted-foreground/60 mt-0.5">tap to view ›</p>
+          </button>
         ))}
       </div>
 
@@ -790,6 +895,15 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
+
+      {/* Stats Detail Panel */}
+      {statsFilter && (
+        <StatsDetailPanel
+          filter={statsFilter}
+          passengers={(passengers ?? []) as Passenger[]}
+          onClose={() => setStatsFilter(null)}
+        />
+      )}
 
       {/* Bus Detail Panel */}
       {selectedVehicle && (
