@@ -105,6 +105,21 @@ router.post("/:id/board", async (req, res) => {
   res.json(row);
 });
 
+router.post("/:id/unboard", async (req, res) => {
+  const parsed = BoardPassengerParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+  await db
+    .update(passengersTable)
+    .set({ status: "pending", boardedAt: null })
+    .where(eq(passengersTable.id, parsed.data.id));
+  const [row] = await db
+    .select(PASSENGER_SELECT)
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, parsed.data.id));
+  res.json(row);
+});
+
 router.post("/:id/leave", async (req, res) => {
   const parsed = MarkPassengerLeaveParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });

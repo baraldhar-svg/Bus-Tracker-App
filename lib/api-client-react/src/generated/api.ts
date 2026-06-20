@@ -1384,6 +1384,76 @@ export const useBoardPassenger = <TError = ErrorType<unknown>,
       return useMutation(getBoardPassengerMutationOptions(options));
     }
 
+export const getUnboardPassengerUrl = (id: number,) => {
+
+
+
+
+  return `/api/passengers/${id}/unboard`
+}
+
+/**
+ * @summary Mark passenger as unboarded (driver action)
+ */
+export const unboardPassenger = async (id: number, options?: RequestInit): Promise<Passenger> => {
+
+  return customFetch<Passenger>(getUnboardPassengerUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getUnboardPassengerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unboardPassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unboardPassenger>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['unboardPassenger'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unboardPassenger>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unboardPassenger(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnboardPassengerMutationResult = NonNullable<Awaited<ReturnType<typeof unboardPassenger>>>
+
+    export type UnboardPassengerMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark passenger as unboarded (driver action)
+ */
+export const useUnboardPassenger = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unboardPassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unboardPassenger>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getUnboardPassengerMutationOptions(options));
+    }
+
 export const getMarkPassengerLeaveUrl = (id: number,) => {
 
 

@@ -264,6 +264,27 @@ export const BoardPassengerResponse = zod.object({
 
 
 /**
+ * @summary Mark passenger as unboarded (driver action)
+ */
+export const UnboardPassengerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UnboardPassengerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "photoUrl": zod.string().nullish(),
+  "role": zod.enum(['student', 'staff']),
+  "status": zod.enum(['pending', 'boarded', 'leave']),
+  "stationId": zod.number(),
+  "stationName": zod.string().nullish(),
+  "boardedAt": zod.coerce.date().nullish(),
+  "liveToday": zod.number().optional().describe('1 if the passenger confirmed they are riding today, 0 otherwise'),
+  "quickMessage": zod.string().nullish().describe('Last quick status message sent by the passenger')
+})
+
+
+/**
  * @summary Mark passenger as on leave (parent or admin action)
  */
 export const MarkPassengerLeaveParams = zod.object({

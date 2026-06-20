@@ -330,6 +330,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Passenger"
 
+  /passengers/{id}/unboard:
+    post:
+      operationId: unboardPassenger
+      tags: [passengers]
+      summary: Mark passenger as unboarded (driver action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated passenger with pending status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passenger"
+
   /passengers/{id}/leave:
     post:
       operationId: markPassengerLeave

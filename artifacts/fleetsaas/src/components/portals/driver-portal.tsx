@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUpdatePassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, getListPassengersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
 
@@ -48,7 +48,7 @@ export default function DriverPortal() {
   const { data: stations } = useListStations();
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
-  const updatePassenger = useUpdatePassenger();
+  const unboardPassenger = useUnboardPassenger();
   const queryClient = useQueryClient();
 
   const [stationIdx, setStationIdx] = useState(0);
@@ -87,7 +87,7 @@ export default function DriverPortal() {
   const handleUnboard = async (id: number) => {
     setUnboardingId(id);
     try {
-      await updatePassenger.mutateAsync({ id, data: { status: "pending" } });
+      await unboardPassenger.mutateAsync({ id });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetch();
     } finally { setUnboardingId(null); }
@@ -405,14 +405,19 @@ export default function DriverPortal() {
                   {p.quickMessage && <p className="text-[10px] text-blue-400 italic mt-0.5 truncate">"{p.quickMessage}"</p>}
                 </div>
                 {p.status === "boarded" ? (
-                  <button
-                    onClick={() => handleUnboard(p.id)}
-                    disabled={unboardingId === p.id}
-                    title="Tap to unboard"
-                    className="shrink-0 rounded-xl bg-emerald-700 hover:bg-slate-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50 transition-colors group"
-                  >
-                    {unboardingId === p.id ? "…" : <span><span className="group-hover:hidden">✓ Boarded</span><span className="hidden group-hover:inline">✕ Unboard</span></span>}
-                  </button>
+                  <div className="shrink-0 flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => handleUnboard(p.id)}
+                      disabled={unboardingId === p.id}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        unboardingId === p.id ? "bg-slate-600 opacity-50" : "bg-emerald-500"
+                      }`}
+                      aria-label="Unboard passenger"
+                    >
+                      <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white shadow transition-transform" />
+                    </button>
+                    <span className="text-[9px] text-emerald-400 font-semibold">Boarded</span>
+                  </div>
                 ) : p.quickMessage === "Staying home today" ? (
                   <span className="shrink-0 rounded-xl bg-slate-700 px-3 py-1.5 text-xs text-slate-400">On Leave</span>
                 ) : (
