@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, formatBsDate, BS_MONTH_NAMES_EN } from "@/lib/bs-calendar";
+import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
@@ -68,22 +68,37 @@ type CalendarEvent = {
   autoNotify: boolean;
 };
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_NE = ["आइत", "सोम", "मङ्गल", "बुध", "बिही", "शुक्र", "शनि"];
+
+function getAdDaysInMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
+function getAdFirstWeekday(year: number, month: number) {
+  return new Date(year, month - 1, 1).getDay();
+}
 
 function CalendarManager() {
   const queryClient = useQueryClient();
   const todayB = todayBs();
+  const todayAd = new Date();
+
   const [calSystem, setCalSystem] = useState<"bs" | "ad">("bs");
+
+  // BS state
   const [bsYear, setBsYear] = useState(todayB.year);
   const [bsMonth, setBsMonth] = useState(todayB.month);
 
-  // Derive AD month prefix from BS month for the API query
-  const adMonthStr = (() => {
-    const d = bsToAd(bsYear, bsMonth, 1);
-    return `${d.year}-${String(d.month).padStart(2, "0")}`;
-  })();
+  // AD state
+  const [adYear, setAdYear] = useState(todayAd.getFullYear());
+  const [adMonth, setAdMonth] = useState(todayAd.getMonth() + 1);
 
-  const { data: events, refetch } = useListCalendarEvents({ month: adMonthStr });
+  // API month query (always in AD YYYY-MM format)
+  const queryMonthStr = calSystem === "bs"
+    ? (() => { const d = bsToAd(bsYear, bsMonth, 1); return `${d.year}-${String(d.month).padStart(2, "0")}`; })()
+    : `${adYear}-${String(adMonth).padStart(2, "0")}`;
+
+  const { data: events, refetch } = useListCalendarEvents({ month: queryMonthStr });
 
   const [showForm, setShowForm] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -96,32 +111,79 @@ function CalendarManager() {
 
   const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const daysInMonth = getDaysInBsMonth(bsYear, bsMonth);
-  const firstWeekday = getFirstWeekdayOfBsMonth(bsYear, bsMonth);
-
-  // Map events by BS day
-  const eventsByDay = new Map<number, CalendarEvent[]>();
-  for (const ev of events ?? []) {
-    // Convert AD eventDate "YYYY-MM-DD" to BS
-    const parts = ev.eventDate.split("-").map(Number);
-    const bs = adToBs(parts[0]!, parts[1]!, parts[2]!);
-    if (bs.year === bsYear && bs.month === bsMonth) {
-      const list = eventsByDay.get(bs.day) ?? [];
-      list.push(ev as CalendarEvent);
-      eventsByDay.set(bs.day, list);
+  // Switch calendar system and sync the viewed month position
+  function switchTo(sys: "bs" | "ad") {
+    if (sys === calSystem) return;
+    if (sys === "ad") {
+      const d = bsToAd(bsYear, bsMonth, 1);
+      setAdYear(d.year); setAdMonth(d.month);
+    } else {
+      const bs = adToBs(adYear, adMonth, 1);
+      setBsYear(bs.year); setBsMonth(bs.month);
     }
+    setCalSystem(sys);
+    setSelectedDay(null);
   }
 
   function prevMonth() {
-    if (bsMonth === 1) { setBsYear(y => y - 1); setBsMonth(12); }
-    else setBsMonth(m => m - 1);
     setSelectedDay(null);
+    if (calSystem === "bs") {
+      if (bsMonth === 1) { setBsYear(y => y - 1); setBsMonth(12); } else setBsMonth(m => m - 1);
+    } else {
+      if (adMonth === 1) { setAdYear(y => y - 1); setAdMonth(12); } else setAdMonth(m => m - 1);
+    }
   }
   function nextMonth() {
-    if (bsMonth === 12) { setBsYear(y => y + 1); setBsMonth(1); }
-    else setBsMonth(m => m + 1);
     setSelectedDay(null);
+    if (calSystem === "bs") {
+      if (bsMonth === 12) { setBsYear(y => y + 1); setBsMonth(1); } else setBsMonth(m => m + 1);
+    } else {
+      if (adMonth === 12) { setAdYear(y => y + 1); setAdMonth(1); } else setAdMonth(m => m + 1);
+    }
   }
+
+  // Grid dimensions
+  const daysInMonth = calSystem === "bs" ? getDaysInBsMonth(bsYear, bsMonth) : getAdDaysInMonth(adYear, adMonth);
+  const firstWeekday = calSystem === "bs" ? getFirstWeekdayOfBsMonth(bsYear, bsMonth) : getAdFirstWeekday(adYear, adMonth);
+
+  // Map events by day number in the current view
+  const eventsByDay = new Map<number, CalendarEvent[]>();
+  for (const ev of events ?? []) {
+    const parts = ev.eventDate.split("-").map(Number);
+    if (calSystem === "bs") {
+      const bs = adToBs(parts[0]!, parts[1]!, parts[2]!);
+      if (bs.year === bsYear && bs.month === bsMonth) {
+        const list = eventsByDay.get(bs.day) ?? [];
+        list.push(ev as CalendarEvent);
+        eventsByDay.set(bs.day, list);
+      }
+    } else {
+      if (parts[0] === adYear && parts[1] === adMonth) {
+        const list = eventsByDay.get(parts[2]!) ?? [];
+        list.push(ev as CalendarEvent);
+        eventsByDay.set(parts[2]!, list);
+      }
+    }
+  }
+
+  function isTodayCell(day: number) {
+    if (calSystem === "bs") return day === todayB.day && bsMonth === todayB.month && bsYear === todayB.year;
+    return day === todayAd.getDate() && adMonth === todayAd.getMonth() + 1 && adYear === todayAd.getFullYear();
+  }
+
+  const WEEKDAYS = calSystem === "bs" ? WEEKDAYS_NE : WEEKDAYS_EN;
+  const headerTitle = calSystem === "bs"
+    ? `${BS_MONTH_NAMES_NE[bsMonth - 1]} ${bsYear}`
+    : `${AD_MONTH_NAMES[adMonth - 1]} ${adYear}`;
+  const headerSubtitle = calSystem === "bs"
+    ? `${queryMonthStr.replace("-", " / ")} AD`
+    : (() => { const bs = adToBs(adYear, adMonth, 1); return `${BS_MONTH_NAMES_NE[bs.month - 1]} ${bs.year} BS`; })();
+
+  const selectedDayLabel = selectedDay
+    ? calSystem === "bs"
+      ? `${selectedDay} ${BS_MONTH_NAMES_NE[bsMonth - 1]} ${bsYear} BS`
+      : `${selectedDay} ${AD_MONTH_NAMES[adMonth - 1]} ${adYear} AD`
+    : "";
 
   function openAddForm(day: number) {
     setSelectedDay(day);
@@ -133,7 +195,9 @@ function CalendarManager() {
     if (!eTitle.trim() || !selectedDay) return;
     setFormErr(""); setSaving(true);
     try {
-      const adDateStr = bsDateToAd(bsYear, bsMonth, selectedDay);
+      const adDateStr = calSystem === "bs"
+        ? bsDateToAd(bsYear, bsMonth, selectedDay)
+        : `${adYear}-${String(adMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
       const res = await fetch(`${BASE_URL}/api/calendar-events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,16 +226,16 @@ function CalendarManager() {
         <div className="flex items-center gap-2">
           <CalendarDays size={16} className="text-amber-500" />
           <div>
-            <h2 className="font-semibold text-primary">School Calendar</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Events, holidays & auto-notifications</p>
+            <h2 className="font-semibold text-primary">विद्यालय क्यालेन्डर</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">School Calendar · Events &amp; Holidays</p>
           </div>
         </div>
         <div className="flex items-center gap-1 rounded-xl border border-border bg-muted p-0.5 text-xs font-semibold">
-          <button onClick={() => setCalSystem("bs")}
+          <button onClick={() => switchTo("bs")}
             className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "bs" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}>
             BS
           </button>
-          <button onClick={() => setCalSystem("ad")}
+          <button onClick={() => switchTo("ad")}
             className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "ad" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}>
             AD
           </button>
@@ -184,12 +248,8 @@ function CalendarManager() {
           <ChevronLeft size={16} />
         </button>
         <div className="text-center">
-          <p className="font-bold text-sm text-foreground">
-            {BS_MONTH_NAMES_EN[bsMonth - 1]} {bsYear}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {adMonthStr.replace("-", " / ")} AD
-          </p>
+          <p className="font-bold text-sm text-foreground">{headerTitle}</p>
+          <p className="text-[10px] text-muted-foreground">{headerSubtitle}</p>
         </div>
         <button onClick={nextMonth} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
           <ChevronRight size={16} />
@@ -204,22 +264,23 @@ function CalendarManager() {
           ))}
         </div>
         <div className="grid grid-cols-7 gap-0.5">
-          {/* Empty cells before first day */}
           {Array.from({ length: firstWeekday }).map((_, i) => (
             <div key={`empty-${i}`} />
           ))}
-          {/* Day cells */}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
             const dayEvents = eventsByDay.get(day) ?? [];
-            const isToday = day === todayB.day && bsMonth === todayB.month && bsYear === todayB.year;
+            const isToday = isTodayCell(day);
             const isSelected = day === selectedDay;
             const hasHoliday = dayEvents.some(e => e.type === "holiday");
             const hasEvent = dayEvents.some(e => e.type === "event");
             return (
               <button key={day} onClick={() => setSelectedDay(isSelected ? null : day)}
                 className={`relative flex flex-col items-center rounded-xl py-1.5 transition-all text-xs font-medium
-                  ${isSelected ? "bg-amber-500 text-slate-900 shadow-sm" : isToday ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" : "hover:bg-muted text-foreground"}
+                  ${isSelected ? "bg-amber-500 text-slate-900 shadow-sm"
+                    : isToday ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                    : hasHoliday ? "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    : "hover:bg-muted text-foreground"}
                 `}>
                 <span>{day}</span>
                 <div className="flex gap-0.5 mt-0.5">
@@ -234,10 +295,10 @@ function CalendarManager() {
         {/* Legend */}
         <div className="flex items-center gap-4 mt-3 px-1">
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-red-500 inline-block" />Holiday
+            <span className="h-2 w-2 rounded-full bg-red-500 inline-block" />सार्वजनिक बिदा (Holiday)
           </span>
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />Event
+            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />कार्यक्रम (Event)
           </span>
         </div>
       </div>
@@ -246,16 +307,14 @@ function CalendarManager() {
       {selectedDay && (
         <div className="border-t border-border mx-4 mb-4 pt-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">
-              {formatBsDate({ year: bsYear, month: bsMonth, day: selectedDay })}
-            </p>
+            <p className="text-sm font-semibold text-foreground">{selectedDayLabel}</p>
             <button onClick={() => openAddForm(selectedDay)}
               className="flex items-center gap-1 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 transition-colors">
-              <Plus size={12} />Add
+              <Plus size={12} />थप्नुस् / Add
             </button>
           </div>
           {selectedDayEvents.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">No events — tap Add to create one</p>
+            <p className="text-xs text-muted-foreground italic">कुनै कार्यक्रम छैन — थप्न + बटन थिच्नुहोस्</p>
           )}
           {selectedDayEvents.map(ev => (
             <div key={ev.id} className={`flex items-start gap-3 rounded-xl border p-3
@@ -263,7 +322,7 @@ function CalendarManager() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${ev.type === "holiday" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"}`}>
-                    {ev.type}
+                    {ev.type === "holiday" ? "बिदा" : "कार्यक्रम"}
                   </span>
                   {ev.autoNotify && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">🔔 T-1 alert</span>}
                 </div>
@@ -281,24 +340,24 @@ function CalendarManager() {
       {/* Add Event Form */}
       {showForm && selectedDay && (
         <div className="border-t border-border mx-4 mb-4 pt-4 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New entry for {formatBsDate({ year: bsYear, month: bsMonth, day: selectedDay })}</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">नयाँ प्रविष्टि: {selectedDayLabel}</p>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Title</label>
-            <input value={eTitle} onChange={e => setETitle(e.target.value)} placeholder="e.g. Saraswati Puja, Parent Meeting…"
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">शीर्षक / Title</label>
+            <input value={eTitle} onChange={e => setETitle(e.target.value)} placeholder="e.g. सरस्वती पूजा, Parent Meeting…"
               className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Description (optional)</label>
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">विवरण / Description (optional)</label>
             <input value={eDesc} onChange={e => setEDesc(e.target.value)} placeholder="Additional details…"
               className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Type</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">प्रकार / Type</label>
               <select value={eType} onChange={e => setEType(e.target.value as "event" | "holiday")}
                 className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                <option value="event">Event</option>
-                <option value="holiday">Holiday</option>
+                <option value="event">कार्यक्रम (Event)</option>
+                <option value="holiday">सार्वजनिक बिदा (Holiday)</option>
               </select>
             </div>
             <div className="flex flex-col justify-end">
@@ -312,10 +371,10 @@ function CalendarManager() {
           {formErr && <p className="text-xs text-red-500">{formErr}</p>}
           <div className="flex gap-2">
             <button onClick={() => setShowForm(false)}
-              className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+              className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">रद्द / Cancel</button>
             <button onClick={handleSave} disabled={!eTitle.trim() || saving}
               className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-              {saving ? "Saving…" : "Save Event"}
+              {saving ? "Saving…" : "सुरक्षित / Save"}
             </button>
           </div>
         </div>

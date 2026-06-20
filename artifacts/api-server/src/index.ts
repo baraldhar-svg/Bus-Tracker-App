@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startCalendarNotifyCron } from "./routes/calendar";
+import { startCalendarNotifyCron, seedNepalHolidays } from "./routes/calendar";
 
 const rawPort = process.env["PORT"];
 
@@ -23,5 +23,6 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  seedNepalHolidays().catch((e) => logger.error({ err: e }, "Holiday seed failed"));
   startCalendarNotifyCron((msg) => logger.info(msg));
 });
