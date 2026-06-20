@@ -67,6 +67,8 @@ export default function AuthScreen() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const bannerGalleryRef = useRef<HTMLInputElement>(null);
+  const bannerCameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (demoCode && step === "otp") setOtp(demoCode.split(""));
@@ -146,11 +148,16 @@ export default function AuthScreen() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
-      {/* Hidden file inputs */}
+      {/* Hidden file inputs — profile photo */}
       <input ref={galleryInputRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="user" className="hidden"
         onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)} />
+      {/* Hidden file inputs — school banner */}
+      <input ref={bannerGalleryRef} type="file" accept="image/*" className="hidden"
+        onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerUrl(await fileToDataUrl(f)); }} />
+      <input ref={bannerCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBannerUrl(await fileToDataUrl(f)); }} />
 
       <div className="w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
         <div className="mb-6 flex flex-col items-center gap-2">
@@ -324,12 +331,26 @@ export default function AuthScreen() {
                   className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-300">
-                  School Banner Image URL <span className="text-slate-500">(shown on your school page)</span>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-300">
+                  School Banner <span className="text-slate-500">(shown on your school page)</span>
                 </label>
-                <input value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://your-school-image.jpg"
-                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500" />
-                {bannerUrl && <img src={bannerUrl} alt="banner preview" className="mt-2 h-20 w-full rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />}
+                {bannerUrl ? (
+                  <div className="space-y-2">
+                    <img src={bannerUrl} alt="banner preview" className="h-20 w-full rounded-lg object-cover border border-slate-700" />
+                    <button onClick={() => setBannerUrl("")} className="text-xs text-red-400 hover:text-red-300">Remove banner</button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => bannerGalleryRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
+                      📁 Upload Photo
+                    </button>
+                    <button type="button" onClick={() => bannerCameraRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 py-3 text-xs font-medium text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors">
+                      📷 Take Photo
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
