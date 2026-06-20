@@ -141,9 +141,31 @@ export const ListVehiclesResponseItem = zod.object({
   "plateNumber": zod.string(),
   "model": zod.string(),
   "capacity": zod.number().optional(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "tag": zod.string().nullish()
 })
 export const ListVehiclesResponse = zod.array(ListVehiclesResponseItem)
+
+
+/**
+ * @summary Update vehicle tag (admin)
+ */
+export const PatchVehicleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PatchVehicleBody = zod.object({
+  "tag": zod.string().nullish()
+})
+
+export const PatchVehicleResponse = zod.object({
+  "id": zod.number(),
+  "plateNumber": zod.string(),
+  "model": zod.string(),
+  "capacity": zod.number().optional(),
+  "isActive": zod.boolean().optional(),
+  "tag": zod.string().nullish()
+})
 
 
 /**

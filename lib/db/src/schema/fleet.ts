@@ -24,6 +24,7 @@ export const vehiclesTable = pgTable("vehicles", {
   model: text("model").notNull(),
   capacity: integer("capacity").notNull().default(40),
   isActive: boolean("is_active").notNull().default(false),
+  tag: text("tag"),
 });
 
 export const insertVehicleSchema = createInsertSchema(vehiclesTable).omit({ id: true });

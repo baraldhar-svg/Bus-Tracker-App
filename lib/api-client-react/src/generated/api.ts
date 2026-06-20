@@ -52,7 +52,8 @@ import type {
   TenantSummary,
   TimelineEvent,
   UpdateCalendarEventBody,
-  Vehicle
+  Vehicle,
+  VehicleUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -958,6 +959,78 @@ export function useListVehicles<TData = Awaited<ReturnType<typeof listVehicles>>
 
 
 
+
+export const getPatchVehicleUrl = (id: number,) => {
+
+
+
+
+  return `/api/vehicles/${id}`
+}
+
+/**
+ * @summary Update vehicle tag (admin)
+ */
+export const patchVehicle = async (id: number,
+    vehicleUpdate: VehicleUpdate, options?: RequestInit): Promise<Vehicle> => {
+
+  return customFetch<Vehicle>(getPatchVehicleUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      vehicleUpdate,)
+  }
+);}
+
+
+
+
+export const getPatchVehicleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchVehicle>>, TError,{id: number;data: BodyType<VehicleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchVehicle>>, TError,{id: number;data: BodyType<VehicleUpdate>}, TContext> => {
+
+const mutationKey = ['patchVehicle'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchVehicle>>, {id: number;data: BodyType<VehicleUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  patchVehicle(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchVehicleMutationResult = NonNullable<Awaited<ReturnType<typeof patchVehicle>>>
+    export type PatchVehicleMutationBody = BodyType<VehicleUpdate>
+    export type PatchVehicleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update vehicle tag (admin)
+ */
+export const usePatchVehicle = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchVehicle>>, TError,{id: number;data: BodyType<VehicleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof patchVehicle>>,
+        TError,
+        {id: number;data: BodyType<VehicleUpdate>},
+        TContext
+      > => {
+      return useMutation(getPatchVehicleMutationOptions(options));
+    }
 
 export const getSwapFleetUrl = () => {
 

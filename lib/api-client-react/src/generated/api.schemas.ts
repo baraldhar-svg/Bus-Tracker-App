@@ -177,6 +177,11 @@ export interface Vehicle {
   model: string;
   capacity?: number;
   isActive?: boolean;
+  tag?: string | null;
+}
+
+export interface VehicleUpdate {
+  tag?: string | null;
 }
 
 export interface FleetSwapInput {

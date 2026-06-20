@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient } from "@tanstack/react-query";
@@ -715,6 +715,7 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
 type GeocodeResult = { displayName: string; lat: number; lng: number };
 type RouteStation = { id: number; routeId: number; stationId: number; position: number; stationName: string | null; lat: number | null; lng: number | null; radius: number | null };
 type RouteRow = { id: number; name: string; driverId: number | null; vehicleId: number | null; isActive: boolean | null; driverName: string | null; vehiclePlate: string | null };
+type VehicleRow = { id: number; plateNumber: string; model: string; capacity: number; isActive: boolean; tag?: string | null };
 
 function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -789,9 +790,78 @@ function RouteStationsPanel({ routeId, onClose }: { routeId: number; onClose: ()
   );
 }
 
-function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name: string }> | undefined; vehicles: Array<{ id: number; plateNumber: string }> | undefined }) {
+function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | undefined; onTagUpdated: () => void }) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [tagValue, setTagValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSaveTag(id: number) {
+    setSaving(true);
+    try {
+      await apiPatch(`/vehicles/${id}`, { tag: tagValue.trim() || null });
+      setEditingId(null);
+      onTagUpdated();
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-border">
+        <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Vehicle Assets</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Assign friendly labels (Bus A, Bus B, Bus C…) shown in route assignment</p>
+      </div>
+      {(!vehicles || vehicles.length === 0) && (
+        <p className="px-5 py-6 text-center text-xs text-muted-foreground">No vehicles registered — add drivers with vehicles above</p>
+      )}
+      <div className="divide-y divide-border">
+        {(vehicles ?? []).map((v) => (
+          <div key={v.id} className="flex items-center gap-3 px-5 py-3">
+            <div className={`h-2 w-2 rounded-full shrink-0 ${v.isActive ? "bg-green-500" : "bg-slate-400"}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">{v.plateNumber}</p>
+              <p className="text-[10px] text-muted-foreground">{v.model} · {v.capacity} seats</p>
+            </div>
+            {editingId === v.id ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <input
+                  value={tagValue}
+                  onChange={(e) => setTagValue(e.target.value)}
+                  placeholder="Bus A"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveTag(v.id)}
+                  className="w-20 rounded-lg border border-amber-500 bg-muted px-2 py-1 text-xs text-foreground outline-none"
+                />
+                <button onClick={() => handleSaveTag(v.id)} disabled={saving}
+                  className="rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400">
+                  Save
+                </button>
+                <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0">
+                {v.tag ? (
+                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">{v.tag}</span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground italic">No label</span>
+                )}
+                <button onClick={() => { setEditingId(v.id); setTagValue(v.tag ?? ""); }}
+                  className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:border-amber-500 transition-colors">
+                  <Pencil size={9} />Label
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name: string }> | undefined; vehicles: VehicleRow[] | undefined }) {
   const queryClient = useQueryClient();
   const { data: routes, refetch } = useListRoutes();
+  const { data: allStations } = useListStations();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [rName, setRName] = useState("");
@@ -800,12 +870,61 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  // Staged stations for new route
+  const [stagedStations, setStagedStations] = useState<{ stationId: number; name: string }[]>([]);
+  const [stationPickId, setStationPickId] = useState("");
+
+  // Geocode search state (inline in Create form)
+  const [geoQuery, setGeoQuery] = useState("");
+  const [geoResults, setGeoResults] = useState<GeocodeResult[]>([]);
+  const [geoSearching, setGeoSearching] = useState(false);
+  const [geoPicked, setGeoPicked] = useState<GeocodeResult | null>(null);
+  const [geoStageName, setGeoStageName] = useState("");
+  const [geoErr, setGeoErr] = useState("");
+
+  const stagedIds = new Set(stagedStations.map((s) => s.stationId));
+  const availableStations = (allStations ?? []).filter((s) => !stagedIds.has(s.id));
+
+  async function handleGeoSearch() {
+    if (!geoQuery.trim()) return;
+    setGeoErr(""); setGeoSearching(true); setGeoResults([]); setGeoPicked(null);
+    try {
+      const r = await fetch(`${BASE}/api/geocode?q=${encodeURIComponent(geoQuery)}`);
+      const data: GeocodeResult[] = await r.json();
+      if (data.length === 0) setGeoErr("No locations found — try a different search");
+      setGeoResults(data);
+    } catch { setGeoErr("Search failed"); }
+    finally { setGeoSearching(false); }
+  }
+
+  async function handleStageGeoStation() {
+    if (!geoPicked || !geoStageName.trim()) return;
+    try {
+      const created = await apiPost("/stations", { name: geoStageName.trim(), lat: geoPicked.lat, lng: geoPicked.lng, radius: 200 });
+      setStagedStations((prev) => [...prev, { stationId: created.id, name: geoStageName.trim() }]);
+      queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
+      setGeoQuery(""); setGeoResults([]); setGeoPicked(null); setGeoStageName(""); setGeoErr("");
+    } catch { setGeoErr("Failed to create station"); }
+  }
+
+  function handleAddExistingStation() {
+    if (!stationPickId) return;
+    const station = (allStations ?? []).find((s) => s.id === Number(stationPickId));
+    if (!station || stagedIds.has(station.id)) return;
+    setStagedStations((prev) => [...prev, { stationId: station.id, name: station.name }]);
+    setStationPickId("");
+  }
+
   async function handleCreate() {
     if (!rName.trim()) return;
     setErr(""); setSaving(true);
     try {
-      await apiPost("/routes", { name: rName.trim(), driverId: rDriver ? Number(rDriver) : undefined, vehicleId: rVehicle ? Number(rVehicle) : undefined });
-      setRName(""); setRDriver(""); setRVehicle(""); setCreating(false);
+      const route = await apiPost("/routes", { name: rName.trim(), driverId: rDriver ? Number(rDriver) : undefined, vehicleId: rVehicle ? Number(rVehicle) : undefined });
+      for (const s of stagedStations) {
+        await apiPost(`/routes/${route.id}/stations`, { stationId: s.stationId });
+      }
+      setRName(""); setRDriver(""); setRVehicle(""); setStagedStations([]); setCreating(false);
+      setGeoQuery(""); setGeoResults([]); setGeoPicked(null); setGeoStageName("");
       refetch();
       queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
@@ -823,6 +942,10 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
     queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
   }
 
+  function vehicleLabel(v: VehicleRow) {
+    return v.tag ? `${v.tag} — ${v.plateNumber}` : v.plateNumber;
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -837,15 +960,17 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
       </div>
 
       {creating && (
-        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-3">
+        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-4">
+          {/* Route Name */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-muted-foreground">Route Name</label>
             <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="e.g. Route B4 – Koteshwor"
               className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
           </div>
+          {/* Driver + Vehicle */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Assign Driver</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Driver</label>
               <select value={rDriver} onChange={(e) => setRDriver(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
                 <option value="">Unassigned</option>
@@ -853,21 +978,102 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Assign Vehicle</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle</label>
               <select value={rVehicle} onChange={(e) => setRVehicle(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
                 <option value="">Unassigned</option>
-                {(vehicles ?? []).map((v) => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
+                {(vehicles ?? []).map((v) => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
               </select>
             </div>
           </div>
+
+          {/* Geofence Station Builder */}
+          <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Navigation size={11} />Geofence Stations for this Route</p>
+
+            {/* Staged stations list */}
+            {stagedStations.length > 0 && (
+              <div className="space-y-1">
+                {stagedStations.map((s, idx) => (
+                  <div key={s.stationId} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
+                    <span className="text-[10px] font-bold text-amber-500 w-4 shrink-0">{idx + 1}</span>
+                    <p className="flex-1 text-xs text-foreground">{s.name}</p>
+                    <button onClick={() => setStagedStations((prev) => prev.filter((x) => x.stationId !== s.stationId))}
+                      className="text-red-400 hover:text-red-600 shrink-0"><X size={11} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add from existing stations */}
+            {availableStations.length > 0 && (
+              <div className="flex gap-2">
+                <select value={stationPickId} onChange={(e) => setStationPickId(e.target.value)}
+                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500">
+                  <option value="">Pick existing station…</option>
+                  {availableStations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button onClick={handleAddExistingStation} disabled={!stationPickId}
+                  className="rounded-xl bg-muted border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-amber-50 dark:hover:bg-amber-950/20 disabled:opacity-50 flex items-center gap-1">
+                  <Plus size={12} />Add
+                </button>
+              </div>
+            )}
+
+            {/* Geocode search for new stations */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide flex items-center gap-1"><Search size={10} />Search &amp; add new station</p>
+              <div className="flex gap-2">
+                <input value={geoQuery} onChange={(e) => setGeoQuery(e.target.value)} placeholder="e.g. Koteshwor, Kathmandu"
+                  onKeyDown={(e) => e.key === "Enter" && handleGeoSearch()}
+                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                <button onClick={handleGeoSearch} disabled={!geoQuery.trim() || geoSearching}
+                  className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center gap-1">
+                  {geoSearching ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
+                </button>
+              </div>
+              {geoErr && <p className="text-[10px] text-red-500">{geoErr}</p>}
+              {geoResults.length > 0 && !geoPicked && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {geoResults.map((r, i) => (
+                    <button key={i} onClick={() => { setGeoPicked(r); setGeoStageName(r.displayName.split(",")[0]?.trim() ?? ""); }}
+                      className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-left hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors">
+                      <p className="text-xs font-medium text-foreground line-clamp-1">{r.displayName}</p>
+                      <p className="text-[10px] text-muted-foreground">{r.lat.toFixed(4)}, {r.lng.toFixed(4)}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {geoPicked && (
+                <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">Selected location</p>
+                      <p className="text-xs text-foreground line-clamp-1">{geoPicked.displayName}</p>
+                      <p className="text-[10px] text-muted-foreground">{geoPicked.lat.toFixed(4)}, {geoPicked.lng.toFixed(4)}</p>
+                    </div>
+                    <button onClick={() => { setGeoPicked(null); setGeoResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0"><X size={12} /></button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={geoStageName} onChange={(e) => setGeoStageName(e.target.value)} placeholder="Station name"
+                      className="flex-1 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground outline-none focus:border-amber-500" />
+                    <button onClick={handleStageGeoStation} disabled={!geoStageName.trim()}
+                      className="rounded-xl bg-amber-500 px-3 py-1.5 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 whitespace-nowrap">
+                      + Stage
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {err && <p className="text-xs text-red-500">{err}</p>}
           <div className="flex gap-2">
-            <button onClick={() => { setCreating(false); setRName(""); setErr(""); }}
+            <button onClick={() => { setCreating(false); setRName(""); setErr(""); setStagedStations([]); setGeoQuery(""); setGeoResults([]); setGeoPicked(null); }}
               className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
             <button onClick={handleCreate} disabled={!rName.trim() || saving}
               className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-              {saving ? "Creating…" : "Create Route"}
+              {saving ? "Creating…" : `Create Route${stagedStations.length > 0 ? ` + ${stagedStations.length} station${stagedStations.length > 1 ? "s" : ""}` : ""}`}
             </button>
           </div>
         </div>
@@ -1008,7 +1214,7 @@ export default function AdminPortal() {
   const { data: announcements, refetch: refetchAnnouncements } = useListAnnouncements();
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
   const { data: drivers, refetch: refetchDrivers } = useListDrivers();
-  const { data: vehicles } = useListVehicles();
+  const { data: vehicles, refetch: refetchVehicles } = useListVehicles();
   const queryClient = useQueryClient();
 
   const [modal, setModal] = useState<Modal>(null);
@@ -1540,8 +1746,13 @@ export default function AdminPortal() {
           <GeocodeStationCreator onCreated={() => { refetchStations(); queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() }); }} />
         </div>
       </div>
+      {/* Vehicle Asset Grid */}
+      <VehicleTagGrid
+        vehicles={vehicles as VehicleRow[] | undefined}
+        onTagUpdated={() => queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() })}
+      />
       {/* Route Management */}
-      <RouteManager drivers={drivers} vehicles={vehicles} />
+      <RouteManager drivers={drivers} vehicles={vehicles as VehicleRow[] | undefined} />
       {/* School Calendar */}
       <CalendarManager />
       {/* Stats Detail Panel */}

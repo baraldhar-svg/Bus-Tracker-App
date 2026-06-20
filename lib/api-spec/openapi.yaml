@@ -220,6 +220,31 @@ paths:
                 items:
                   $ref: "#/components/schemas/Vehicle"
 
+  /vehicles/{id}:
+    patch:
+      operationId: patchVehicle
+      tags: [vehicles]
+      summary: Update vehicle tag (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleUpdate"
+      responses:
+        "200":
+          description: Updated vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+
   # ─── FLEET SWAP ─────────────────────────────────────────────────────────────
   /fleet/swap:
     post:
@@ -982,6 +1007,16 @@ components:
           type: integer
         isActive:
           type: boolean
+        tag:
+          type: string
+          nullable: true
+
+    VehicleUpdate:
+      type: object
+      properties:
+        tag:
+          type: string
+          nullable: true
 
     FleetSwapInput:
       type: object
