@@ -2308,9 +2308,22 @@ export default function AdminPortal() {
                 className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle / Plate Number</label>
-              <input value={dVehicle} onChange={(e) => setDVehicle(e.target.value)} placeholder="BA 4 KHA 5678"
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Assign Bus</label>
+              {(vehicles ?? []).length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+                  No buses registered yet — add a vehicle first.
+                </p>
+              ) : (
+                <select value={dVehicle} onChange={(e) => setDVehicle(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 appearance-none cursor-pointer">
+                  <option value="">— Select a bus —</option>
+                  {(vehicles ?? []).map((v) => (
+                    <option key={v.id} value={v.plateNumber}>
+                      {v.plateNumber} · {v.model}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
