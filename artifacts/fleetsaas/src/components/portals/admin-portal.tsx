@@ -1208,10 +1208,16 @@ function RouteStationsPanel({
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState("");
 
-  // Assignment state
+  // Assignment state — kept in sync with route prop so refetch updates dropdowns
   const [editVehicle, setEditVehicle] = useState(String(route.vehicleId ?? ""));
   const [editDriver, setEditDriver] = useState(String(route.driverId ?? ""));
   const [assignSaving, setAssignSaving] = useState(false);
+  const [assignSaved, setAssignSaved] = useState(false);
+
+  useEffect(() => {
+    setEditVehicle(String(route.vehicleId ?? ""));
+    setEditDriver(String(route.driverId ?? ""));
+  }, [route.vehicleId, route.driverId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1226,12 +1232,15 @@ function RouteStationsPanel({
 
   async function handleAssign() {
     setAssignSaving(true);
+    setAssignSaved(false);
     try {
       await apiPatch(`/routes/${routeId}`, {
         vehicleId: editVehicle ? Number(editVehicle) : null,
         driverId: editDriver ? Number(editDriver) : null,
       });
       onRouteUpdated();
+      setAssignSaved(true);
+      setTimeout(() => setAssignSaved(false), 2000);
     } catch { /* ignore */ }
     finally { setAssignSaving(false); }
   }
@@ -1295,9 +1304,13 @@ function RouteStationsPanel({
         <button
           onClick={handleAssign}
           disabled={assignSaving}
-          className="w-full rounded-lg bg-amber-500 py-1.5 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+          className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${
+            assignSaved
+              ? "bg-green-500 text-white"
+              : "bg-amber-500 text-slate-900 hover:bg-amber-400"
+          }`}
         >
-          {assignSaving ? "Saving…" : "Save Assignment"}
+          {assignSaving ? "Saving…" : assignSaved ? "✓ Saved!" : "Save Assignment"}
         </button>
       </div>
       {loading ? (
