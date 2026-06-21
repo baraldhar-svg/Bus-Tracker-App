@@ -57,6 +57,9 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [foundUser, setFoundUser] = useState<FoundUser | null>(null);
+  const [loginMethod, setLoginMethod] = useState<"otp" | "password">("otp");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -167,7 +170,19 @@ export default function AuthScreen() {
     setFoundUser(null);
     setOtp(["", "", "", "", "", ""]);
     setSchoolCode("");
+    setPassword("");
     setErr("");
+  }
+
+  async function handleLoginPassword() {
+    setErr(""); setLoading(true);
+    try {
+      const result = await apiPost("/auth/login-password", { phone, password });
+      login({ ...result.user, tenant: result.user?.tenant ?? null });
+      navigate("/dashboard");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Login failed");
+    } finally { setLoading(false); }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -330,78 +345,145 @@ export default function AuthScreen() {
               </div>
             </div>
 
-            {/* School Code field */}
-            {foundUser.requiresSchoolCode && (
-              <div className="mb-4">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Code</label>
-                <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                  <span className="text-slate-400 text-sm">🏫</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. APEX-ALPHA-1234"
-                    value={schoolCode}
-                    onChange={(e) => { setSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
-                    className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
-                    autoCapitalize="characters"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Your school code was provided by your school administrator</p>
-              </div>
-            )}
-
-            {/* OTP input */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Verification Code</label>
-                <span className="text-xs text-slate-500">Sent to +977 {phone}</span>
-              </div>
-              <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { otpRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => { handleOtpKey(i, e.target.value); setErr(""); }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-                      if (e.key === "Enter" && otp.every(Boolean)) handleVerifyOtp();
-                    }}
-                    className="h-12 w-10 rounded-xl border border-slate-600 bg-slate-900 text-center text-lg font-bold text-white focus:border-amber-500 focus:outline-none transition-colors"
-                  />
-                ))}
-              </div>
-
-              {/* Demo code hint */}
-              <div className="mt-3 rounded-lg border border-amber-800/40 bg-amber-900/20 px-3 py-2 flex items-center gap-2">
-                <span className="text-amber-400 text-xs">💡</span>
-                <p className="text-xs text-amber-300">
-                  <span className="font-semibold">Demo mode:</span> Code <span className="font-mono font-bold tracking-widest">{foundUser.demoCode}</span> is auto-filled
-                </p>
-              </div>
+            {/* Login method tabs */}
+            <div className="mb-4 flex rounded-xl border border-slate-700 bg-slate-900 p-1 gap-1">
+              <button
+                onClick={() => { setLoginMethod("otp"); setErr(""); }}
+                className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all ${loginMethod === "otp" ? "bg-amber-500 text-slate-900 shadow" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                📱 OTP Code
+              </button>
+              <button
+                onClick={() => { setLoginMethod("password"); setErr(""); }}
+                className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all ${loginMethod === "password" ? "bg-amber-500 text-slate-900 shadow" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                🔑 Password
+              </button>
             </div>
 
-            {err && (
-              <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
-                <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
-                <p className="text-xs text-red-300 leading-relaxed">{err}</p>
-              </div>
+            {loginMethod === "otp" && (
+              <>
+                {/* School Code field */}
+                {foundUser.requiresSchoolCode && (
+                  <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Code</label>
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                      <span className="text-slate-400 text-sm">🏫</span>
+                      <input
+                        type="text"
+                        placeholder="e.g. APEX-ALPHA-1234"
+                        value={schoolCode}
+                        onChange={(e) => { setSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                        className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
+                        autoCapitalize="characters"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Verification Code</label>
+                    <span className="text-xs text-slate-500">Sent to +977 {phone}</span>
+                  </div>
+                  <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { otpRefs.current[i] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => { handleOtpKey(i, e.target.value); setErr(""); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+                          if (e.key === "Enter" && otp.every(Boolean)) handleVerifyOtp();
+                        }}
+                        className="h-12 w-10 rounded-xl border border-slate-600 bg-slate-900 text-center text-lg font-bold text-white focus:border-amber-500 focus:outline-none transition-colors"
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-3 rounded-lg border border-amber-800/40 bg-amber-900/20 px-3 py-2 flex items-center gap-2">
+                    <span className="text-amber-400 text-xs">💡</span>
+                    <p className="text-xs text-amber-300">
+                      <span className="font-semibold">Demo mode:</span> Code <span className="font-mono font-bold tracking-widest">{foundUser.demoCode}</span> is auto-filled
+                    </p>
+                  </div>
+                </div>
+
+                {err && (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                    <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                    <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={otp.some(d => !d) || (foundUser.requiresSchoolCode && !schoolCode.trim()) || loading}
+                  className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin"/>
+                      Verifying…
+                    </span>
+                  ) : "Sign In →"}
+                </button>
+              </>
             )}
 
-            <button
-              onClick={handleVerifyOtp}
-              disabled={otp.some(d => !d) || (foundUser.requiresSchoolCode && !schoolCode.trim()) || loading}
-              className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin"/>
-                  Verifying…
-                </span>
-              ) : "Sign In →"}
-            </button>
+            {loginMethod === "password" && (
+              <>
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Password</label>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                    <span className="text-slate-400 text-sm">🔑</span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setErr(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && password && handleLoginPassword()}
+                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    No password set?{" "}
+                    <button onClick={() => setLoginMethod("otp")} className="text-amber-400 hover:text-amber-300">Use OTP instead</button>
+                  </p>
+                </div>
+
+                {err && (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                    <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                    <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleLoginPassword}
+                  disabled={!password || loading}
+                  className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin"/>
+                      Signing in…
+                    </span>
+                  ) : "Sign In →"}
+                </button>
+              </>
+            )}
 
             <button
               onClick={resetToPhone}

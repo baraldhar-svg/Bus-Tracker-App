@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   schoolCode: text("school_code"),
   tenantId: integer("tenant_id").references(() => tenantsTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  passwordHash: text("password_hash"),
   biometricEnabled: boolean("biometric_enabled").default(false).notNull(),
   biometricCredentialId: text("biometric_credential_id"),
   biometricPublicKey: text("biometric_public_key"),

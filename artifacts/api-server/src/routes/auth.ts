@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
@@ -81,9 +82,29 @@ router.post("/verify-otp", async (req, res) => {
   return res.json({ verified: true, user: { ...user, tenant } });
 });
 
+// POST /auth/login-password — authenticate with phone + password
+router.post("/login-password", async (req, res) => {
+  const { phone, password } = req.body as { phone?: string; password?: string };
+  if (!phone || !password) return res.status(400).json({ error: "Phone and password are required" });
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!user) return res.status(401).json({ error: "No account found for this number" });
+  if (!user.passwordHash) return res.status(401).json({ error: "This account uses OTP login. No password is set." });
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return res.status(401).json({ error: "Incorrect password" });
+
+  let tenant = null;
+  if (user.tenantId) {
+    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    tenant = t ?? null;
+  }
+  return res.json({ verified: true, user: { ...user, tenant } });
+});
+
 router.post("/register", async (req, res) => {
-  const { phone, name, title, role, schoolCode, photoUrl } = req.body as {
-    phone?: string; name?: string; title?: string; role?: string; schoolCode?: string; photoUrl?: string;
+  const { phone, name, title, role, schoolCode, photoUrl, password } = req.body as {
+    phone?: string; name?: string; title?: string; role?: string; schoolCode?: string; photoUrl?: string; password?: string;
   };
   if (!phone || !name) return res.status(400).json({ error: "Phone and name are required" });
 
@@ -104,6 +125,8 @@ router.post("/register", async (req, res) => {
     return res.status(409).json({ error: "Phone already registered. Please log in." });
   }
 
+  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+
   const [user] = await db.insert(usersTable).values({
     phone, name,
     title: title ?? null,
@@ -111,6 +134,7 @@ router.post("/register", async (req, res) => {
     role: role ?? "student",
     schoolCode: schoolCode ?? null,
     tenantId,
+    passwordHash,
   }).returning();
 
   let tenant = null;

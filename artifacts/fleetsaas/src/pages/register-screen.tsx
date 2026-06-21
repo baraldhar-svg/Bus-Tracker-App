@@ -50,6 +50,9 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("student");
   const [regSchoolCode, setRegSchoolCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   function resetToPhone() {
     setStep("phone");
@@ -119,6 +122,8 @@ export default function RegisterScreen() {
   // ── Step 2b: Register new user ────────────────────────────────────────
   const handleRegister = useCallback(async () => {
     if (!name.trim()) { setErr("Name is required"); return; }
+    if (password && password.length < 6) { setErr("Password must be at least 6 characters"); return; }
+    if (password && password !== confirmPassword) { setErr("Passwords do not match"); return; }
     setErr(""); setLoading(true);
     try {
       const user = await apiPost("/auth/register", {
@@ -126,6 +131,7 @@ export default function RegisterScreen() {
         name: name.trim(),
         role,
         schoolCode: regSchoolCode.trim() || undefined,
+        password: password || undefined,
       });
       login({ ...user, tenant: user.tenant ?? null });
       navigate("/dashboard");
@@ -138,7 +144,7 @@ export default function RegisterScreen() {
         setErr(msg);
       }
     } finally { setLoading(false); }
-  }, [phone, name, role, regSchoolCode, login, navigate]);
+  }, [phone, name, role, regSchoolCode, password, confirmPassword, login, navigate]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
@@ -371,6 +377,54 @@ export default function RegisterScreen() {
               <p className="mt-1 text-xs text-slate-500">Your school code was provided by your school administrator</p>
             </div>
 
+            {/* Password */}
+            <div className="mb-3">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                Password <span className="text-slate-500 normal-case font-normal">(optional — enables password login)</span>
+              </label>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                <span className="text-slate-400 text-sm">🔑</span>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Min. 6 characters"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setErr(""); }}
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowPassword((v) => !v)}
+                  className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            {password.length >= 1 && (
+              <div className="mb-4">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Confirm Password</label>
+                <div className={`flex items-center gap-2 rounded-xl border bg-slate-900 px-3 py-2.5 transition-colors ${confirmPassword && confirmPassword !== password ? "border-red-600" : confirmPassword === password && confirmPassword ? "border-green-600" : "border-slate-600"}`}>
+                  <span className="text-slate-400 text-sm">🔒</span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setErr(""); }}
+                    className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                    autoComplete="new-password"
+                  />
+                  {confirmPassword && (
+                    <span className="text-sm">{confirmPassword === password ? "✓" : "✗"}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!password && (
+              <p className="mb-4 text-[11px] text-slate-500 -mt-1">
+                Skip password to use OTP-only login. You can add a password later from your profile.
+              </p>
+            )}
+
             {err && (
               <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
                 <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
@@ -380,7 +434,7 @@ export default function RegisterScreen() {
 
             <button
               onClick={handleRegister}
-              disabled={!name.trim() || loading}
+              disabled={!name.trim() || (!!password && password !== confirmPassword) || loading}
               className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
             >
               {loading ? (
