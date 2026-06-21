@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -31,15 +31,107 @@ type Ad = {
   active: number;
 };
 
-function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, isFirst, isLast }: {
+function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, onSave, isFirst, isLast }: {
   ad: Ad;
   onToggle: (id: number, active: number) => void;
   onDelete: (id: number) => void;
   onMoveUp: (id: number) => void;
   onMoveDown: (id: number) => void;
+  onSave: (id: number, patch: Partial<Ad>) => Promise<void>;
   isFirst: boolean;
   isLast: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [eTitle, setETitle] = useState(ad.title);
+  const [eSubtitle, setESubtitle] = useState(ad.subtitle ?? "");
+  const [eImageUrl, setEImageUrl] = useState(ad.imageUrl);
+  const [eTargetUrl, setETargetUrl] = useState(ad.targetUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
+
+  function openEdit() {
+    setETitle(ad.title);
+    setESubtitle(ad.subtitle ?? "");
+    setEImageUrl(ad.imageUrl);
+    setETargetUrl(ad.targetUrl ?? "");
+    setSaveErr("");
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    if (!eTitle.trim() || !eImageUrl.trim()) { setSaveErr("Title and Image URL are required"); return; }
+    setSaving(true); setSaveErr("");
+    try {
+      await onSave(ad.id, {
+        title: eTitle.trim(),
+        subtitle: eSubtitle.trim() || null,
+        imageUrl: eImageUrl.trim(),
+        targetUrl: eTargetUrl.trim() || null,
+      });
+      setEditing(false);
+    } catch (e: unknown) { setSaveErr(e instanceof Error ? e.message : "Save failed"); }
+    finally { setSaving(false); }
+  }
+
+  if (editing) {
+    return (
+      <div className="rounded-xl border border-amber-500/40 bg-slate-800/80 p-4 space-y-3">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Edit Ad</p>
+          <button onClick={() => setEditing(false)} className="rounded-lg p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-400">Title *</label>
+            <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Sunrise Academy"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-400">Subtitle / Tagline</label>
+            <input value={eSubtitle} onChange={(e) => setESubtitle(e.target.value)} placeholder="Admissions Open 2081"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image URL *</label>
+          <input value={eImageUrl} onChange={(e) => setEImageUrl(e.target.value)} placeholder="https://images.unsplash.com/..."
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-400">Target URL (click destination)</label>
+          <input value={eTargetUrl} onChange={(e) => setETargetUrl(e.target.value)} placeholder="/school/6 or https://..."
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+        </div>
+        {/* Live preview */}
+        {eImageUrl && (
+          <div className="relative h-20 w-full overflow-hidden rounded-xl border border-slate-700">
+            <img src={eImageUrl} alt="preview" className="h-full w-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/600x80/1e293b/64748b?text=Invalid+URL"; }} />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent flex items-center px-4">
+              <div>
+                <p className="text-sm font-bold text-white">{eTitle || "Ad Title"}</p>
+                {eSubtitle && <p className="text-xs text-slate-300">{eSubtitle}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+        {saveErr && <p className="text-xs text-red-400">{saveErr}</p>}
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(false)}
+            className="flex-1 rounded-xl border border-slate-700 py-2 text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={!eTitle.trim() || !eImageUrl.trim() || saving}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
+            <Check size={13} />{saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
       ad.active ? "border-slate-700 bg-slate-800/60" : "border-slate-800 bg-slate-900/40 opacity-60"
@@ -59,20 +151,20 @@ function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, isFirst, isLast }
       </div>
       {/* Controls */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Edit */}
+        <button
+          onClick={openEdit}
+          className="rounded-lg p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-950/40 transition-colors"
+          title="Edit ad"
+        >
+          <Pencil size={13} />
+        </button>
         {/* Reorder */}
         <div className="flex flex-col gap-0.5">
-          <button
-            onClick={() => onMoveUp(ad.id)}
-            disabled={isFirst}
-            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors"
-            title="Move up"
-          >▲</button>
-          <button
-            onClick={() => onMoveDown(ad.id)}
-            disabled={isLast}
-            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors"
-            title="Move down"
-          >▼</button>
+          <button onClick={() => onMoveUp(ad.id)} disabled={isFirst}
+            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors" title="Move up">▲</button>
+          <button onClick={() => onMoveDown(ad.id)} disabled={isLast}
+            className="rounded p-1 text-slate-500 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-20 transition-colors" title="Move down">▼</button>
         </div>
         {/* Toggle */}
         <button
@@ -139,6 +231,11 @@ export default function SuperadminPortal() {
       await apiReq("DELETE", `/advertisements/${id}`);
       setAds((prev) => prev.filter((a) => a.id !== id));
     } catch { /* ignore */ }
+  }, []);
+
+  const handleSaveAd = useCallback(async (id: number, patch: Partial<Ad>) => {
+    const updated = await apiReq("PATCH", `/advertisements/${id}`, patch);
+    setAds((prev) => prev.map((a) => a.id === id ? { ...a, ...updated } : a));
   }, []);
 
   const handleMove = useCallback(async (id: number, dir: "up" | "down") => {
@@ -330,6 +427,7 @@ export default function SuperadminPortal() {
                 ad={ad}
                 onToggle={handleToggle}
                 onDelete={handleDelete}
+                onSave={handleSaveAd}
                 onMoveUp={(id) => handleMove(id, "up")}
                 onMoveDown={(id) => handleMove(id, "down")}
                 isFirst={idx === 0}
