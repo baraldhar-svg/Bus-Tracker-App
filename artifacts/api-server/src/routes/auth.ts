@@ -9,6 +9,32 @@ function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+// POST /auth/check-phone — look up phone, send OTP if found, deny if not
+router.post("/check-phone", async (req, res) => {
+  const { phone } = req.body as { phone?: string };
+  if (!phone || !/^9[6-9]\d{8}$/.test(phone.replace(/\s/g, ""))) {
+    return res.status(400).json({ error: "Enter a valid Nepal mobile number (98xxxxxxxx)" });
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!user) {
+    return res.status(403).json({
+      error: "This number is not registered. Contact your school administrator to be added.",
+      found: false,
+    });
+  }
+  // Auto-issue OTP
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await db.insert(otpCodesTable).values({ phone, code, expiresAt, used: 0 });
+  return res.json({
+    found: true,
+    name: user.name,
+    role: user.role,
+    requiresSchoolCode: user.role !== "superadmin" && !!user.tenantId,
+    demoCode: code,
+  });
+});
+
 router.post("/send-otp", async (req, res) => {
   const { phone } = req.body as { phone?: string };
   if (!phone || !/^9[6-9]\d{8}$/.test(phone.replace(/\s/g, ""))) {
@@ -21,7 +47,7 @@ router.post("/send-otp", async (req, res) => {
 });
 
 router.post("/verify-otp", async (req, res) => {
-  const { phone, code } = req.body as { phone?: string; code?: string };
+  const { phone, code, schoolCode } = req.body as { phone?: string; code?: string; schoolCode?: string };
   if (!phone || !code) return res.status(400).json({ error: "Phone and code required" });
   const [otp] = await db
     .select()
@@ -30,13 +56,29 @@ router.post("/verify-otp", async (req, res) => {
     .limit(1);
   if (!otp) return res.status(401).json({ error: "Invalid or expired code" });
   await db.update(otpCodesTable).set({ used: 1 }).where(eq(otpCodesTable.id, otp.id));
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!user) {
+    return res.status(403).json({ error: "Access denied. This number is not registered." });
+  }
+
+  // School code verification (skip for superadmin)
+  if (user.role !== "superadmin" && user.tenantId) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    if (tenant) {
+      if (!schoolCode) return res.status(401).json({ error: "School code is required" });
+      if (schoolCode.trim().toUpperCase() !== (tenant.schoolCode ?? "").toUpperCase()) {
+        return res.status(401).json({ error: "Incorrect school code. Check with your school admin." });
+      }
+    }
+  }
+
   let tenant = null;
-  if (user?.tenantId) {
+  if (user.tenantId) {
     const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
     tenant = t ?? null;
   }
-  return res.json({ verified: true, user: user ? { ...user, tenant } : null, isNewUser: !user });
+  return res.json({ verified: true, user: { ...user, tenant } });
 });
 
 router.post("/register", async (req, res) => {
