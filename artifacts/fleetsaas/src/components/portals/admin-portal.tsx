@@ -1924,66 +1924,6 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   );
 }
 
-type StationItem = { id: number; name: string; lat?: number | null; lng?: number | null; radius?: number | null };
-
-function StationManager({ stations, onCreated }: { stations: StationItem[] | undefined; onCreated: () => void }) {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = stations?.find((s) => s.id === selectedId);
-
-  return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <div>
-          <h2 className="font-semibold text-primary flex items-center gap-2"><MapPin size={14} />Geofence Stations</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations</p>
-        </div>
-      </div>
-
-      {/* Scrollable station list */}
-      <div className="max-h-56 overflow-y-auto divide-y divide-border">
-        {stations?.length === 0 && (
-          <p className="px-4 py-5 text-xs text-muted-foreground text-center italic">No stations yet — add one using the button above</p>
-        )}
-        {stations?.map((s) => {
-          const isSelected = s.id === selectedId;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setSelectedId(isSelected ? null : s.id)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-amber-500/10" : "hover:bg-muted/50"}`}
-            >
-              <MapPin size={13} className={`shrink-0 ${isSelected ? "text-[#FFF078]" : "text-amber-400/60"}`} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isSelected ? "text-[#FFF078]" : "text-foreground"}`}>{s.name}</p>
-                {s.lat != null && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {(s.lat as number).toFixed(4)}, {(s.lng as number)?.toFixed(4)} · {s.radius ?? 200}m
-                  </p>
-                )}
-              </div>
-              {isSelected && <span className="shrink-0 text-[#FFF078] text-sm">✓</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Selected station detail */}
-      {selected && (
-        <div className="mx-4 my-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3">
-          <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wide mb-1">Selected Station</p>
-          <p className="text-sm font-semibold text-foreground">{selected.name}</p>
-          {selected.lat != null && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {(selected.lat as number).toFixed(5)}, {(selected.lng as number)?.toFixed(5)} · Radius: {selected.radius ?? 200}m
-            </p>
-          )}
-        </div>
-      )}
-
-    </div>
-  );
-}
 
 interface BoardingLogEntry {
   id: number;
@@ -2636,11 +2576,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-      {/* Geofence Stations */}
-      <StationManager
-        stations={stations}
-        onCreated={() => { refetchStations(); queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() }); }}
-      />
       {/* Vehicle Asset Grid */}
       <VehicleTagGrid
         vehicles={vehicles as VehicleRow[] | undefined}
