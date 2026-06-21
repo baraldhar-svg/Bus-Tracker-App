@@ -1643,7 +1643,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
       </div>
 
       {creating && (
-        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-4">
+        <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Route Name */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-muted-foreground">Route Name</label>
@@ -1652,7 +1652,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
           </div>
 
           {/* ── Visual Drag-and-Drop Builder ── */}
-          <div className="grid grid-cols-[1fr_1fr] gap-3">
+          <div className="flex flex-col gap-4">
             {/* LEFT PALETTE */}
             <div className="space-y-3 min-w-0">
               {/* Stations palette */}
