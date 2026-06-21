@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import AuthScreen from "@/pages/auth-screen";
+import RegisterScreen from "@/pages/register-screen";
 import Dashboard from "@/pages/dashboard";
 import SchoolProfile from "@/pages/school-profile";
 import { useEffect } from "react";
@@ -37,6 +38,7 @@ function Router() {
     <Switch>
       <Route path="/" component={RootRedirect} />
       <Route path="/auth" component={AuthScreen} />
+      <Route path="/register" component={RegisterScreen} />
       <Route path="/school/:id" component={SchoolProfile} />
       <Route path="/dashboard">
         <AuthGuard>

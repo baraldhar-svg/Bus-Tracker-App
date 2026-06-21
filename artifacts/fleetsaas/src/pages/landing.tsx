@@ -44,13 +44,13 @@ export default function Landing() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
-            onClick={() => navigate("/auth?mode=register")}
+            onClick={() => navigate("/register")}
             className="rounded-2xl px-8 py-3.5 text-base font-bold text-slate-900 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all hover:scale-105 bg-[#ffee47]"
           >
             Get Started Free
           </button>
           <button
-            onClick={() => navigate("/auth?mode=login")}
+            onClick={() => navigate("/auth")}
             className="rounded-2xl border border-slate-600 px-8 py-3.5 text-base font-semibold text-slate-200 hover:border-amber-500 hover:text-amber-400 transition-colors"
           >
             Sign In

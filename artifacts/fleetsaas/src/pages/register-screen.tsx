@@ -1,0 +1,405 @@
+import { useState, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+
+type Step = "phone" | "login" | "new";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function apiPost(path: string, body: unknown) {
+  const res = await fetch(`${BASE}/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  return data;
+}
+
+interface FoundUser {
+  name: string;
+  role: string;
+  requiresSchoolCode: boolean;
+  demoCode: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  student: "Student",
+  staff: "Staff",
+  driver: "Driver",
+  admin: "Admin",
+};
+
+export default function RegisterScreen() {
+  const { login } = useAuth();
+  const [, navigate] = useLocation();
+
+  const [step, setStep] = useState<Step>("phone");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Existing-user login state
+  const [foundUser, setFoundUser] = useState<FoundUser | null>(null);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [schoolCode, setSchoolCode] = useState("");
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // New-user registration state
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("student");
+  const [regSchoolCode, setRegSchoolCode] = useState("");
+
+  function resetToPhone() {
+    setStep("phone");
+    setFoundUser(null);
+    setOtp(["", "", "", "", "", ""]);
+    setSchoolCode("");
+    setName("");
+    setRegSchoolCode("");
+    setErr("");
+  }
+
+  // ── Step 1: Check phone ───────────────────────────────────────────────
+  async function handleCheckPhone() {
+    setErr(""); setLoading(true);
+    try {
+      const data = await apiPost("/auth/check-phone", { phone });
+      // Existing user found — go to OTP login
+      setFoundUser(data as FoundUser);
+      // Auto-fill demo OTP
+      const digits = String((data as FoundUser).demoCode).split("").slice(0, 6);
+      setOtp(digits.concat(Array(6 - digits.length).fill("")));
+      setStep("login");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error";
+      // 403 = not registered → go to new-account form
+      if (msg.toLowerCase().includes("not registered") || msg.toLowerCase().includes("not found")) {
+        setStep("new");
+      } else {
+        setErr(msg);
+      }
+    } finally { setLoading(false); }
+  }
+
+  // ── Step 2a: OTP login for existing user ─────────────────────────────
+  function handleOtpKey(i: number, val: string) {
+    if (!/^\d?$/.test(val)) return;
+    const next = [...otp];
+    next[i] = val;
+    setOtp(next);
+    if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  }
+
+  function handleOtpPaste(e: React.ClipboardEvent) {
+    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6).split("");
+    if (digits.length === 0) return;
+    e.preventDefault();
+    setOtp(digits.concat(Array(6 - digits.length).fill("")));
+    otpRefs.current[Math.min(digits.length, 5)]?.focus();
+  }
+
+  async function handleVerifyOtp() {
+    setErr(""); setLoading(true);
+    try {
+      const code = otp.join("");
+      const result = await apiPost("/auth/verify-otp", {
+        phone,
+        code,
+        schoolCode: schoolCode.trim() || undefined,
+      });
+      login({ ...result.user, tenant: result.user?.tenant ?? null });
+      navigate("/dashboard");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Verification failed");
+    } finally { setLoading(false); }
+  }
+
+  // ── Step 2b: Register new user ────────────────────────────────────────
+  const handleRegister = useCallback(async () => {
+    if (!name.trim()) { setErr("Name is required"); return; }
+    setErr(""); setLoading(true);
+    try {
+      const user = await apiPost("/auth/register", {
+        phone,
+        name: name.trim(),
+        role,
+        schoolCode: regSchoolCode.trim() || undefined,
+      });
+      login({ ...user, tenant: user.tenant ?? null });
+      navigate("/dashboard");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Registration failed";
+      // If already registered, prompt to log in instead
+      if (msg.toLowerCase().includes("already registered")) {
+        setErr("This number already has an account. Use Sign In instead.");
+      } else {
+        setErr(msg);
+      }
+    } finally { setLoading(false); }
+  }, [phone, name, role, regSchoolCode, login, navigate]);
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
+      <div className="w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
+
+        {/* Back button */}
+        <div className="mb-4">
+          <button
+            onClick={() => step === "phone" ? navigate("/") : resetToPhone()}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            {step === "phone" ? "Back" : "Change number"}
+          </button>
+        </div>
+
+        {/* Header */}
+        <div className="mb-6 flex flex-col items-center gap-2">
+          <span className="text-5xl bus-float">🚌</span>
+          <h1 className="text-2xl font-black text-white">
+            Orbit<span className="text-[#ffd000]">Track</span>
+          </h1>
+        </div>
+
+        {/* ── STEP: Phone ── */}
+        {step === "phone" && (
+          <>
+            <div className="mb-5 text-center">
+              <h2 className="text-lg font-bold text-slate-100">Create your account</h2>
+              <p className="text-sm text-slate-400 mt-1">Enter your mobile number to get started</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Mobile Number</label>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                <span className="text-sm text-slate-400 select-none">🇳🇵 +977</span>
+                <input
+                  type="tel"
+                  placeholder="98XXXXXXXX"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(""); }}
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                  onKeyDown={(e) => e.key === "Enter" && phone.length === 10 && handleCheckPhone()}
+                />
+              </div>
+            </div>
+
+            {err && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                <span className="text-red-400 mt-0.5 text-sm shrink-0">🚫</span>
+                <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleCheckPhone}
+              disabled={phone.length < 10 || loading}
+              className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
+                  Checking…
+                </span>
+              ) : "Continue →"}
+            </button>
+
+            <p className="mt-4 text-center text-xs text-slate-500">
+              Already have an account?{" "}
+              <button onClick={() => navigate("/auth")} className="text-amber-400 hover:text-amber-300 font-semibold">Sign In</button>
+            </p>
+          </>
+        )}
+
+        {/* ── STEP: Existing account found — OTP login ── */}
+        {step === "login" && foundUser && (
+          <>
+            {/* Account found banner */}
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-green-700/40 bg-green-950/30 px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-400 font-black text-sm">
+                {foundUser.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-green-300">Account already exists!</p>
+                <p className="text-sm font-bold text-white truncate">{foundUser.name}</p>
+                <p className="text-xs text-slate-400">{ROLE_LABELS[foundUser.role] ?? foundUser.role}</p>
+              </div>
+            </div>
+
+            <p className="mb-4 text-center text-sm text-slate-400">
+              Sign in to your existing account instead
+            </p>
+
+            {/* School code */}
+            {foundUser.requiresSchoolCode && (
+              <div className="mb-4">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Code</label>
+                <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                  <span className="text-slate-400 text-sm">🏫</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. APEX-ALPHA-1234"
+                    value={schoolCode}
+                    onChange={(e) => { setSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                    className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
+                    autoCapitalize="characters"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* OTP */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Verification Code</label>
+                <span className="text-xs text-slate-500">Sent to +977 {phone}</span>
+              </div>
+              <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => { handleOtpKey(i, e.target.value); setErr(""); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+                      if (e.key === "Enter" && otp.every(Boolean)) handleVerifyOtp();
+                    }}
+                    className="h-12 w-10 rounded-xl border border-slate-600 bg-slate-900 text-center text-lg font-bold text-white focus:border-amber-500 focus:outline-none transition-colors"
+                  />
+                ))}
+              </div>
+              <div className="mt-3 rounded-lg border border-amber-800/40 bg-amber-900/20 px-3 py-2 flex items-center gap-2">
+                <span className="text-amber-400 text-xs">💡</span>
+                <p className="text-xs text-amber-300">
+                  <span className="font-semibold">Demo mode:</span> Code <span className="font-mono font-bold tracking-widest">{foundUser.demoCode}</span> is auto-filled
+                </p>
+              </div>
+            </div>
+
+            {err && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleVerifyOtp}
+              disabled={otp.some(d => !d) || (foundUser.requiresSchoolCode && !schoolCode.trim()) || loading}
+              className="w-full rounded-xl bg-green-600 py-3 font-bold text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Signing in…
+                </span>
+              ) : "Sign In to Existing Account →"}
+            </button>
+          </>
+        )}
+
+        {/* ── STEP: New account form ── */}
+        {step === "new" && (
+          <>
+            {/* New number banner */}
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-700/40 bg-blue-950/30 px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-300 text-xl">
+                🆕
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-blue-300">New number detected</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">+977 {phone} · Fill in your details to register</p>
+              </div>
+            </div>
+
+            {/* Full Name */}
+            <div className="mb-3">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Full Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Priya Maharjan"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setErr(""); }}
+                className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+
+            {/* Role */}
+            <div className="mb-3">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">I am a…</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["student", "staff", "driver", "admin"] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRole(r)}
+                    className={`rounded-xl border py-2.5 text-xs font-semibold capitalize transition-all ${
+                      role === r
+                        ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                        : "border-slate-600 bg-slate-900 text-slate-400 hover:border-slate-500"
+                    }`}
+                  >
+                    {ROLE_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* School Code */}
+            <div className="mb-4">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                School Code <span className="text-slate-500 normal-case font-normal">(optional — links you to a school)</span>
+              </label>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                <span className="text-slate-400 text-sm">🏫</span>
+                <input
+                  type="text"
+                  placeholder="e.g. APEX-ALPHA-1234"
+                  value={regSchoolCode}
+                  onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
+                  autoCapitalize="characters"
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Your school code was provided by your school administrator</p>
+            </div>
+
+            {err && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleRegister}
+              disabled={!name.trim() || loading}
+              className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
+                  Creating account…
+                </span>
+              ) : "Create Account →"}
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Security notice */}
+      <div className="mt-4 w-full max-w-sm rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-center">
+        <p className="text-xs text-slate-400">
+          <span className="font-semibold text-[#ffd000]">OrbitTrack</span> — Nepal's Smart School Bus Platform
+        </p>
+      </div>
+    </div>
+  );
+}
