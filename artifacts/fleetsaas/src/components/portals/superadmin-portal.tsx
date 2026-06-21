@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2 } from "lucide-react";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -287,6 +287,214 @@ function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, onSave, isFirst, 
   );
 }
 
+const ROLE_STYLES: Record<string, string> = {
+  student:    "bg-blue-900/40 border-blue-700 text-blue-300",
+  driver:     "bg-amber-900/40 border-amber-700 text-amber-300",
+  admin:      "bg-emerald-900/40 border-emerald-700 text-emerald-300",
+  superadmin: "bg-purple-900/40 border-purple-700 text-purple-300",
+};
+
+type UserItem = {
+  id: number;
+  name: string;
+  phone: string;
+  role: string;
+  tenantId: number | null;
+  createdAt: string;
+};
+
+function UserRow({ user: initial, onSave, onDelete }: {
+  user: UserItem;
+  onSave: (id: number, patch: Partial<UserItem>) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [user, setUser] = useState(initial);
+  const [eName, setEName] = useState(initial.name);
+  const [ePhone, setEPhone] = useState(initial.phone);
+  const [eRole, setERole] = useState(initial.role);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState("");
+
+  function openEdit() {
+    setEName(user.name); setEPhone(user.phone); setERole(user.role);
+    setErr(""); setOpen(true);
+  }
+
+  async function handleSave() {
+    if (!eName.trim() || !ePhone.trim()) { setErr("Name and phone are required"); return; }
+    setSaving(true); setErr("");
+    try {
+      await onSave(user.id, { name: eName.trim(), phone: ePhone.trim(), role: eRole });
+      setUser((u) => ({ ...u, name: eName.trim(), phone: ePhone.trim(), role: eRole }));
+      setOpen(false);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Save failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete user "${user.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try { await onDelete(user.id); } finally { setDeleting(false); }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <div className="flex items-center gap-3 bg-slate-800/60 hover:bg-slate-800 transition-colors px-4 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-xs">
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-200 truncate">{user.name}</p>
+          <p className="text-xs text-slate-500">{user.phone}</p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${ROLE_STYLES[user.role] ?? ROLE_STYLES.student}`}>
+          {user.role}
+        </span>
+        <button onClick={openEdit} className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-950/40 transition-colors" title="Edit">
+          <Pencil size={13} />
+        </button>
+        <button onClick={handleDelete} disabled={deleting} className="shrink-0 rounded-lg p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors disabled:opacity-50" title="Delete">
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/70 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Edit User</p>
+            <button onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors"><X size={13} /></button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Full Name</label>
+              <input value={eName} onChange={(e) => setEName(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Phone</label>
+              <input value={ePhone} onChange={(e) => setEPhone(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-400">Role</label>
+            <select value={eRole} onChange={(e) => setERole(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500">
+              <option value="student">Student</option>
+              <option value="driver">Driver</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
+            </select>
+          </div>
+          {err && <p className="text-xs text-red-400">{err}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setOpen(false)} className="flex-1 rounded-xl border border-slate-700 py-2 text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
+              <Check size={13} />{saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserManager() {
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchUsers = useCallback(async (q: string, role: string) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (role) params.set("role", role);
+      const r = await fetch(`${BASE}/api/users?${params}`);
+      const data = await r.json() as UserItem[];
+      setUsers(data);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchUsers("", ""); }, [fetchUsers]);
+
+  function handleSearch(val: string) {
+    setSearch(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchUsers(val, roleFilter), 350);
+  }
+
+  function handleRole(val: string) {
+    setRoleFilter(val);
+    fetchUsers(search, val);
+  }
+
+  const handleSave = useCallback(async (id: number, patch: Partial<UserItem>) => {
+    const r = await fetch(`${BASE}/api/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const updated = await r.json() as UserItem;
+    if (!r.ok) throw new Error((updated as unknown as { error: string }).error ?? "Failed");
+    setUsers((prev) => prev.map((u) => u.id === id ? updated : u));
+  }, []);
+
+  const handleDelete = useCallback(async (id: number) => {
+    const r = await fetch(`${BASE}/api/users/${id}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Delete failed");
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  }, []);
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+        <div>
+          <h2 className="font-bold text-slate-100 flex items-center gap-2"><Users size={16} className="text-slate-300" />User Manager</h2>
+          <p className="text-xs text-slate-500 mt-0.5">View, edit roles, and remove platform users</p>
+        </div>
+        <span className="rounded-full bg-slate-700 border border-slate-600 px-2.5 py-0.5 text-xs font-semibold text-slate-300">{users.length} users</span>
+      </div>
+
+      {/* Search + filter bar */}
+      <div className="flex gap-2 px-4 py-3 border-b border-slate-800">
+        <div className="relative flex-1">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input value={search} onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search by name or phone…"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-8 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+        </div>
+        <select value={roleFilter} onChange={(e) => handleRole(e.target.value)}
+          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 outline-none focus:border-amber-500">
+          <option value="">All roles</option>
+          <option value="student">Student</option>
+          <option value="driver">Driver</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+      </div>
+
+      <div className="p-3 space-y-1.5 max-h-96 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
+        {loading ? (
+          <p className="py-8 text-center text-sm text-slate-500">Loading users…</p>
+        ) : users.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-500">No users found</p>
+        ) : (
+          users.map((u) => (
+            <UserRow key={u.id} user={u} onSave={handleSave} onDelete={handleDelete} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SuperadminPortal() {
   const { data: stats } = useGetDashboardStats();
   const { data: tenants } = useListTenants();
@@ -427,6 +635,9 @@ export default function SuperadminPortal() {
           </div>
         </div>
       </div>
+
+      {/* User Manager */}
+      <UserManager />
 
       {/* Ad Carousel Manager */}
       <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">

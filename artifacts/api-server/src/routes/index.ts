@@ -16,6 +16,7 @@ import routesRouter from "./routes";
 import geocodeRouter from "./geocode";
 import calendarRouter from "./calendar";
 import webauthnRouter from "./webauthn";
+import usersRouter from "./users";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use("/dashboard", dashboardRouter);
 router.use("/routes", routesRouter);
 router.use("/geocode", geocodeRouter);
 router.use("/calendar-events", calendarRouter);
+router.use("/users", usersRouter);
 
 export default router;
