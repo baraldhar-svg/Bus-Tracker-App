@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2 } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -424,14 +424,83 @@ function UserCard({ user: initial, onSave, onDelete }: {
   );
 }
 
+function SchoolSection({ schoolName, members, onSave, onDelete }: {
+  schoolName: string;
+  members: UserItem[];
+  onSave: (id: number, patch: Partial<UserItem>) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const visible = members.filter((u) => {
+    const q = search.toLowerCase();
+    return !q || u.name.toLowerCase().includes(q) || u.phone.includes(q);
+  });
+
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      {/* School header row — click to expand */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${open ? "bg-slate-700/60" : "bg-slate-800/50 hover:bg-slate-800"}`}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/30">
+          <Building2 size={14} className="text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-100 truncate">{schoolName}</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">{members.length} user{members.length !== 1 ? "s" : ""}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-slate-700 border border-slate-600 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+            {members.length}
+          </span>
+          {open
+            ? <ChevronDown size={14} className="text-amber-400" />
+            : <ChevronRight size={14} className="text-slate-500" />
+          }
+        </div>
+      </button>
+
+      {/* Expanded users list */}
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/40">
+          {/* Mini search within school */}
+          {members.length > 3 && (
+            <div className="px-4 pt-3 pb-2">
+              <div className="relative">
+                <Search size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search in ${schoolName}…`}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+          )}
+          <div className="p-3 space-y-1.5">
+            {visible.length === 0 ? (
+              <p className="py-4 text-center text-xs text-slate-600">No users match</p>
+            ) : (
+              visible.map((u) => (
+                <UserCard key={u.id} user={u} onSave={onSave} onDelete={onDelete} />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UserManager() {
   const [allUsers, setAllUsers] = useState<UserItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [dropOpen, setDropOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [boxOpen, setBoxOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const fetchedRef = useRef(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -443,31 +512,14 @@ function UserManager() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (
-        dropRef.current && !dropRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
-      ) setDropOpen(false);
+  // Lazy-load: only fetch when the box is opened for the first time
+  function handleToggleBox() {
+    const opening = !boxOpen;
+    setBoxOpen(opening);
+    if (opening && !fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchUsers();
     }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
-
-  const filtered = allUsers.filter((u) => {
-    const q = search.toLowerCase();
-    return !q || u.name.toLowerCase().includes(q) || u.phone.includes(q) || (u.tenantName ?? "").toLowerCase().includes(q);
-  });
-
-  const selectedUser = allUsers.find((u) => u.id === selectedId) ?? null;
-
-  function pickUser(u: UserItem) {
-    setSelectedId(u.id);
-    setSearch(u.name);
-    setDropOpen(false);
   }
 
   const handleSave = useCallback(async (id: number, patch: Partial<UserItem>) => {
@@ -485,145 +537,99 @@ function UserManager() {
     const r = await fetch(`${BASE}/api/users/${id}`, { method: "DELETE" });
     if (!r.ok) throw new Error("Delete failed");
     setAllUsers((prev) => prev.filter((u) => u.id !== id));
-    setSelectedId(null);
-    setSearch("");
   }, []);
+
+  // Group by school
+  const groups = allUsers.reduce<Record<string, UserItem[]>>((acc, u) => {
+    const key = u.tenantName ?? "No School / Office";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(u);
+    return acc;
+  }, {});
+
+  // Apply global search: keep only schools that have matching users, but only filter within them
+  const filteredGroups = Object.entries(groups).reduce<Record<string, UserItem[]>>((acc, [school, members]) => {
+    if (!globalSearch) { acc[school] = members; return acc; }
+    const q = globalSearch.toLowerCase();
+    const matched = members.filter(
+      (u) => u.name.toLowerCase().includes(q) || u.phone.includes(q) || school.toLowerCase().includes(q)
+    );
+    if (matched.length > 0) acc[school] = matched;
+    return acc;
+  }, {});
+
+  const totalUsers = allUsers.length;
 
   return (
     <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-        <div>
-          <h2 className="font-bold text-slate-100 flex items-center gap-2">
-            <Users size={16} className="text-slate-300" />User Manager
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">Select a user to edit · all schools shown in table</p>
+      {/* Top header — always visible, click to open/close */}
+      <button
+        onClick={handleToggleBox}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-700 border border-slate-600">
+          <Users size={16} className="text-slate-300" />
         </div>
-        <span className="rounded-full bg-slate-700 border border-slate-600 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
-          {allUsers.length} users
-        </span>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-slate-100 text-sm">User Manager</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {boxOpen
+              ? `${totalUsers} users across ${Object.keys(groups).length} school${Object.keys(groups).length !== 1 ? "s" : ""}`
+              : "Click to manage platform users by school"}
+          </p>
+        </div>
+        <div className="shrink-0">
+          {boxOpen
+            ? <ChevronDown size={16} className="text-amber-400" />
+            : <ChevronRight size={16} className="text-slate-500" />
+          }
+        </div>
+      </button>
 
-      {/* Combobox search → dropdown */}
-      <div className="px-4 py-3 border-b border-slate-800">
-        <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Select User</label>
-        <div className="relative">
-          <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            ref={inputRef}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setDropOpen(true); setSelectedId(null); }}
-            onFocus={() => setDropOpen(true)}
-            placeholder="Type name, phone or school to search…"
-            className="w-full rounded-xl border border-slate-600 bg-slate-800 pl-8 pr-8 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
-          />
-          {search && (
-            <button onClick={() => { setSearch(""); setSelectedId(null); setDropOpen(false); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-slate-200 transition-colors">
-              <X size={13} />
-            </button>
-          )}
-
-          {/* Dropdown */}
-          {dropOpen && (
-            <div ref={dropRef} className="absolute z-50 mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
-              <div className="max-h-52 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
-                {loading ? (
-                  <p className="px-4 py-3 text-xs text-slate-500">Loading…</p>
-                ) : filtered.length === 0 ? (
-                  <p className="px-4 py-3 text-xs text-slate-500">No users match</p>
-                ) : (
-                  filtered.map((u) => (
-                    <button
-                      key={u.id}
-                      onMouseDown={() => pickUser(u)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-800 transition-colors ${selectedId === u.id ? "bg-amber-950/40" : ""}`}
-                    >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-xs">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-200 truncate">{u.name}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{u.tenantName ?? "No School"} · {u.phone}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${ROLE_STYLES[u.role] ?? ROLE_STYLES.student}`}>
-                        {u.role}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
+      {/* Expanded content */}
+      {boxOpen && (
+        <div className="border-t border-slate-700">
+          {/* Global search bar */}
+          <div className="px-4 py-3 border-b border-slate-800">
+            <div className="relative">
+              <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search across all schools…"
+                className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-8 pr-8 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+              />
+              {globalSearch && (
+                <button onClick={() => setGlobalSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-slate-200">
+                  <X size={12} />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Selected user edit card */}
-        {selectedUser && (
-          <div className="mt-3">
-            <UserCard key={selectedUser.id} user={selectedUser} onSave={handleSave} onDelete={handleDelete} />
           </div>
-        )}
-      </div>
 
-      {/* Full user table — all users with school column */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-800">
-              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">School / Office</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Name</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Phone</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Role</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500"></th>
-            </tr>
-          </thead>
-          <tbody>
+          {/* School accordion list */}
+          <div className="p-3 space-y-2 max-h-[560px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500">Loading users…</td></tr>
-            ) : allUsers.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500">No users yet</td></tr>
+              <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
+            ) : Object.keys(filteredGroups).length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-500">
+                {globalSearch ? "No users match your search" : "No users found"}
+              </p>
             ) : (
-              allUsers.map((u) => (
-                <tr
-                  key={u.id}
-                  onClick={() => { setSelectedId(u.id); setSearch(u.name); setDropOpen(false); inputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
-                  className={`border-b border-slate-800/60 cursor-pointer transition-colors ${selectedId === u.id ? "bg-amber-950/20" : "hover:bg-slate-800/40"}`}
-                >
-                  <td className="px-4 py-2.5">
-                    <span className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
-                      <Building2 size={10} className="shrink-0" />
-                      <span className="truncate max-w-[100px]">{u.tenantName ?? "—"}</span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-[10px]">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-xs font-semibold text-slate-200 truncate max-w-[110px]">{u.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400">{u.phone}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${ROLE_STYLES[u.role] ?? ROLE_STYLES.student}`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }}
-                      className="rounded-lg p-1 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
-                </tr>
+              Object.entries(filteredGroups).map(([schoolName, members]) => (
+                <SchoolSection
+                  key={schoolName}
+                  schoolName={schoolName}
+                  members={members}
+                  onSave={handleSave}
+                  onDelete={handleDelete}
+                />
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
