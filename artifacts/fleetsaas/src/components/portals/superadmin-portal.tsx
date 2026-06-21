@@ -1,6 +1,15 @@
 import { useState, useCallback, useEffect } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload } from "lucide-react";
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -173,9 +182,16 @@ function AdRow({ ad, onToggle, onDelete, onMoveUp, onMoveDown, onSave, isFirst, 
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image URL *</label>
-          <input value={eImageUrl} onChange={(e) => setEImageUrl(e.target.value)} placeholder="https://images.unsplash.com/..."
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+          <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image *</label>
+          <div className="flex gap-2">
+            <input value={eImageUrl} onChange={(e) => setEImageUrl(e.target.value)} placeholder="https://images.unsplash.com/… or upload →"
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-600 bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-600 transition-colors">
+              <Upload size={13} />Upload
+              <input type="file" accept="image/*" className="hidden"
+                onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEImageUrl(await fileToDataUrl(f)); e.target.value = ""; }} />
+            </label>
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-400">Target URL (click destination)</label>
@@ -451,9 +467,16 @@ export default function SuperadminPortal() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image URL *</label>
-              <input value={formImageUrl} onChange={(e) => setFormImageUrl(e.target.value)} placeholder="https://images.unsplash.com/..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Banner Image *</label>
+              <div className="flex gap-2">
+                <input value={formImageUrl} onChange={(e) => setFormImageUrl(e.target.value)} placeholder="https://images.unsplash.com/… or upload →"
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-600 bg-slate-700 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-600 transition-colors">
+                  <Upload size={13} />Upload
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={async (e) => { const f = e.target.files?.[0]; if (f) setFormImageUrl(await fileToDataUrl(f)); e.target.value = ""; }} />
+                </label>
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-400">Target URL (click destination)</label>
