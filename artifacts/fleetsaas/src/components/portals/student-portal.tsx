@@ -278,8 +278,8 @@ export default function StudentPortal() {
             </span>
           ) : null}
         </div>
-        {/* Notices list */}
-        <div className="divide-y divide-amber-200 dark:divide-amber-800/30">
+        {/* Notices list — 2 visible, rest scrollable */}
+        <div className="divide-y divide-amber-200 dark:divide-amber-800/30 max-h-[116px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 dark:[&::-webkit-scrollbar-thumb]:bg-amber-700 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
           {announcements?.length ? (
             announcements.map((a, idx) => (
               <div key={a.id} className="flex items-start gap-3 px-4 py-3 bg-background">
