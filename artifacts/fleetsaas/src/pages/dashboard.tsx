@@ -329,9 +329,6 @@ function ProfilePanel({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Log in instantly next time with your fingerprint or Face ID — no OTP needed.
-                  </p>
                   <button
                     onClick={() => setShowBiometricSetup(true)}
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/90 to-amber-400/90 py-3 text-sm font-bold text-slate-900 hover:from-amber-500 hover:to-amber-400 transition-all active:scale-[0.98] shadow-sm"
