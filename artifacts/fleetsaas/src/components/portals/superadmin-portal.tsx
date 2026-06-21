@@ -300,15 +300,16 @@ type UserItem = {
   phone: string;
   role: string;
   tenantId: number | null;
+  tenantName: string | null;
   createdAt: string;
 };
 
-function UserRow({ user: initial, onSave, onDelete }: {
+function UserCard({ user: initial, onSave, onDelete }: {
   user: UserItem;
   onSave: (id: number, patch: Partial<UserItem>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [user, setUser] = useState(initial);
   const [eName, setEName] = useState(initial.name);
   const [ePhone, setEPhone] = useState(initial.phone);
@@ -317,83 +318,104 @@ function UserRow({ user: initial, onSave, onDelete }: {
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState("");
 
-  function openEdit() {
+  function startEdit() {
     setEName(user.name); setEPhone(user.phone); setERole(user.role);
-    setErr(""); setOpen(true);
+    setErr(""); setEditing(true);
   }
+  function cancelEdit() { setErr(""); setEditing(false); }
 
   async function handleSave() {
-    if (!eName.trim() || !ePhone.trim()) { setErr("Name and phone are required"); return; }
+    if (!eName.trim() || !ePhone.trim()) { setErr("Name and phone are required."); return; }
     setSaving(true); setErr("");
     try {
       await onSave(user.id, { name: eName.trim(), phone: ePhone.trim(), role: eRole });
       setUser((u) => ({ ...u, name: eName.trim(), phone: ePhone.trim(), role: eRole }));
-      setOpen(false);
+      setEditing(false);
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Save failed"); }
     finally { setSaving(false); }
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete user "${user.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${user.name}"? This cannot be undone.`)) return;
     setDeleting(true);
     try { await onDelete(user.id); } finally { setDeleting(false); }
   }
 
   return (
-    <div className="rounded-xl border border-slate-700 overflow-hidden">
-      <div className="flex items-center gap-3 bg-slate-800/60 hover:bg-slate-800 transition-colors px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-xs">
-          {user.name.charAt(0).toUpperCase()}
+    <div className={`rounded-xl border transition-colors ${editing ? "border-amber-500/50 bg-slate-800/80" : "border-slate-700/60 bg-slate-800/40 hover:bg-slate-800/70"}`}>
+      {/* View mode header row */}
+      {!editing && (
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-sm">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-100 truncate">{user.name}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{user.phone}</p>
+          </div>
+          <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${ROLE_STYLES[user.role] ?? ROLE_STYLES.student}`}>
+            {user.role}
+          </span>
+          <button onClick={startEdit} className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-950/40 transition-colors" title="Edit">
+            <Pencil size={13} />
+          </button>
+          <button onClick={handleDelete} disabled={deleting} className="shrink-0 rounded-lg p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors disabled:opacity-50" title="Delete">
+            <Trash2 size={13} />
+          </button>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-200 truncate">{user.name}</p>
-          <p className="text-xs text-slate-500">{user.phone}</p>
-        </div>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${ROLE_STYLES[user.role] ?? ROLE_STYLES.student}`}>
-          {user.role}
-        </span>
-        <button onClick={openEdit} className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-950/40 transition-colors" title="Edit">
-          <Pencil size={13} />
-        </button>
-        <button onClick={handleDelete} disabled={deleting} className="shrink-0 rounded-lg p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors disabled:opacity-50" title="Delete">
-          <Trash2 size={13} />
-        </button>
-      </div>
+      )}
 
-      {open && (
-        <div className="border-t border-slate-700 bg-slate-900/70 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Edit User</p>
-            <button onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors"><X size={13} /></button>
+      {/* Edit mode — single column fields */}
+      {editing && (
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Editing {user.name}</p>
+            <button onClick={cancelEdit} className="rounded-lg p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors">
+              <X size={13} />
+            </button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-400">Full Name</label>
-              <input value={eName} onChange={(e) => setEName(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-400">Phone</label>
-              <input value={ePhone} onChange={(e) => setEPhone(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500" />
-            </div>
-          </div>
+
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-400">Role</label>
-            <select value={eRole} onChange={(e) => setERole(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500">
+            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Full Name</label>
+            <input
+              value={eName}
+              onChange={(e) => setEName(e.target.value)}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-amber-500 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Phone Number</label>
+            <input
+              value={ePhone}
+              onChange={(e) => setEPhone(e.target.value)}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-amber-500 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Role</label>
+            <select
+              value={eRole}
+              onChange={(e) => setERole(e.target.value)}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-amber-500 transition-colors"
+            >
               <option value="student">Student</option>
               <option value="driver">Driver</option>
               <option value="admin">Admin</option>
               <option value="superadmin">Superadmin</option>
             </select>
           </div>
+
           {err && <p className="text-xs text-red-400">{err}</p>}
-          <div className="flex gap-2">
-            <button onClick={() => setOpen(false)} className="flex-1 rounded-xl border border-slate-700 py-2 text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={cancelEdit} className="flex-1 rounded-xl border border-slate-600 py-2 text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">
+              Cancel
+            </button>
             <button onClick={handleSave} disabled={saving}
               className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors">
-              <Check size={13} />{saving ? "Saving…" : "Save Changes"}
+              <Check size={13} />{saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
@@ -452,26 +474,45 @@ function UserManager() {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
+  // Group users by school/office (tenantName)
+  const groups = users.reduce<Record<string, UserItem[]>>((acc, u) => {
+    const key = u.tenantName ?? "No School / Office";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(u);
+    return acc;
+  }, {});
+
   return (
     <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
         <div>
-          <h2 className="font-bold text-slate-100 flex items-center gap-2"><Users size={16} className="text-slate-300" />User Manager</h2>
-          <p className="text-xs text-slate-500 mt-0.5">View, edit roles, and remove platform users</p>
+          <h2 className="font-bold text-slate-100 flex items-center gap-2">
+            <Users size={16} className="text-slate-300" />User Manager
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">Grouped by school · tap ✏ to edit name, phone, or role</p>
         </div>
-        <span className="rounded-full bg-slate-700 border border-slate-600 px-2.5 py-0.5 text-xs font-semibold text-slate-300">{users.length} users</span>
+        <span className="rounded-full bg-slate-700 border border-slate-600 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
+          {users.length} users
+        </span>
       </div>
 
-      {/* Search + filter bar */}
+      {/* Search + role filter */}
       <div className="flex gap-2 px-4 py-3 border-b border-slate-800">
         <div className="relative flex-1">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input value={search} onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search by name or phone…"
-            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-8 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500" />
+          <input
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search name or phone…"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-8 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500"
+          />
         </div>
-        <select value={roleFilter} onChange={(e) => handleRole(e.target.value)}
-          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 outline-none focus:border-amber-500">
+        <select
+          value={roleFilter}
+          onChange={(e) => handleRole(e.target.value)}
+          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 outline-none focus:border-amber-500"
+        >
           <option value="">All roles</option>
           <option value="student">Student</option>
           <option value="driver">Driver</option>
@@ -480,14 +521,32 @@ function UserManager() {
         </select>
       </div>
 
-      <div className="p-3 space-y-1.5 max-h-96 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
+      {/* Grouped list */}
+      <div className="p-4 space-y-5 max-h-[520px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
         {loading ? (
-          <p className="py-8 text-center text-sm text-slate-500">Loading users…</p>
+          <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
         ) : users.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">No users found</p>
+          <p className="py-10 text-center text-sm text-slate-500">No users found</p>
         ) : (
-          users.map((u) => (
-            <UserRow key={u.id} user={u} onSave={handleSave} onDelete={handleDelete} />
+          Object.entries(groups).map(([schoolName, members]) => (
+            <div key={schoolName}>
+              {/* School / office header */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 border border-amber-500/40">
+                  <Building2 size={10} className="text-amber-400" />
+                </div>
+                <p className="text-xs font-bold text-amber-400 uppercase tracking-wider truncate">{schoolName}</p>
+                <span className="ml-auto shrink-0 rounded-full bg-slate-700 border border-slate-600 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                  {members.length}
+                </span>
+              </div>
+              {/* User cards — single column */}
+              <div className="space-y-1.5">
+                {members.map((u) => (
+                  <UserCard key={u.id} user={u} onSave={handleSave} onDelete={handleDelete} />
+                ))}
+              </div>
+            </div>
           ))
         )}
       </div>

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
+import { usersTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -16,11 +16,13 @@ router.get("/", async (req, res) => {
       phone: usersTable.phone,
       role: usersTable.role,
       tenantId: usersTable.tenantId,
+      tenantName: tenantsTable.name,
       createdAt: usersTable.createdAt,
       biometricEnabled: usersTable.biometricEnabled,
     })
     .from(usersTable)
-    .orderBy(usersTable.id);
+    .leftJoin(tenantsTable, eq(usersTable.tenantId, tenantsTable.id))
+    .orderBy(usersTable.tenantId, usersTable.name);
 
   if (q) {
     const lower = q.toLowerCase();
@@ -34,7 +36,7 @@ router.get("/", async (req, res) => {
     rows = rows.filter((r) => r.role === role);
   }
 
-  res.json(rows);
+  return res.json(rows);
 });
 
 router.patch("/:id", async (req, res) => {
@@ -50,13 +52,14 @@ router.patch("/:id", async (req, res) => {
     typeof body.role === "string" &&
     ["student", "driver", "admin", "superadmin"].includes(body.role)
   ) {
-    updates.role = body.role;
+    updates.role = body.role as typeof usersTable.$inferInsert["role"];
   }
 
   if (Object.keys(updates).length === 0)
     return res.status(400).json({ error: "Nothing to update" });
 
   await db.update(usersTable).set(updates).where(eq(usersTable.id, id));
+
   const [row] = await db
     .select({
       id: usersTable.id,
@@ -64,10 +67,12 @@ router.patch("/:id", async (req, res) => {
       phone: usersTable.phone,
       role: usersTable.role,
       tenantId: usersTable.tenantId,
+      tenantName: tenantsTable.name,
       createdAt: usersTable.createdAt,
       biometricEnabled: usersTable.biometricEnabled,
     })
     .from(usersTable)
+    .leftJoin(tenantsTable, eq(usersTable.tenantId, tenantsTable.id))
     .where(eq(usersTable.id, id));
 
   return res.json(row);
