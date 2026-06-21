@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import StationMapPicker from "@/components/station-map-picker";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -1561,6 +1562,9 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   const [tlVehicle, setTlVehicle] = useState<{ id: number; label: string } | null>(null);
   const [tlDriver, setTlDriver] = useState<{ id: number; name: string } | null>(null);
 
+  // Map picker for new station
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
   const stagedIds = new Set(stagedStations.map((s) => s.stationId));
   const availableStations = (allStations ?? []).filter((s) => !stagedIds.has(s.id));
 
@@ -1674,44 +1678,25 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
                 </div>
               </div>
 
-              {/* Search & add new station */}
-              <div className="border-t border-border pt-2.5 space-y-1.5">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <Search size={9} />New Station
-                </p>
-                <div className="flex gap-1.5">
-                  <input value={geoQuery} onChange={(e) => setGeoQuery(e.target.value)} placeholder="Search location…"
-                    onKeyDown={(e) => e.key === "Enter" && handleGeoSearch()}
-                    className="flex-1 rounded-xl border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 min-w-0" />
-                  <button onClick={handleGeoSearch} disabled={!geoQuery.trim() || geoSearching}
-                    className="rounded-xl bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 shrink-0">
-                    {geoSearching ? <RefreshCw size={10} className="animate-spin" /> : <Search size={10} />}
+              {/* Map-based new station picker */}
+              <div className="border-t border-border pt-2.5">
+                {!showMapPicker ? (
+                  <button
+                    onClick={() => setShowMapPicker(true)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/10 px-2.5 py-2 text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                  >
+                    <MapPin size={10} />+ New Station on Map
                   </button>
-                </div>
-                {geoErr && <p className="text-[10px] text-red-500">{geoErr}</p>}
-                {geoResults.length > 0 && !geoPicked && (
-                  <div className="space-y-1 max-h-28 overflow-y-auto">
-                    {geoResults.map((r, i) => (
-                      <button key={i} onClick={() => { setGeoPicked(r); setGeoStageName(r.displayName.split(",")[0]?.trim() ?? ""); }}
-                        className="w-full rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-left hover:border-amber-500 transition-colors">
-                        <p className="text-[10px] font-medium text-foreground line-clamp-1">{r.displayName}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {geoPicked && (
-                  <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
-                    <div className="flex items-start justify-between gap-1">
-                      <p className="text-[10px] text-foreground line-clamp-1 flex-1">{geoPicked.displayName}</p>
-                      <button onClick={() => { setGeoPicked(null); setGeoResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0"><X size={11} /></button>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <input value={geoStageName} onChange={(e) => setGeoStageName(e.target.value)} placeholder="Station name"
-                        className="flex-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] text-foreground outline-none focus:border-amber-500 min-w-0" />
-                      <button onClick={handleStageGeoStation} disabled={!geoStageName.trim()}
-                        className="rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 shrink-0">+Add</button>
-                    </div>
-                  </div>
+                ) : (
+                  <StationMapPicker
+                    onConfirm={async ({ name, lat, lng }) => {
+                      const created = await apiPost("/stations", { name, lat, lng, radius: 200 });
+                      setStagedStations((prev) => [...prev, { stationId: created.id, name }]);
+                      queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
+                      setShowMapPicker(false);
+                    }}
+                    onCancel={() => setShowMapPicker(false)}
+                  />
                 )}
               </div>
 
