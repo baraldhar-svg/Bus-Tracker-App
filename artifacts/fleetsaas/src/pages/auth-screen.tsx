@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, type AuthUser } from "@/hooks/use-auth";
+import { startAuthentication } from "@simplewebauthn/browser";
+import BiometricSetupModal from "@/components/BiometricSetupModal";
 
 type Step = "phone" | "otp" | "register" | "school-admin" | "school-success";
 
@@ -69,12 +71,27 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+type BiometricAutoState = "idle" | "waiting" | "scanning" | "failed";
+
+const BIOMETRIC_KEY = "orbittrack_biometric";
+
+function isBiometricSupported() {
+  return typeof window !== "undefined" && !!window.PublicKeyCredential;
+}
+
 export default function AuthScreen() {
   const { login } = useAuth();
   const [, navigate] = useLocation();
   const searchStr = useSearch();
   const params = new URLSearchParams(searchStr);
   const initialMode = params.get("mode") ?? "login";
+
+  // Post-auth biometric setup
+  const [pendingUser, setPendingUser] = useState<AuthUser | null>(null);
+
+  // Biometric auto-login
+  const [bioAutoState, setBioAutoState] = useState<BiometricAutoState>("idle");
+  const [bioCredentialId, setBioCredentialId] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -103,6 +120,40 @@ export default function AuthScreen() {
   // School picker for non-admin registration
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [schoolDropdown, setSchoolDropdown] = useState("");
+
+  // ── Biometric auto-login on mount ──────────────────────────────────────
+  const triggerBiometricLogin = useCallback(async (credentialId: string) => {
+    setBioAutoState("scanning");
+    try {
+      const options = await apiPost("/auth/webauthn/login-options", { credentialId });
+      const response = await startAuthentication({ optionsJSON: options });
+      const result = await apiPost("/auth/webauthn/login-verify", { response });
+      if (result.verified && result.user) {
+        login({ ...result.user, tenant: result.user.tenant ?? null });
+        navigate("/dashboard");
+      } else {
+        setBioAutoState("failed");
+      }
+    } catch {
+      setBioAutoState("failed");
+    }
+  }, [login, navigate]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const stored = localStorage.getItem(BIOMETRIC_KEY);
+      if (stored && isBiometricSupported()) {
+        const { credentialId } = JSON.parse(stored) as { phone: string; credentialId: string };
+        if (credentialId) {
+          setBioCredentialId(credentialId);
+          setBioAutoState("waiting");
+          timer = setTimeout(() => triggerBiometricLogin(credentialId), 350);
+        }
+      }
+    } catch { /* ignore parse errors */ }
+    return () => { if (timer !== undefined) clearTimeout(timer); };
+  }, [triggerBiometricLogin]);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -141,14 +192,22 @@ export default function AuthScreen() {
     } finally { setLoading(false); }
   }
 
+  function finishAuth(user: AuthUser) {
+    login(user);
+    if (!user.biometricEnabled && isBiometricSupported()) {
+      setPendingUser(user);
+    } else {
+      navigate("/dashboard");
+    }
+  }
+
   async function handleVerifyOtp() {
     setErr(""); setLoading(true);
     const code = otp.join("");
     try {
       const data = await apiPost("/auth/verify-otp", { phone, code });
       if (data.user) {
-        login({ ...data.user, tenant: data.user.tenant ?? null });
-        navigate("/dashboard");
+        finishAuth({ ...data.user, tenant: data.user.tenant ?? null });
       } else {
         setStep("register");
       }
@@ -166,8 +225,7 @@ export default function AuthScreen() {
         schoolCode: schoolCode || undefined,
         photoUrl: photoUrl || undefined,
       });
-      login({ ...user, tenant: user.tenant ?? null });
-      navigate("/dashboard");
+      finishAuth({ ...user, tenant: user.tenant ?? null });
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Registration failed");
     } finally { setLoading(false); }
@@ -180,7 +238,8 @@ export default function AuthScreen() {
         phone, adminName: name, schoolName: saSchoolName, address, contactPhone,
         bannerUrl: bannerUrl || undefined,
       });
-      login({ ...data.user, tenant: { ...data.tenant, schoolCode: data.schoolCode } });
+      const schoolUser = { ...data.user, tenant: { ...data.tenant, schoolCode: data.schoolCode } };
+      login(schoolUser);
       setGeneratedCode(data.schoolCode);
       setStep("school-success");
     } catch (e: unknown) {
@@ -204,6 +263,75 @@ export default function AuthScreen() {
   }
 
   return (
+    <>
+    {/* ── Biometric auto-login overlay ── */}
+    {bioAutoState !== "idle" && (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A] px-4">
+        <span className="text-5xl mb-3 bus-float">🚌</span>
+        <h1 className="text-2xl font-black text-white mb-8">Orbit<span className="text-[#ffd000]">Track</span></h1>
+        <div className="w-full max-w-xs rounded-3xl border border-slate-700/60 bg-gradient-to-b from-slate-800 to-slate-900 p-8 text-center shadow-2xl">
+          {bioAutoState === "failed" ? (
+            <>
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-900/30 ring-2 ring-red-700/40">
+                <span className="text-4xl">❌</span>
+              </div>
+              <h2 className="text-lg font-bold text-white mb-1">Biometric Failed</h2>
+              <p className="text-xs text-slate-400 mb-5">Scan not recognized or cancelled.</p>
+              <button onClick={() => bioCredentialId && triggerBiometricLogin(bioCredentialId)}
+                className="w-full rounded-2xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 mb-3 transition-colors">
+                🔄 Try Again
+              </button>
+              <button onClick={() => setBioAutoState("idle")}
+                className="w-full text-xs text-slate-500 hover:text-slate-300 py-2">
+                Use mobile number instead →
+              </button>
+            </>
+          ) : (
+            <>
+              <div className={`mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-amber-500/10 ring-2 ring-amber-500/30 ${bioAutoState === "scanning" ? "animate-pulse" : ""}`}>
+                <svg viewBox="0 0 48 48" className="h-14 w-14" fill="none">
+                  <circle cx="24" cy="24" r="10" stroke="#f59e0b" strokeWidth="2.5"/>
+                  <path d="M24 8C15.163 8 8 15.163 8 24" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M24 8C32.837 8 40 15.163 40 24" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M12 34c2.364 4.8 7.09 8 12 8" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M36 34c-2.364 4.8-7.09 8-12 8" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M18 24c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="24" cy="27" r="2" fill="#f59e0b"/>
+                </svg>
+              </div>
+              {bioAutoState === "scanning" ? (
+                <>
+                  <h2 className="text-lg font-bold text-white mb-1">Scanning…</h2>
+                  <p className="text-sm text-slate-400 animate-pulse">Follow the prompt on your device</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-white mb-1">Biometric Login</h2>
+                  <p className="text-sm text-slate-400 mb-5">Sign in instantly with your fingerprint or Face ID</p>
+                  <button onClick={() => bioCredentialId && triggerBiometricLogin(bioCredentialId)}
+                    className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 py-3.5 font-bold text-slate-900 shadow-lg hover:from-amber-400 hover:to-amber-300 transition-all mb-3 active:scale-[0.98]">
+                    🔒 Sign in with Biometric
+                  </button>
+                  <button onClick={() => setBioAutoState("idle")}
+                    className="w-full text-xs text-slate-500 hover:text-slate-300 py-2">
+                    Use mobile number instead →
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* ── Post-auth biometric setup modal ── */}
+    {pendingUser && (
+      <BiometricSetupModal
+        user={pendingUser}
+        onComplete={() => { setPendingUser(null); navigate("/dashboard"); }}
+      />
+    )}
+
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
       {/* Hidden file inputs — profile photo */}
       <input ref={galleryInputRef} type="file" accept="image/*" className="hidden"
@@ -484,5 +612,6 @@ export default function AuthScreen() {
         </p>
       </div>
     </div>
+    </>
   );
 }

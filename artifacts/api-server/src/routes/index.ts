@@ -15,10 +15,12 @@ import advertisementsRouter from "./advertisements";
 import routesRouter from "./routes";
 import geocodeRouter from "./geocode";
 import calendarRouter from "./calendar";
+import webauthnRouter from "./webauthn";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth/webauthn", webauthnRouter);
 router.use("/auth", authRouter);
 router.use("/advertisements", advertisementsRouter);
 router.use("/tenants", tenantsRouter);

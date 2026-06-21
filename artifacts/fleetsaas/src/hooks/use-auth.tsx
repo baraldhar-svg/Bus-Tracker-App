@@ -10,6 +10,7 @@ export type AuthUser = {
   schoolCode?: string | null;
   tenantId?: number | null;
   photoUrl?: string | null;
+  biometricEnabled?: boolean;
   tenant?: { id: number; name: string; bannerUrl?: string | null; address?: string | null; schoolCode?: string | null } | null;
 };
 
