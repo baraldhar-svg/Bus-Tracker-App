@@ -2533,28 +2533,6 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
-      {/* Driver Safety */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-primary">Driver Safety Scores</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Monthly AI-analyzed driving behavior</p>
-        </div>
-        <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-          {DRIVER_SCORES.map((d) => (
-            <div key={d.name} className="flex items-center gap-4 px-5 py-3">
-              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`} alt={d.name} className="h-9 w-9 rounded-full shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{d.name}</p>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-muted-foreground">{d.trips} trips</span>
-                  {d.harsh > 0 ? <span className="text-[10px] text-red-500 font-semibold flex items-center gap-0.5"><AlertTriangle size={9} />{d.harsh} harsh events</span> : <span className="text-[10px] text-green-500 font-semibold">✓ Clean</span>}
-                </div>
-              </div>
-              <ScoreBadge score={d.score} />
-            </div>
-          ))}
-        </div>
-      </div>
       {/* Maintenance */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">

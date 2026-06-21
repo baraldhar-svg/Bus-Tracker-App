@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useListAnnouncements, useGetTripTimeline, useListCalendarEvents, useListRoutes } from "@workspace/api-client-react";
-import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle } from "lucide-react";
+import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle, Star } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -265,6 +265,97 @@ export default function ParentPortal() {
           <p className="text-sm text-muted-foreground">Loading timeline...</p>
         )}
       </div>
+
+      {/* Driver Rating */}
+      <DriverRating routeId={selectedRouteId} />
+    </div>
+  );
+}
+
+const RATING_KEY = "orbittrack_driver_rating";
+
+function DriverRating({ routeId }: { routeId: number | null }) {
+  const [hover, setHover] = useState(0);
+  const [rating, setRating] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [comment, setComment] = useState("");
+
+  useEffect(() => {
+    const saved = routeId ? localStorage.getItem(`${RATING_KEY}_${routeId}`) : null;
+    if (saved) { setRating(Number(saved)); setSubmitted(true); }
+    else { setRating(0); setSubmitted(false); setComment(""); }
+  }, [routeId]);
+
+  function handleSubmit() {
+    if (!rating || !routeId) return;
+    localStorage.setItem(`${RATING_KEY}_${routeId}`, String(rating));
+    setSubmitted(true);
+  }
+
+  const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-border">
+        <h2 className="font-semibold text-primary flex items-center gap-2">
+          <Star size={14} className="text-amber-400" />Rate Your Driver
+        </h2>
+        <p className="text-xs text-muted-foreground mt-0.5">After each journey — your feedback improves safety</p>
+      </div>
+
+      {!routeId ? (
+        <p className="px-5 py-6 text-center text-xs text-muted-foreground italic">Select a route above to rate your driver</p>
+      ) : submitted ? (
+        <div className="px-5 py-6 flex flex-col items-center gap-2 text-center">
+          <div className="flex gap-1 mb-1">
+            {[1,2,3,4,5].map((s) => (
+              <Star key={s} size={22} className={s <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"} />
+            ))}
+          </div>
+          <p className="text-sm font-semibold text-foreground">Thanks for your rating!</p>
+          <p className="text-xs text-muted-foreground">{labels[rating]} — {rating}/5 stars submitted</p>
+          <button onClick={() => { setSubmitted(false); setRating(0); localStorage.removeItem(`${RATING_KEY}_${routeId}`); }}
+            className="mt-2 text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground">
+            Change rating
+          </button>
+        </div>
+      ) : (
+        <div className="px-5 py-5 space-y-4">
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex gap-2"
+              onMouseLeave={() => setHover(0)}>
+              {[1,2,3,4,5].map((s) => (
+                <button key={s}
+                  onClick={() => setRating(s)}
+                  onMouseEnter={() => setHover(s)}
+                  className="transition-transform active:scale-90">
+                  <Star size={32}
+                    className={`transition-colors ${s <= (hover || rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30 hover:text-amber-300"}`} />
+                </button>
+              ))}
+            </div>
+            {(hover || rating) > 0 && (
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{labels[hover || rating]}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Comment (optional)</label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="e.g. Very smooth ride, arrived on time…"
+              rows={2}
+              className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 resize-none"
+            />
+          </div>
+
+          <button onClick={handleSubmit} disabled={!rating}
+            className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors">
+            Submit Rating
+          </button>
+        </div>
+      )}
     </div>
   );
 }
