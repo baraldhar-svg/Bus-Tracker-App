@@ -425,36 +425,49 @@ function UserCard({ user: initial, onSave, onDelete }: {
 }
 
 function UserManager() {
-  const [users, setUsers] = useState<UserItem[]>([]);
+  const [allUsers, setAllUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dropOpen, setDropOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
-  const fetchUsers = useCallback(async (q: string, role: string) => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (q) params.set("q", q);
-      if (role) params.set("role", role);
-      const r = await fetch(`${BASE}/api/users?${params}`);
+      const r = await fetch(`${BASE}/api/users`);
       const data = await r.json() as UserItem[];
-      setUsers(data);
+      setAllUsers(data);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchUsers("", ""); }, [fetchUsers]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  function handleSearch(val: string) {
-    setSearch(val);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchUsers(val, roleFilter), 350);
-  }
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (
+        dropRef.current && !dropRef.current.contains(e.target as Node) &&
+        inputRef.current && !inputRef.current.contains(e.target as Node)
+      ) setDropOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
 
-  function handleRole(val: string) {
-    setRoleFilter(val);
-    fetchUsers(search, val);
+  const filtered = allUsers.filter((u) => {
+    const q = search.toLowerCase();
+    return !q || u.name.toLowerCase().includes(q) || u.phone.includes(q) || (u.tenantName ?? "").toLowerCase().includes(q);
+  });
+
+  const selectedUser = allUsers.find((u) => u.id === selectedId) ?? null;
+
+  function pickUser(u: UserItem) {
+    setSelectedId(u.id);
+    setSearch(u.name);
+    setDropOpen(false);
   }
 
   const handleSave = useCallback(async (id: number, patch: Partial<UserItem>) => {
@@ -465,22 +478,16 @@ function UserManager() {
     });
     const updated = await r.json() as UserItem;
     if (!r.ok) throw new Error((updated as unknown as { error: string }).error ?? "Failed");
-    setUsers((prev) => prev.map((u) => u.id === id ? updated : u));
+    setAllUsers((prev) => prev.map((u) => u.id === id ? updated : u));
   }, []);
 
   const handleDelete = useCallback(async (id: number) => {
     const r = await fetch(`${BASE}/api/users/${id}`, { method: "DELETE" });
     if (!r.ok) throw new Error("Delete failed");
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    setAllUsers((prev) => prev.filter((u) => u.id !== id));
+    setSelectedId(null);
+    setSearch("");
   }, []);
-
-  // Group users by school/office (tenantName)
-  const groups = users.reduce<Record<string, UserItem[]>>((acc, u) => {
-    const key = u.tenantName ?? "No School / Office";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(u);
-    return acc;
-  }, {});
 
   return (
     <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
@@ -490,65 +497,132 @@ function UserManager() {
           <h2 className="font-bold text-slate-100 flex items-center gap-2">
             <Users size={16} className="text-slate-300" />User Manager
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">Grouped by school · tap ✏ to edit name, phone, or role</p>
+          <p className="text-xs text-slate-500 mt-0.5">Select a user to edit · all schools shown in table</p>
         </div>
         <span className="rounded-full bg-slate-700 border border-slate-600 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
-          {users.length} users
+          {allUsers.length} users
         </span>
       </div>
 
-      {/* Search + role filter */}
-      <div className="flex gap-2 px-4 py-3 border-b border-slate-800">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+      {/* Combobox search → dropdown */}
+      <div className="px-4 py-3 border-b border-slate-800">
+        <label className="mb-1.5 block text-xs font-semibold text-slate-400 uppercase tracking-wider">Select User</label>
+        <div className="relative">
+          <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
+            ref={inputRef}
             value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search name or phone…"
-            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-8 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500"
+            onChange={(e) => { setSearch(e.target.value); setDropOpen(true); setSelectedId(null); }}
+            onFocus={() => setDropOpen(true)}
+            placeholder="Type name, phone or school to search…"
+            className="w-full rounded-xl border border-slate-600 bg-slate-800 pl-8 pr-8 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
           />
-        </div>
-        <select
-          value={roleFilter}
-          onChange={(e) => handleRole(e.target.value)}
-          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 outline-none focus:border-amber-500"
-        >
-          <option value="">All roles</option>
-          <option value="student">Student</option>
-          <option value="driver">Driver</option>
-          <option value="admin">Admin</option>
-          <option value="superadmin">Superadmin</option>
-        </select>
-      </div>
+          {search && (
+            <button onClick={() => { setSearch(""); setSelectedId(null); setDropOpen(false); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-slate-200 transition-colors">
+              <X size={13} />
+            </button>
+          )}
 
-      {/* Grouped list */}
-      <div className="p-4 space-y-5 max-h-[520px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
-        {loading ? (
-          <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
-        ) : users.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-500">No users found</p>
-        ) : (
-          Object.entries(groups).map(([schoolName, members]) => (
-            <div key={schoolName}>
-              {/* School / office header */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 border border-amber-500/40">
-                  <Building2 size={10} className="text-amber-400" />
-                </div>
-                <p className="text-xs font-bold text-amber-400 uppercase tracking-wider truncate">{schoolName}</p>
-                <span className="ml-auto shrink-0 rounded-full bg-slate-700 border border-slate-600 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                  {members.length}
-                </span>
-              </div>
-              {/* User cards — single column */}
-              <div className="space-y-1.5">
-                {members.map((u) => (
-                  <UserCard key={u.id} user={u} onSave={handleSave} onDelete={handleDelete} />
-                ))}
+          {/* Dropdown */}
+          {dropOpen && (
+            <div ref={dropRef} className="absolute z-50 mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+              <div className="max-h-52 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
+                {loading ? (
+                  <p className="px-4 py-3 text-xs text-slate-500">Loading…</p>
+                ) : filtered.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-slate-500">No users match</p>
+                ) : (
+                  filtered.map((u) => (
+                    <button
+                      key={u.id}
+                      onMouseDown={() => pickUser(u)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-800 transition-colors ${selectedId === u.id ? "bg-amber-950/40" : ""}`}
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-xs">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-200 truncate">{u.name}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{u.tenantName ?? "No School"} · {u.phone}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${ROLE_STYLES[u.role] ?? ROLE_STYLES.student}`}>
+                        {u.role}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
-          ))
+          )}
+        </div>
+
+        {/* Selected user edit card */}
+        {selectedUser && (
+          <div className="mt-3">
+            <UserCard key={selectedUser.id} user={selectedUser} onSave={handleSave} onDelete={handleDelete} />
+          </div>
         )}
+      </div>
+
+      {/* Full user table — all users with school column */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-800">
+              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">School / Office</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Name</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Phone</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Role</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500">Loading users…</td></tr>
+            ) : allUsers.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500">No users yet</td></tr>
+            ) : (
+              allUsers.map((u) => (
+                <tr
+                  key={u.id}
+                  onClick={() => { setSelectedId(u.id); setSearch(u.name); setDropOpen(false); inputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
+                  className={`border-b border-slate-800/60 cursor-pointer transition-colors ${selectedId === u.id ? "bg-amber-950/20" : "hover:bg-slate-800/40"}`}
+                >
+                  <td className="px-4 py-2.5">
+                    <span className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
+                      <Building2 size={10} className="shrink-0" />
+                      <span className="truncate max-w-[100px]">{u.tenantName ?? "—"}</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-amber-400 font-bold text-[10px]">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-semibold text-slate-200 truncate max-w-[110px]">{u.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-slate-400">{u.phone}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${ROLE_STYLES[u.role] ?? ROLE_STYLES.student}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }}
+                      className="rounded-lg p-1 text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
