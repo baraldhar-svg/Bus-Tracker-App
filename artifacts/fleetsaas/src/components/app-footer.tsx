@@ -41,24 +41,6 @@ export default function AppFooter({ variant = "light" }: { variant?: "light" | "
           )}
         </div>
 
-        {/* Attribution badge */}
-        <div
-          className={`
-            group inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold
-            transition-all duration-200 cursor-default
-            hover:scale-105 hover:shadow-sm
-            ${dark
-              ? "border-slate-700 bg-slate-800 text-slate-400 hover:border-amber-500/50 hover:text-amber-400 hover:bg-slate-700 hover:shadow-amber-500/10"
-              : "border-border bg-muted text-muted-foreground hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 hover:shadow-amber-500/10"
-            }
-          `}
-        >
-          <span className="transition-transform duration-300 group-hover:rotate-12">⚡</span>
-          Powered by{" "}
-          <span className={`font-bold ${dark ? "text-[#FFF078]" : "text-amber-600"}`}>
-            Istuti Soft Tec
-          </span>
-        </div>
 
       </div>
     </footer>
