@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -16,13 +16,44 @@ router.post("/check-phone", async (req, res) => {
   if (!phone || !/^9[6-9]\d{8}$/.test(phone.replace(/\s/g, ""))) {
     return res.status(400).json({ error: "Enter a valid Nepal mobile number (98xxxxxxxx)" });
   }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+
+  let user = (await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1))[0];
+
+  // Fallback: check passengersTable for users registered by admin before this fix
+  if (!user) {
+    const [passenger] = await db
+      .select()
+      .from(passengersTable)
+      .where(and(eq(passengersTable.phone, phone), isNotNull(passengersTable.phone)))
+      .limit(1);
+
+    if (passenger) {
+      // Auto-provision a usersTable entry so they can log in going forward
+      let schoolCode: string | null = null;
+      let tenantId: number | null = passenger.tenantId ?? null;
+      if (tenantId) {
+        const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+        if (tenant) schoolCode = tenant.schoolCode ?? null;
+      }
+      const [created] = await db.insert(usersTable).values({
+        phone,
+        name: passenger.name,
+        role: passenger.role ?? "student",
+        tenantId,
+        schoolCode,
+        photoUrl: passenger.photoUrl ?? null,
+      }).returning();
+      user = created;
+    }
+  }
+
   if (!user) {
     return res.status(403).json({
       error: "This number is not registered. Contact your school administrator to be added.",
       found: false,
     });
   }
+
   // Auto-issue OTP
   const code = generateOtp();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { passengersTable, stationsTable } from "@workspace/db";
+import { passengersTable, stationsTable, usersTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   CreatePassengerBody,
@@ -47,6 +47,28 @@ router.post("/", async (req, res) => {
     .insert(passengersTable)
     .values({ tenantId: req.tenantId, name, phone: phone ?? null, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, routeId: routeId ?? null, status: "pending" })
     .returning();
+
+  // Auto-create a users record so this person can log in with their phone number.
+  // If the phone already exists in usersTable, skip (never create duplicates).
+  if (phone) {
+    const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+    if (!existingUser) {
+      // Fetch the tenant's school code so OTP login can verify it
+      let schoolCode: string | null = null;
+      const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
+      if (tenant) schoolCode = tenant.schoolCode ?? null;
+
+      await db.insert(usersTable).values({
+        phone,
+        name,
+        role: role ?? "student",
+        tenantId: req.tenantId,
+        schoolCode,
+        photoUrl: photoUrl ?? null,
+      });
+    }
+  }
+
   const [withStation] = await db
     .select(PASSENGER_SELECT)
     .from(passengersTable)
