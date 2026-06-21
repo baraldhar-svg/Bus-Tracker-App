@@ -634,6 +634,46 @@ function UserManager() {
   );
 }
 
+function TenantAccordion({ tenants, onPlanChange }: {
+  tenants: TenantItem[];
+  onPlanChange: (id: number, tier: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${open ? "bg-slate-700/50" : "bg-slate-800/40 hover:bg-slate-800/70"}`}
+      >
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-700 border border-slate-600">
+          <Building2 size={13} className="text-slate-300" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-100">Active Tenants</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {tenants.length} school{tenants.length !== 1 ? "s" : ""} registered
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-slate-700 border border-slate-600 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+            {tenants.length}
+          </span>
+          {open
+            ? <ChevronDown size={14} className="text-amber-400" />
+            : <ChevronRight size={14} className="text-slate-500" />}
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/30 p-3 space-y-2">
+          {tenants.map((t) => (
+            <TenantRow key={t.id} tenant={t} onPlanChange={onPlanChange} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SuperadminPortal() {
   const { data: stats } = useGetDashboardStats();
   const { data: tenants } = useListTenants();
@@ -764,15 +804,8 @@ export default function SuperadminPortal() {
           </div>
         )}
 
-        {/* Tenant Table */}
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Active Tenants</p>
-          <div className="space-y-2">
-            {tenants?.map((t) => (
-              <TenantRow key={t.id} tenant={t} onPlanChange={handlePlanChange} />
-            ))}
-          </div>
-        </div>
+        {/* Tenant Table — collapsible */}
+        <TenantAccordion tenants={tenants ?? []} onPlanChange={handlePlanChange} />
       </div>
 
       {/* User Manager */}
