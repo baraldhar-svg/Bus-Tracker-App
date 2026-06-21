@@ -312,6 +312,37 @@ export default function StudentPortal() {
           </div>
         </div>
 
+        {/* Route-locked Bus Info Banner */}
+        {(() => {
+          const selRoute = (routes ?? []).find((r) => r.id === Number(selectedRouteId));
+          if (!selRoute) return (
+            <button
+              onClick={() => setTransportOpen(true)}
+              className="w-full flex items-center gap-3 rounded-xl border border-dashed border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/10 px-4 py-2.5 text-left hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+            >
+              <Route size={14} className="text-amber-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">No route selected</p>
+                <p className="text-[10px] text-amber-600/70 dark:text-amber-500/70">Tap to choose your bus route ↓</p>
+              </div>
+            </button>
+          );
+          return (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 px-4 py-2.5">
+              <div className={`h-2 w-2 rounded-full shrink-0 ${selRoute.isActive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">{selRoute.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {selRoute.vehiclePlate ? (
+                    <><span className="font-semibold text-amber-700 dark:text-amber-400">{selRoute.vehiclePlate}</span>{selRoute.driverName ? ` · ${selRoute.driverName}` : ""}</>
+                  ) : selRoute.driverName ?? "No bus assigned"}
+                </p>
+              </div>
+              <button onClick={() => setTransportOpen(true)} className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2">change</button>
+            </div>
+          );
+        })()}
+
         {/* ETA Bar */}
         <div className="rounded-xl border border-border bg-muted/40 p-3 flex items-center justify-between gap-3">
           <div>
@@ -337,8 +368,43 @@ export default function StudentPortal() {
         <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 280 }}>
           <BusMap route={BUS_POSITIONS} posIdx={posIdx} />
         </div>
-        <p className="text-xs text-muted-foreground text-center">Next stop: Kalanki Chowk</p>
+        {routeStations.length > 0 ? (
+          <p className="text-xs text-muted-foreground text-center">
+            Your route · {routeStations.length} stop{routeStations.length !== 1 ? "s" : ""}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center">Next stop: Kalanki Chowk</p>
+        )}
       </div>
+
+      {/* Route Stops — real data when route is selected */}
+      {routeStations.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="divide-y divide-border">
+              {routeStations.map((rs, idx) => {
+                const isMyStop = String(rs.stationId) === selectedStationId;
+                return (
+                  <div key={rs.id} className={`flex items-center gap-3 px-4 py-2.5 ${isMyStop ? "bg-amber-50 dark:bg-amber-950/20" : ""}`}>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <div className={`h-3 w-3 rounded-full border-2 ${isMyStop ? "border-amber-500 bg-amber-500" : "border-border bg-transparent"}`} />
+                      {idx < routeStations.length - 1 && <div className="w-0.5 h-3 bg-border" />}
+                    </div>
+                    <p className={`flex-1 text-xs ${isMyStop ? "font-bold text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                      {rs.stationName ?? `Stop ${idx + 1}`}
+                    </p>
+                    {isMyStop && (
+                      <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Your stop</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tracking Timeline */}
       <div className="space-y-2">
         <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Clock size={14} /> Tracking Timeline</h2>

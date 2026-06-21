@@ -1361,7 +1361,7 @@ function RouteStationsPanel({
   );
 }
 
-function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | undefined; onTagUpdated: () => void }) {
+function VehicleTagGrid({ vehicles, routes, onTagUpdated }: { vehicles: VehicleRow[] | undefined; routes: RouteRow[] | undefined; onTagUpdated: () => void }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [tagValue, setTagValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1403,12 +1403,18 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
     } catch { /* ignore */ }
   }
 
+  function vehicleRoute(vehicleId: number) {
+    return (routes ?? []).find((r) => r.vehicleId === vehicleId) ?? null;
+  }
+
+  const assignedCount = (vehicles ?? []).filter((v) => vehicleRoute(v.id)).length;
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
         <div>
-          <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Vehicle Assets</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Add buses, assign friendly labels (Bus A, Bus B…) used in routes</p>
+          <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Fleet Asset Grid</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{(vehicles ?? []).length} vehicle{(vehicles ?? []).length !== 1 ? "s" : ""} · {assignedCount} on route · {(vehicles ?? []).length - assignedCount} available</p>
         </div>
         <button onClick={() => setAdding((v) => !v)}
           className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
@@ -1456,52 +1462,71 @@ function VehicleTagGrid({ vehicles, onTagUpdated }: { vehicles: VehicleRow[] | u
       )}
 
       {(!vehicles || vehicles.length === 0) && !adding && (
-        <p className="px-5 py-6 text-center text-xs text-muted-foreground">No vehicles yet — click Add Vehicle to register your first bus</p>
+        <p className="px-5 py-8 text-center text-xs text-muted-foreground">No vehicles yet — click Add Vehicle to register your first bus</p>
       )}
-      <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-        {(vehicles ?? []).map((v) => (
-          <div key={v.id} className="flex items-center gap-3 px-5 py-3">
-            <div className={`h-2 w-2 rounded-full shrink-0 ${v.isActive ? "bg-green-500" : "bg-slate-400"}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">{v.plateNumber}</p>
-              <p className="text-[10px] text-muted-foreground">{v.model} · {v.capacity} seats</p>
-            </div>
-            {editingId === v.id ? (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <input
-                  value={tagValue}
-                  onChange={(e) => setTagValue(e.target.value)}
-                  placeholder="Bus A"
-                  autoFocus
-                  onKeyDown={(e) => e.key === "Enter" && handleSaveTag(v.id)}
-                  className="w-20 rounded-lg border border-amber-500 bg-muted px-2 py-1 text-xs text-foreground outline-none"
-                />
-                <button onClick={() => handleSaveTag(v.id)} disabled={saving}
-                  className="rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400">
-                  Save
-                </button>
-                <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 shrink-0">
-                {v.tag ? (
-                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">{v.tag}</span>
+
+      {/* Card Grid */}
+      {(vehicles ?? []).length > 0 && (
+        <div className="p-4 grid grid-cols-2 gap-3">
+          {(vehicles ?? []).map((v) => {
+            const assignedRoute = vehicleRoute(v.id);
+            return (
+              <div key={v.id} className={`rounded-2xl border p-3.5 flex flex-col gap-2 transition-all ${assignedRoute ? "border-green-300 dark:border-green-800 bg-green-50/60 dark:bg-green-950/20" : "border-border bg-muted/20"}`}>
+                {/* Header */}
+                <div className="flex items-start justify-between gap-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground leading-tight truncate">
+                      {v.tag ?? v.plateNumber}
+                    </p>
+                    {v.tag && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{v.plateNumber}</p>}
+                  </div>
+                  <div className={`h-2 w-2 rounded-full shrink-0 mt-1 ${v.isActive ? "bg-green-500" : "bg-slate-400"}`} />
+                </div>
+                {/* Model / capacity */}
+                <p className="text-[10px] text-muted-foreground">{v.model} · {v.capacity} seats</p>
+                {/* Route badge */}
+                {assignedRoute ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600/10 border border-green-500/30 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:text-green-400 w-fit max-w-full truncate">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0 animate-pulse" />
+                    <span className="truncate">{assignedRoute.name}</span>
+                  </span>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground italic">No label</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground w-fit">
+                    Unassigned
+                  </span>
                 )}
-                <button onClick={() => { setEditingId(v.id); setTagValue(v.tag ?? ""); }}
-                  className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:border-amber-500 transition-colors">
-                  <Pencil size={9} />Label
-                </button>
-                <button onClick={() => handleDeleteVehicle(v.id)}
-                  className="rounded-lg p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
-                  <Trash2 size={12} />
-                </button>
+                {/* Actions */}
+                {editingId === v.id ? (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <input
+                      value={tagValue}
+                      onChange={(e) => setTagValue(e.target.value)}
+                      placeholder="Bus A"
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveTag(v.id)}
+                      className="flex-1 rounded-lg border border-amber-500 bg-card px-2 py-1 text-xs text-foreground outline-none min-w-0"
+                    />
+                    <button onClick={() => handleSaveTag(v.id)} disabled={saving}
+                      className="rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400 shrink-0">✓</button>
+                    <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground shrink-0"><X size={11} /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <button onClick={() => { setEditingId(v.id); setTagValue(v.tag ?? ""); }}
+                      className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:border-amber-500 transition-colors">
+                      <Pencil size={9} />{v.tag ? "Edit" : "Label"}
+                    </button>
+                    <button onClick={() => handleDeleteVehicle(v.id)}
+                      className="ml-auto rounded-lg p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1529,6 +1554,12 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   const [geoPicked, setGeoPicked] = useState<GeocodeResult | null>(null);
   const [geoStageName, setGeoStageName] = useState("");
   const [geoErr, setGeoErr] = useState("");
+
+  // Drag-and-drop state for visual route builder
+  const dragItemRef = useRef<{ type: "station" | "vehicle" | "driver"; id: number; label: string } | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [tlVehicle, setTlVehicle] = useState<{ id: number; label: string } | null>(null);
+  const [tlDriver, setTlDriver] = useState<{ id: number; name: string } | null>(null);
 
   const stagedIds = new Set(stagedStations.map((s) => s.stationId));
   const availableStations = (allStations ?? []).filter((s) => !stagedIds.has(s.id));
@@ -1615,113 +1646,240 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
             <input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="e.g. Route B4 – Koteshwor"
               className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
           </div>
-          {/* Driver + Vehicle */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Driver</label>
-              <select value={rDriver} onChange={(e) => setRDriver(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                <option value="">Unassigned</option>
-                {(drivers ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle</label>
-              <select value={rVehicle} onChange={(e) => setRVehicle(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                <option value="">Unassigned</option>
-                {(vehicles ?? []).map((v) => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
-              </select>
-            </div>
-          </div>
 
-          {/* Geofence Station Builder */}
-          <div className="rounded-xl border border-border bg-card p-3 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Navigation size={11} />Geofence Stations for this Route</p>
-
-            {/* Staged stations list */}
-            {stagedStations.length > 0 && (
-              <div className="space-y-1">
-                {stagedStations.map((s, idx) => (
-                  <div key={s.stationId} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
-                    <span className="text-[10px] font-bold text-[#FFF078] w-4 shrink-0">{idx + 1}</span>
-                    <p className="flex-1 text-xs text-foreground">{s.name}</p>
-                    <button onClick={() => setStagedStations((prev) => prev.filter((x) => x.stationId !== s.stationId))}
-                      className="text-red-400 hover:text-red-600 shrink-0"><X size={11} /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add from existing stations */}
-            {availableStations.length > 0 && (
-              <div className="flex gap-2">
-                <select value={stationPickId} onChange={(e) => setStationPickId(e.target.value)}
-                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500">
-                  <option value="">Pick existing station…</option>
-                  {availableStations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <button onClick={handleAddExistingStation} disabled={!stationPickId}
-                  className="rounded-xl bg-muted border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-amber-50 dark:hover:bg-amber-950/20 disabled:opacity-50 flex items-center gap-1">
-                  <Plus size={12} />Add
-                </button>
-              </div>
-            )}
-
-            {/* Geocode search for new stations */}
-            <div className="border-t border-border pt-3 space-y-2">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide flex items-center gap-1"><Search size={10} />Search &amp; add new station</p>
-              <div className="flex gap-2">
-                <input value={geoQuery} onChange={(e) => setGeoQuery(e.target.value)} placeholder="e.g. Koteshwor, Kathmandu"
-                  onKeyDown={(e) => e.key === "Enter" && handleGeoSearch()}
-                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
-                <button onClick={handleGeoSearch} disabled={!geoQuery.trim() || geoSearching}
-                  className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center gap-1">
-                  {geoSearching ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
-                </button>
-              </div>
-              {geoErr && <p className="text-[10px] text-red-500">{geoErr}</p>}
-              {geoResults.length > 0 && !geoPicked && (
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {geoResults.map((r, i) => (
-                    <button key={i} onClick={() => { setGeoPicked(r); setGeoStageName(r.displayName.split(",")[0]?.trim() ?? ""); }}
-                      className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-left hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors">
-                      <p className="text-xs font-medium text-foreground line-clamp-1">{r.displayName}</p>
-                      <p className="text-[10px] text-muted-foreground">{r.lat.toFixed(4)}, {r.lng.toFixed(4)}</p>
-                    </button>
+          {/* ── Visual Drag-and-Drop Builder ── */}
+          <div className="grid grid-cols-[1fr_1fr] gap-3">
+            {/* LEFT PALETTE */}
+            <div className="space-y-3 min-w-0">
+              {/* Stations palette */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                  <Navigation size={9} />Stations
+                </p>
+                <div className="space-y-1 max-h-36 overflow-y-auto">
+                  {availableStations.length === 0 && (
+                    <p className="text-[10px] text-muted-foreground italic px-1">All stations added</p>
+                  )}
+                  {availableStations.map((s) => (
+                    <div
+                      key={s.id}
+                      draggable
+                      onDragStart={() => { dragItemRef.current = { type: "station", id: s.id, label: s.name }; }}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 cursor-grab active:cursor-grabbing select-none hover:border-amber-400 transition-colors"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                      <p className="text-xs text-foreground truncate">{s.name}</p>
+                    </div>
                   ))}
                 </div>
-              )}
-              {geoPicked && (
-                <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">Selected location</p>
-                      <p className="text-xs text-foreground line-clamp-1">{geoPicked.displayName}</p>
-                      <p className="text-[10px] text-muted-foreground">{geoPicked.lat.toFixed(4)}, {geoPicked.lng.toFixed(4)}</p>
-                    </div>
-                    <button onClick={() => { setGeoPicked(null); setGeoResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0"><X size={12} /></button>
+              </div>
+
+              {/* Search & add new station */}
+              <div className="border-t border-border pt-2.5 space-y-1.5">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Search size={9} />New Station
+                </p>
+                <div className="flex gap-1.5">
+                  <input value={geoQuery} onChange={(e) => setGeoQuery(e.target.value)} placeholder="Search location…"
+                    onKeyDown={(e) => e.key === "Enter" && handleGeoSearch()}
+                    className="flex-1 rounded-xl border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 min-w-0" />
+                  <button onClick={handleGeoSearch} disabled={!geoQuery.trim() || geoSearching}
+                    className="rounded-xl bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 shrink-0">
+                    {geoSearching ? <RefreshCw size={10} className="animate-spin" /> : <Search size={10} />}
+                  </button>
+                </div>
+                {geoErr && <p className="text-[10px] text-red-500">{geoErr}</p>}
+                {geoResults.length > 0 && !geoPicked && (
+                  <div className="space-y-1 max-h-28 overflow-y-auto">
+                    {geoResults.map((r, i) => (
+                      <button key={i} onClick={() => { setGeoPicked(r); setGeoStageName(r.displayName.split(",")[0]?.trim() ?? ""); }}
+                        className="w-full rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-left hover:border-amber-500 transition-colors">
+                        <p className="text-[10px] font-medium text-foreground line-clamp-1">{r.displayName}</p>
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex gap-2">
-                    <input value={geoStageName} onChange={(e) => setGeoStageName(e.target.value)} placeholder="Station name"
-                      className="flex-1 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground outline-none focus:border-amber-500" />
-                    <button onClick={handleStageGeoStation} disabled={!geoStageName.trim()}
-                      className="rounded-xl bg-amber-500 px-3 py-1.5 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 whitespace-nowrap">
-                      + Stage
-                    </button>
+                )}
+                {geoPicked && (
+                  <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <p className="text-[10px] text-foreground line-clamp-1 flex-1">{geoPicked.displayName}</p>
+                      <button onClick={() => { setGeoPicked(null); setGeoResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0"><X size={11} /></button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input value={geoStageName} onChange={(e) => setGeoStageName(e.target.value)} placeholder="Station name"
+                        className="flex-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] text-foreground outline-none focus:border-amber-500 min-w-0" />
+                      <button onClick={handleStageGeoStation} disabled={!geoStageName.trim()}
+                        className="rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 shrink-0">+Add</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Vehicles palette */}
+              {(vehicles ?? []).length > 0 && (
+                <div className="border-t border-border pt-2.5">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                    <Bus size={9} />Vehicles
+                  </p>
+                  <div className="space-y-1">
+                    {(vehicles ?? []).map((v) => (
+                      <div
+                        key={v.id}
+                        draggable
+                        onDragStart={() => { dragItemRef.current = { type: "vehicle", id: v.id, label: v.tag ? `${v.tag} — ${v.plateNumber}` : v.plateNumber }; }}
+                        className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 cursor-grab active:cursor-grabbing select-none hover:border-amber-400 transition-colors"
+                      >
+                        <Bus size={10} className="text-muted-foreground shrink-0" />
+                        <p className="text-xs text-foreground flex-1 truncate">{vehicleLabel(v)}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
+
+              {/* Drivers palette */}
+              {(drivers ?? []).length > 0 && (
+                <div className="border-t border-border pt-2.5">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">Drivers</p>
+                  <div className="space-y-1">
+                    {(drivers ?? []).map((d) => (
+                      <div
+                        key={d.id}
+                        draggable
+                        onDragStart={() => { dragItemRef.current = { type: "driver", id: d.id, label: d.name }; }}
+                        className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 cursor-grab active:cursor-grabbing select-none hover:border-amber-400 transition-colors"
+                      >
+                        <span className="h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 flex items-center justify-center text-[8px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                          {d.name[0]}
+                        </span>
+                        <p className="text-xs text-foreground flex-1 truncate">{d.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT: Route Timeline drop zone */}
+            <div className="space-y-2 min-w-0">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Route Timeline</p>
+
+              {/* Bus slot */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOverTarget("vehicle-slot"); }}
+                onDragLeave={() => setDragOverTarget(null)}
+                onDrop={(e) => {
+                  e.preventDefault(); setDragOverTarget(null);
+                  const item = dragItemRef.current;
+                  if (item?.type === "vehicle") { setRVehicle(String(item.id)); setTlVehicle({ id: item.id, label: item.label }); }
+                }}
+                className={`rounded-xl border-2 border-dashed px-3 py-2 flex items-center gap-2 transition-all ${tlVehicle ? "border-green-400 bg-green-50 dark:bg-green-950/20" : dragOverTarget === "vehicle-slot" ? "border-amber-400 bg-amber-50/60 dark:bg-amber-950/10" : "border-border bg-muted/20"}`}
+              >
+                <Bus size={13} className={tlVehicle ? "text-green-600" : "text-muted-foreground"} />
+                {tlVehicle ? (
+                  <div className="flex-1 flex items-center justify-between min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{tlVehicle.label}</p>
+                    <button onClick={() => { setTlVehicle(null); setRVehicle(""); }} className="text-muted-foreground hover:text-red-500 shrink-0 ml-1"><X size={10} /></button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground italic">Drop bus here</p>
+                )}
+              </div>
+
+              {/* Driver slot */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOverTarget("driver-slot"); }}
+                onDragLeave={() => setDragOverTarget(null)}
+                onDrop={(e) => {
+                  e.preventDefault(); setDragOverTarget(null);
+                  const item = dragItemRef.current;
+                  if (item?.type === "driver") { setRDriver(String(item.id)); setTlDriver({ id: item.id, name: item.label }); }
+                }}
+                className={`rounded-xl border-2 border-dashed px-3 py-2 flex items-center gap-2 transition-all ${tlDriver ? "border-green-400 bg-green-50 dark:bg-green-950/20" : dragOverTarget === "driver-slot" ? "border-amber-400 bg-amber-50/60 dark:bg-amber-950/10" : "border-border bg-muted/20"}`}
+              >
+                <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[8px] font-bold shrink-0 ${tlDriver ? "bg-green-100 dark:bg-green-950/40 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400" : "bg-muted border-border text-muted-foreground"}`}>
+                  {tlDriver ? tlDriver.name[0] : "?"}
+                </span>
+                {tlDriver ? (
+                  <div className="flex-1 flex items-center justify-between min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{tlDriver.name}</p>
+                    <button onClick={() => { setTlDriver(null); setRDriver(""); }} className="text-muted-foreground hover:text-red-500 shrink-0 ml-1"><X size={10} /></button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground italic">Drop driver here</p>
+                )}
+              </div>
+
+              {/* Station timeline drop zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOverTarget("station-list"); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null); }}
+                onDrop={(e) => {
+                  e.preventDefault(); setDragOverTarget(null);
+                  const item = dragItemRef.current;
+                  if (item?.type === "station" && !stagedIds.has(item.id)) {
+                    setStagedStations((prev) => [...prev, { stationId: item.id, name: item.label }]);
+                  }
+                }}
+                className={`rounded-xl border-2 border-dashed min-h-[110px] flex flex-col transition-all ${dragOverTarget === "station-list" ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/10" : "border-border bg-muted/10"}`}
+              >
+                {stagedStations.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center py-6">
+                    <p className="text-[10px] text-muted-foreground italic text-center leading-relaxed">
+                      Drop stations here<br />to build the route
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {stagedStations.map((s, idx) => (
+                      <div
+                        key={s.stationId}
+                        draggable
+                        onDragStart={(e) => { e.stopPropagation(); dragItemRef.current = { type: "station", id: s.stationId, label: s.name }; }}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverTarget(`station-${idx}`); }}
+                        onDrop={(e) => {
+                          e.preventDefault(); e.stopPropagation(); setDragOverTarget(null);
+                          const item = dragItemRef.current;
+                          if (item?.type === "station" && item.id !== s.stationId) {
+                            setStagedStations((prev) => {
+                              const fromIdx = prev.findIndex((x) => x.stationId === item.id);
+                              if (fromIdx === -1) {
+                                const next = [...prev];
+                                next.splice(idx, 0, { stationId: item.id, name: item.label });
+                                return next;
+                              }
+                              const next = [...prev];
+                              const [moved] = next.splice(fromIdx, 1);
+                              next.splice(idx, 0, moved);
+                              return next;
+                            });
+                          }
+                        }}
+                        className={`flex items-center gap-2 rounded-lg bg-card border px-2.5 py-1.5 cursor-grab active:cursor-grabbing transition-all ${dragOverTarget === `station-${idx}` ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-border"}`}
+                      >
+                        <span className="text-[10px] font-bold text-[#FFF078] w-3.5 shrink-0">{idx + 1}</span>
+                        <p className="flex-1 text-xs text-foreground truncate">{s.name}</p>
+                        <button onClick={() => setStagedStations((prev) => prev.filter((x) => x.stationId !== s.stationId))}
+                          className="text-red-400 hover:text-red-600 shrink-0"><X size={10} /></button>
+                      </div>
+                    ))}
+                    {/* Drop more here */}
+                    <div className="px-2 py-1 text-[10px] text-muted-foreground/60 italic text-center">
+                      + drop more stations
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {err && <p className="text-xs text-red-500">{err}</p>}
           <div className="flex gap-2">
-            <button onClick={() => { setCreating(false); setRName(""); setErr(""); setStagedStations([]); setGeoQuery(""); setGeoResults([]); setGeoPicked(null); }}
+            <button onClick={() => { setCreating(false); setRName(""); setErr(""); setStagedStations([]); setGeoQuery(""); setGeoResults([]); setGeoPicked(null); setTlVehicle(null); setTlDriver(null); setRVehicle(""); setRDriver(""); }}
               className="flex-1 rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">Cancel</button>
             <button onClick={handleCreate} disabled={!rName.trim() || saving}
               className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-              {saving ? "Creating…" : `Create Route${stagedStations.length > 0 ? ` + ${stagedStations.length} station${stagedStations.length > 1 ? "s" : ""}` : ""}`}
+              {saving ? "Creating…" : `Create Route${stagedStations.length > 0 ? ` + ${stagedStations.length} stop${stagedStations.length > 1 ? "s" : ""}` : ""}`}
             </button>
           </div>
         </div>
@@ -2198,7 +2356,7 @@ export default function AdminPortal() {
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
   const liveTodayCount = passengers?.filter((p) => p.liveToday === 1).length ?? 0;
   const onLeaveCount = passengers?.filter((p) => p.quickMessage === "Staying home today").length ?? 0;
-  const onRouteCount = FLEET_VEHICLES.filter(v => v.status === "on-route").length;
+  const onRouteCount = (adminRoutes ?? []).filter((r) => r.isActive).length;
 
   return (
     <div className="mx-auto w-full max-w-[860px] p-4 sm:p-6 space-y-6">
@@ -2596,6 +2754,7 @@ export default function AdminPortal() {
       {/* Vehicle Asset Grid */}
       <VehicleTagGrid
         vehicles={vehicles as VehicleRow[] | undefined}
+        routes={adminRoutes as RouteRow[] | undefined}
         onTagUpdated={() => queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() })}
       />
       {/* Route Management */}
