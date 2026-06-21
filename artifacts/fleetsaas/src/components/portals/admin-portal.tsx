@@ -1928,7 +1928,6 @@ type StationItem = { id: number; name: string; lat?: number | null; lng?: number
 
 function StationManager({ stations, onCreated }: { stations: StationItem[] | undefined; onCreated: () => void }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
   const selected = stations?.find((s) => s.id === selectedId);
 
   return (
@@ -1937,14 +1936,8 @@ function StationManager({ stations, onCreated }: { stations: StationItem[] | und
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
         <div>
           <h2 className="font-semibold text-primary flex items-center gap-2"><MapPin size={14} />Geofence Stations</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations · OSM address lookup</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{stations?.length ?? 0} stations</p>
         </div>
-        <button
-          onClick={() => setShowAdd((v) => !v)}
-          className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-        >
-          <Plus size={12} />{showAdd ? "Cancel" : "Add Station"}
-        </button>
       </div>
 
       {/* Scrollable station list */}
@@ -1988,105 +1981,6 @@ function StationManager({ stations, onCreated }: { stations: StationItem[] | und
         </div>
       )}
 
-      {/* Add station form (toggleable) */}
-      {showAdd && (
-        <div className="px-5 pb-5 pt-2">
-          <GeocodeStationCreator onCreated={() => { onCreated(); setShowAdd(false); }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GeocodeStationCreator({ onCreated }: { onCreated: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GeocodeResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [stationName, setStationName] = useState("");
-  const [radius, setRadius] = useState("200");
-  const [picked, setPicked] = useState<GeocodeResult | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [searchErr, setSearchErr] = useState("");
-
-  async function handleSearch() {
-    if (!query.trim()) return;
-    setSearchErr(""); setSearching(true); setResults([]); setPicked(null);
-    try {
-      const r = await fetch(`${BASE}/api/geocode?q=${encodeURIComponent(query)}`);
-      const data: GeocodeResult[] = await r.json();
-      if (data.length === 0) setSearchErr("No locations found — try a different search term");
-      setResults(data);
-    } catch { setSearchErr("Geocode search failed"); }
-    finally { setSearching(false); }
-  }
-
-  async function handleSave() {
-    if (!picked || !stationName.trim()) return;
-    setSaving(true);
-    try {
-      await apiPost("/stations", { name: stationName.trim(), lat: picked.lat, lng: picked.lng, radius: Number(radius) || 200 });
-      setQuery(""); setResults([]); setPicked(null); setStationName(""); setRadius("200");
-      onCreated();
-    } catch { /* ignore */ }
-    finally { setSaving(false); }
-  }
-
-  return (
-    <div className="border-t border-border pt-4 space-y-3">
-      <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Search size={11} />Add Geofence Station (address lookup)</p>
-      <div className="flex gap-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Koteshwor, Kathmandu"
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
-        <button onClick={handleSearch} disabled={!query.trim() || searching}
-          className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
-          {searching ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
-        </button>
-      </div>
-      {searchErr && <p className="text-xs text-red-500">{searchErr}</p>}
-      {results.length > 0 && !picked && (
-        <div className="space-y-1.5">
-          <p className="text-[10px] text-muted-foreground">Pick a location:</p>
-          {results.map((r, i) => (
-            <button key={i} onClick={() => { setPicked(r); setStationName(r.displayName.split(",")[0]?.trim() ?? ""); }}
-              className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-left hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors">
-              <p className="text-xs font-medium text-foreground line-clamp-1">{r.displayName}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</p>
-            </button>
-          ))}
-        </div>
-      )}
-      {picked && (
-        <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2.5">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">Selected location</p>
-              <p className="text-xs text-foreground mt-0.5 line-clamp-2">{picked.displayName}</p>
-              <p className="text-[9px] text-muted-foreground mt-0.5">{picked.lat.toFixed(5)}, {picked.lng.toFixed(5)}</p>
-            </div>
-            <button onClick={() => { setPicked(null); setResults([]); }} className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"><X size={13} /></button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Station Name</label>
-              <input value={stationName} onChange={(e) => setStationName(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Geofence Radius</label>
-              <div className="flex items-center gap-1">
-                <input type="number" min="50" max="2000" value={radius} onChange={(e) => setRadius(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500" />
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">m</span>
-              </div>
-            </div>
-          </div>
-          <button onClick={handleSave} disabled={!stationName.trim() || saving}
-            className="w-full rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-            {saving ? "Saving…" : "Save Station"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
