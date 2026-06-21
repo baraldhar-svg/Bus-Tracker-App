@@ -1363,6 +1363,7 @@ function RouteStationsPanel({
 }
 
 function VehicleTagGrid({ vehicles, routes, onTagUpdated }: { vehicles: VehicleRow[] | undefined; routes: RouteRow[] | undefined; onTagUpdated: () => void }) {
+  const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [tagValue, setTagValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1412,17 +1413,26 @@ function VehicleTagGrid({ vehicles, routes, onTagUpdated }: { vehicles: VehicleR
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 border-b border-border hover:bg-muted/30 transition-colors text-left"
+      >
         <div>
           <h2 className="font-semibold text-primary flex items-center gap-2"><Bus size={15} />Fleet Asset Grid</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{(vehicles ?? []).length} vehicle{(vehicles ?? []).length !== 1 ? "s" : ""} · {assignedCount} on route · {(vehicles ?? []).length - assignedCount} available</p>
         </div>
-        <button onClick={() => setAdding((v) => !v)}
-          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
-          <Plus size={12} />Add Vehicle
-        </button>
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            onClick={(e) => { e.stopPropagation(); setAdding((v) => !v); if (!open) setOpen(true); }}
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors"
+          >
+            <Plus size={12} />Add Vehicle
+          </span>
+          {open ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+        </div>
+      </button>
 
+      {open && <div>
       {/* Add Vehicle inline form */}
       {adding && (
         <div className="px-5 py-4 border-b border-border bg-muted/30 space-y-3">
@@ -1528,6 +1538,7 @@ function VehicleTagGrid({ vehicles, routes, onTagUpdated }: { vehicles: VehicleR
           })}
         </div>
       )}
+      </div>}
     </div>
   );
 }
