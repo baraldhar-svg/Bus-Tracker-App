@@ -157,7 +157,10 @@ export default function StudentPortal() {
     handleLeave();
   }, [handleLeave]);
 
+  const [activeQuickMsg, setActiveQuickMsg] = useState<string | null>(null);
+
   const handleQuickMessage = useCallback(async (msg: string) => {
+    setActiveQuickMsg(msg);
     setSentMsg(msg);
     await updatePassenger.mutateAsync({ id: me?.id ?? 1, data: { quickMessage: msg } });
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
@@ -377,15 +380,25 @@ export default function StudentPortal() {
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {QUICK_MESSAGES.map((msg) => (
-            <button
-              key={msg.value}
-              onClick={() => handleQuickMessage(msg.value)}
-              className="rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition-all border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 shadow-sm text-[#ffcd28] border-t-[#ffee47] border-r-[#ffee47] border-b-[#ffee47] border-l-[#ffee47]"
-            >
-              <span className="flex items-center gap-1.5"><msg.Icon size={13} className="shrink-0" />{msg.label}</span>
-            </button>
-          ))}
+          {QUICK_MESSAGES.map((msg) => {
+            const isActive = activeQuickMsg === msg.value;
+            return (
+              <button
+                key={msg.value}
+                onClick={() => handleQuickMessage(msg.value)}
+                className={`rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition-all active:scale-[0.97] ${
+                  isActive
+                    ? "border-[#ffee47] bg-[#ffee47] text-slate-900 shadow-md scale-[0.98]"
+                    : "border-amber-500/60 bg-amber-50 dark:bg-amber-950/40 text-[#ffcd28] dark:text-amber-300 hover:border-[#ffee47] hover:bg-amber-100 dark:hover:bg-amber-950/70"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <msg.Icon size={13} className="shrink-0" />
+                  {msg.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
       {/* Transport Configuration */}
