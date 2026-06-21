@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
 import {
   Navigation, Flag, WifiOff, BellOff, CheckCircle, Home,
   MessageSquare, Send, Megaphone, AlertTriangle, Users, Building2,
-  Wrench, Clock, Bus, CloudRain, Gauge,
+  Wrench, Clock, Bus, CloudRain, Gauge, MapPin,
 } from "lucide-react";
 
 const DRIVER_NAME = "Ram Bahadur";
@@ -104,6 +104,26 @@ export default function DriverPortal() {
       refetch();
     } finally { setUnboardingId(null); }
   };
+
+  const [absentId, setAbsentId] = useState<number | null>(null);
+  const handleAbsent = async (id: number) => {
+    setAbsentId(id);
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+    try {
+      await fetch(`${BASE}/api/passengers/${id}/absent`, { method: "POST", headers, body: JSON.stringify({}) });
+      queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+      refetch();
+    } finally { setAbsentId(null); }
+  };
+
+  // Auto-refresh passengers every 8s so boarding changes from admin show up
+  useEffect(() => {
+    const id = setInterval(() => { void refetch(); }, 8000);
+    return () => clearInterval(id);
+  }, [refetch]);
 
   async function handleToggleOffline() {
     const goingOffline = !isOffline;
@@ -415,6 +435,60 @@ export default function DriverPortal() {
           </div>
         )}
 
+        {/* At This Station — Waiting Passengers */}
+        {journeyStarted && !journeyCompleted && currentStation && (() => {
+          const waiting = (passengers ?? []).filter(
+            (p) => p.stationId === currentStation.id && p.status === "pending" && p.quickMessage !== "Staying home today"
+          );
+          return (
+            <div className="rounded-2xl border border-amber-600/40 bg-amber-950/20 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-amber-700/30">
+                <div>
+                  <p className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin size={12} /> At This Stop
+                  </p>
+                  <p className="text-[10px] text-amber-600 mt-0.5">{currentStation.name} · {waiting.length} waiting</p>
+                </div>
+                {waiting.length === 0 && (
+                  <span className="text-[10px] text-slate-500 italic">All accounted for</span>
+                )}
+              </div>
+              {waiting.length > 0 ? (
+                <div className="divide-y divide-amber-900/30">
+                  {waiting.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                      <Avatar name={p.name} photoUrl={p.photoUrl} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-100 text-sm">{p.name}</p>
+                        <p className="text-[10px] text-slate-400 capitalize">{p.role} · {p.stationName}</p>
+                        {p.quickMessage && <p className="text-[10px] text-blue-400 italic truncate">"{p.quickMessage}"</p>}
+                      </div>
+                      <div className="shrink-0 flex gap-1.5">
+                        <button
+                          onClick={() => handleBoard(p.id)}
+                          disabled={boardingId === p.id || absentId === p.id}
+                          className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                        >
+                          {boardingId === p.id ? "…" : "Board ✓"}
+                        </button>
+                        <button
+                          onClick={() => handleAbsent(p.id)}
+                          disabled={boardingId === p.id || absentId === p.id}
+                          className="rounded-xl bg-slate-700 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-slate-600 disabled:opacity-50 transition-colors border border-red-700/30"
+                        >
+                          {absentId === p.id ? "…" : "Absent"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-4 py-3 text-center text-xs text-slate-500">No pending passengers at this stop</div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Passenger Checklist */}
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Passenger Checklist</p>
@@ -422,7 +496,7 @@ export default function DriverPortal() {
             {passengers?.filter((p) => p.status !== "leave" && p.quickMessage !== "Staying home today").map((p) => (
               <div key={p.id} className={`flex items-center gap-3 rounded-2xl p-3 border transition-all ${
                 p.status === "boarded" ? "bg-emerald-900/20 border-emerald-700/30"
-                  : p.quickMessage === "Staying home today" ? "bg-slate-800/40 border-slate-700/40 opacity-60"
+                  : (p.status as string) === "absent" ? "bg-red-900/20 border-red-700/30"
                   : "bg-slate-800 border-slate-700"
               }`}>
                 <Avatar name={p.name} photoUrl={p.photoUrl} />
@@ -451,6 +525,8 @@ export default function DriverPortal() {
                     </button>
                     <span className="text-[9px] text-emerald-400 font-semibold">Boarded</span>
                   </div>
+                ) : (p.status as string) === "absent" ? (
+                  <span className="shrink-0 rounded-xl bg-red-900/40 border border-red-700/40 px-3 py-1.5 text-xs text-red-400 font-semibold">Absent</span>
                 ) : p.quickMessage === "Staying home today" ? (
                   <span className="shrink-0 rounded-xl bg-slate-700 px-3 py-1.5 text-xs text-slate-400">On Leave</span>
                 ) : (

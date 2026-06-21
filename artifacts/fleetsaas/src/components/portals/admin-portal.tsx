@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
 
@@ -1937,6 +1937,92 @@ function GeocodeStationCreator({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+interface BoardingLogEntry {
+  id: number;
+  passengerId: number;
+  passengerName: string;
+  stationId: number | null;
+  stationName: string | null;
+  driverId: number | null;
+  driverName: string | null;
+  action: "boarded" | "absent";
+  actionAt: string;
+}
+
+function BoardingLogPanel() {
+  const { data: logs, isFetching } = useQuery<BoardingLogEntry[]>({
+    queryKey: ["boarding-logs"],
+    queryFn: async () => {
+      const tenantId = getTenantId();
+      const headers: Record<string, string> = {};
+      if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+      const r = await fetch(`${BASE}/api/passengers/boarding-logs`, { headers });
+      if (!r.ok) throw new Error("Failed to load boarding logs");
+      return r.json() as Promise<BoardingLogEntry[]>;
+    },
+    refetchInterval: 10000,
+  });
+
+  function formatTime(iso: string) {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } catch { return iso; }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2">
+            <ClipboardList size={15} />Live Boarding Log
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Real-time board / absent events from drivers · auto-refreshes</p>
+        </div>
+        {isFetching && (
+          <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" title="Refreshing…" />
+        )}
+      </div>
+
+      {(!logs || logs.length === 0) ? (
+        <p className="px-5 py-6 text-center text-xs text-muted-foreground">
+          No boarding events yet — they appear here as drivers board or mark students absent
+        </p>
+      ) : (
+        <div className="divide-y divide-border max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
+          {logs.map((log) => (
+            <div key={log.id} className="flex items-center gap-3 px-5 py-3">
+              <span className={`shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                log.action === "boarded"
+                  ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400"
+                  : "bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400"
+              }`}>
+                {log.action === "boarded" ? "✓" : "✗"}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{log.passengerName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {log.stationName ?? "Unknown station"}
+                  {log.driverName ? ` · ${log.driverName}` : ""}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  log.action === "boarded"
+                    ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                    : "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400"
+                }`}>
+                  {log.action === "boarded" ? "Boarded" : "Absent"}
+                </span>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{formatTime(log.actionAt)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user, login } = useAuth();
   const { data: stations, refetch: refetchStations } = useListStations();
@@ -2141,6 +2227,8 @@ export default function AdminPortal() {
           </button>
         ))}
       </div>
+      {/* Live Boarding Log */}
+      <BoardingLogPanel />
       {/* School Settings */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">

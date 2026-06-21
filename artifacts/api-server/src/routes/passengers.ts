@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { passengersTable, stationsTable, usersTable, tenantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { passengersTable, stationsTable, usersTable, tenantsTable, boardingLogsTable, driversTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 import {
   CreatePassengerBody,
   GetPassengerParams,
@@ -34,6 +34,18 @@ router.get("/", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.tenantId, req.tenantId));
+  return res.json(rows);
+});
+
+// GET /passengers/boarding-logs — real-time boarding audit log for admin
+router.get("/boarding-logs", async (req, res) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 100), 200);
+  const rows = await db
+    .select()
+    .from(boardingLogsTable)
+    .where(eq(boardingLogsTable.tenantId, req.tenantId))
+    .orderBy(desc(boardingLogsTable.actionAt))
+    .limit(limit);
   return res.json(rows);
 });
 
@@ -133,6 +145,51 @@ router.post("/:id/board", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
+  // Write boarding audit log
+  if (row) {
+    const [activeDriver] = await db.select().from(driversTable)
+      .where(eq(driversTable.tenantId, req.tenantId)).limit(1);
+    await db.insert(boardingLogsTable).values({
+      tenantId: req.tenantId,
+      passengerId: row.id,
+      passengerName: row.name,
+      stationId: row.stationId ?? 0,
+      stationName: row.stationName ?? "Unknown",
+      driverId: activeDriver?.id ?? null,
+      driverName: activeDriver?.name ?? null,
+      action: "boarded",
+    });
+  }
+  return res.json(row);
+});
+
+router.post("/:id/absent", async (req, res) => {
+  const parsed = BoardPassengerParams.safeParse({ id: Number(req.params.id) });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+  await db
+    .update(passengersTable)
+    .set({ status: "absent", boardedAt: null })
+    .where(eq(passengersTable.id, parsed.data.id));
+  const [row] = await db
+    .select(PASSENGER_SELECT)
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, parsed.data.id));
+  // Write absent audit log
+  if (row) {
+    const [activeDriver] = await db.select().from(driversTable)
+      .where(eq(driversTable.tenantId, req.tenantId)).limit(1);
+    await db.insert(boardingLogsTable).values({
+      tenantId: req.tenantId,
+      passengerId: row.id,
+      passengerName: row.name,
+      stationId: row.stationId ?? 0,
+      stationName: row.stationName ?? "Unknown",
+      driverId: activeDriver?.id ?? null,
+      driverName: activeDriver?.name ?? null,
+      action: "absent",
+    });
+  }
   return res.json(row);
 });
 

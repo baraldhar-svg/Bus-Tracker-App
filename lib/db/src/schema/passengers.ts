@@ -22,3 +22,19 @@ export const passengersTable = pgTable("passengers", {
 export const insertPassengerSchema = createInsertSchema(passengersTable).omit({ id: true, boardedAt: true });
 export type InsertPassenger = z.infer<typeof insertPassengerSchema>;
 export type Passenger = typeof passengersTable.$inferSelect;
+
+// Boarding audit log — one row per board/absent/unboard action
+export const boardingLogsTable = pgTable("boarding_logs", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  passengerId: integer("passenger_id").notNull(),
+  passengerName: text("passenger_name").notNull(),
+  stationId: integer("station_id").notNull(),
+  stationName: text("station_name").notNull(),
+  driverId: integer("driver_id"),
+  driverName: text("driver_name"),
+  action: text("action").notNull(), // "boarded" | "absent" | "unboarded"
+  actionAt: timestamp("action_at").defaultNow().notNull(),
+});
+
+export type BoardingLog = typeof boardingLogsTable.$inferSelect;
