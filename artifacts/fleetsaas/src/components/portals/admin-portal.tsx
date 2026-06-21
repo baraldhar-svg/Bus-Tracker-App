@@ -497,7 +497,7 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 type Modal = "add-passenger" | "add-driver" | null;
 type StatsFilter = "boarded" | "live" | "leave" | "buses" | null;
-type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; };
+type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; schoolCode?: string | null; };
 type FleetVehicle = typeof FLEET_VEHICLES[number];
 
 type Passenger = {
@@ -1985,6 +1985,8 @@ export default function AdminPortal() {
   const [pPhone, setPPhone] = useState("");
   const [pRouteId, setPRouteId] = useState("");
   const [pPhoto, setPPhoto] = useState("");
+  const [pPhoneFound, setPPhoneFound] = useState<"idle" | "checking" | "found" | "new">("idle");
+  const [pSchoolCode, setPSchoolCode] = useState("");
 
   const [dName, setDName] = useState("");
   const [dPhone, setDPhone] = useState("");
@@ -2001,6 +2003,28 @@ export default function AdminPortal() {
         .catch(() => {});
     }
   }, [tenantId, tenant]);
+
+  // Debounced phone lookup for Add Passenger modal
+  useEffect(() => {
+    const raw = pPhone.replace(/\D/g, "");
+    if (raw.length < 10) { setPPhoneFound("idle"); setPName(""); return; }
+    setPPhoneFound("checking");
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`${BASE}/api/auth/me?phone=${raw}`);
+        if (r.ok) {
+          const data = await r.json() as { name: string; role?: string };
+          setPName(data.name ?? "");
+          setPPhoneFound("found");
+        } else {
+          setPPhoneFound("new");
+        }
+      } catch {
+        setPPhoneFound("new");
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [pPhone]);
 
   function openEditSchool() {
     setSName(tenant?.name ?? "");
@@ -2055,14 +2079,24 @@ export default function AdminPortal() {
 
   const handleAddPassenger = useCallback(async () => {
     setErr(""); setLoading(true);
+    // When an existing user is found, validate the school code first
+    if (pPhoneFound === "found") {
+      const expected = (tenant?.schoolCode ?? "").trim().toUpperCase();
+      if (expected && pSchoolCode.trim().toUpperCase() !== expected) {
+        setErr("Incorrect school code. Please check with your administrator.");
+        setLoading(false);
+        return;
+      }
+    }
     try {
       await apiPost("/passengers", { name: pName, role: pRole, stationId: Number(pStation), phone: pPhone.trim() || undefined, routeId: pRouteId ? Number(pRouteId) : undefined, photoUrl: pPhoto || undefined });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetchPassengers();
       setModal(null); setPName(""); setPRole("student"); setPPhone(""); setPRouteId(""); setPPhoto("");
+      setPPhoneFound("idle"); setPSchoolCode("");
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
-  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, queryClient, refetchPassengers]);
+  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, pPhoneFound, pSchoolCode, tenant, queryClient, refetchPassengers]);
 
   const handleAddDriver = useCallback(async () => {
     setErr(""); setLoading(true);
@@ -2521,68 +2555,136 @@ export default function AdminPortal() {
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setModal(null); setPPhone(""); setPPhoneFound("idle"); setPSchoolCode(""); } }}>
           <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
             <h3 className="text-lg font-bold text-primary">Add Student / Staff</h3>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
-              <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Priya Maharjan"
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
-            </div>
+
+            {/* Phone field — always shown first */}
             <div>
               <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Phone Number <span className="text-muted-foreground/60">(used to log in via OTP)</span>
+                Contact Number <span className="text-muted-foreground/60">(used to log in via OTP)</span>
               </label>
               <div className="flex gap-2">
                 <span className="flex items-center rounded-xl border border-border bg-muted px-3 text-sm text-muted-foreground select-none">+977</span>
-                <input value={pPhone} onChange={(e) => setPPhone(e.target.value)} placeholder="98XXXXXXXX"
-                  type="tel" inputMode="numeric"
-                  className="flex-1 rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                <div className="relative flex-1">
+                  <input value={pPhone} onChange={(e) => { setPPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setPPhoneFound("idle"); }}
+                    placeholder="98XXXXXXXX" type="tel" inputMode="numeric"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 pr-8" />
+                  {pPhoneFound === "checking" && (
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
+                  )}
+                  {pPhoneFound === "found" && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>}
+                  {pPhoneFound === "new" && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-400 text-sm">+</span>}
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Role</label>
-                <select value={pRole} onChange={(e) => setPRole(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                  <option value="student">Student</option>
-                  <option value="staff">Staff</option>
-                </select>
+
+            {/* ── EXISTING USER found — simplified form ── */}
+            {pPhoneFound === "found" && (
+              <>
+                <div className="flex items-center gap-2.5 rounded-xl border border-green-700/40 bg-green-950/20 px-3.5 py-3">
+                  <span className="text-green-400 text-base">✅</span>
+                  <div>
+                    <p className="text-xs font-semibold text-green-300">Existing OrbitTrack user found</p>
+                    <p className="text-[11px] text-green-400/70 mt-0.5">Name auto-filled · No new account will be created</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
+                  <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Full name"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-muted-foreground">School Code</label>
+                  <input value={pSchoolCode} onChange={(e) => setPSchoolCode(e.target.value.toUpperCase())}
+                    placeholder="Enter your school code to confirm"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
+                  <p className="mt-1 text-[11px] text-muted-foreground">Confirm with your school code before linking</p>
+                </div>
+
+                {err && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded-xl px-3 py-2">{err}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => { setModal(null); setPPhone(""); setPPhoneFound("idle"); setPSchoolCode(""); }}
+                    className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                  <button onClick={handleAddPassenger} disabled={!pName.trim() || !pSchoolCode.trim() || loading}
+                    className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-500 disabled:opacity-50">
+                    {loading ? "Linking…" : "Link Member ✓"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── NEW USER — full form ── */}
+            {pPhoneFound === "new" && (
+              <>
+                <div className="flex items-center gap-2.5 rounded-xl border border-blue-700/40 bg-blue-950/20 px-3.5 py-3">
+                  <span className="text-blue-400 text-base">🆕</span>
+                  <div>
+                    <p className="text-xs font-semibold text-blue-300">New user — fill in their details</p>
+                    <p className="text-[11px] text-blue-400/70 mt-0.5">An account will be created so they can log in via OTP</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
+                  <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Priya Maharjan"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Role</label>
+                    <select value={pRole} onChange={(e) => setPRole(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      <option value="student">Student</option>
+                      <option value="staff">Staff</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">Station</label>
+                    <select value={pStation} onChange={(e) => setPStation(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      {stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                    Assigned Bus Route <span className="text-muted-foreground/60">(connects student to bus)</span>
+                  </label>
+                  <select value={pRouteId} onChange={(e) => setPRouteId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                    <option value="">No route assigned</option>
+                    {(adminRoutes as RouteRow[] ?? []).map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}{r.vehiclePlate ? ` · ${r.vehiclePlate}` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                    Profile Photo <span className="text-muted-foreground/60">(optional)</span>
+                  </label>
+                  <PhotoPicker value={pPhoto} onChange={setPPhoto} />
+                </div>
+                {err && <p className="text-xs text-red-500">{err}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => { setModal(null); setPPhone(""); setPPhoneFound("idle"); }}
+                    className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                  <button onClick={handleAddPassenger} disabled={!pName || loading}
+                    className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                    {loading ? "Adding…" : "Add Member"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── WAITING for phone — prompt ── */}
+            {pPhoneFound === "idle" && (
+              <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-center justify-center">
+                <span className="text-muted-foreground text-sm">Enter a 10-digit number to continue</span>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Station</label>
-                <select value={pStation} onChange={(e) => setPStation(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                  {stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Assigned Bus Route <span className="text-muted-foreground/60">(connects student to bus)</span>
-              </label>
-              <select value={pRouteId} onChange={(e) => setPRouteId(e.target.value)}
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
-                <option value="">No route assigned</option>
-                {(adminRoutes as RouteRow[] ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}{r.vehiclePlate ? ` · ${r.vehiclePlate}` : ""}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Profile Photo <span className="text-muted-foreground/60">(optional)</span>
-              </label>
-              <PhotoPicker value={pPhoto} onChange={setPPhoto} />
-            </div>
-            {err && <p className="text-xs text-red-500">{err}</p>}
-            <div className="flex gap-2">
-              <button onClick={() => setModal(null)} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
-              <button onClick={handleAddPassenger} disabled={!pName || loading}
-                className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
-                {loading ? "Adding…" : "Add Member"}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
