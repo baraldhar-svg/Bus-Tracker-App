@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -867,6 +867,39 @@ function DriverDetailPanel({
               </div>
             )}
           </div>
+
+          {/* Passenger Ratings */}
+          {(() => {
+            const ds = DRIVER_SCORES.find((d) => d.name === driver.name);
+            const stars = ds ? Math.round(ds.score / 20) : null;
+            return (
+              <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Star size={11} className="text-amber-400" />Passenger Ratings</p>
+                {ds && stars !== null ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map((s) => (
+                          <Star key={s} size={18} className={s <= stars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"} />
+                        ))}
+                      </div>
+                      <span className="text-sm font-bold text-foreground">{stars}/5</span>
+                      <span className="text-xs text-muted-foreground">({ds.score}/100 safety)</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>{ds.trips} trips this month</span>
+                      {ds.harsh > 0
+                        ? <span className="text-red-500 font-semibold flex items-center gap-0.5"><AlertTriangle size={10} />{ds.harsh} harsh events</span>
+                        : <span className="text-green-500 font-semibold">✓ Clean driving</span>
+                      }
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">No ratings yet from passengers</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Delete */}
           <button onClick={handleDelete}
