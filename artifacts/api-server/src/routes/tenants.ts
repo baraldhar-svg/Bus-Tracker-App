@@ -11,7 +11,7 @@ router.get("/", async (_req, res) => {
     ...t,
     vehicleCount: 3,
     passengerCount: 12,
-    subscriptionTier: "gold",
+    subscriptionTier: t.subscriptionTier,
     monthlyRevenue: 15000,
   })));
 });
@@ -39,6 +39,9 @@ router.patch("/:id", async (req, res) => {
   if (typeof body.address === "string") updates.address = body.address;
   if (typeof body.contactPhone === "string") updates.contactPhone = body.contactPhone;
   if (typeof body.bannerUrl === "string" || body.bannerUrl === null) updates.bannerUrl = body.bannerUrl as string | null;
+  if (typeof body.subscriptionTier === "string" && ["silver", "gold", "platinum"].includes(body.subscriptionTier)) {
+    updates.subscriptionTier = body.subscriptionTier;
+  }
   if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
   await db.update(tenantsTable).set(updates).where(eq(tenantsTable.id, id));
   const [row] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));

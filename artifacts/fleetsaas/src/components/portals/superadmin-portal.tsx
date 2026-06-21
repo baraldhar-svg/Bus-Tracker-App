@@ -21,6 +21,84 @@ const TIER_COLORS: Record<string, string> = {
   platinum: "bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700",
 };
 
+const PLANS: { tier: string; label: string; price: string; color: string; ring: string }[] = [
+  { tier: "silver", label: "Silver", price: "NPR 5,000/mo", color: "border-slate-500 bg-slate-700/60 text-slate-200", ring: "ring-slate-400" },
+  { tier: "gold",   label: "Gold",   price: "NPR 12,000/mo", color: "border-amber-500 bg-amber-900/40 text-amber-200", ring: "ring-amber-400" },
+  { tier: "platinum", label: "Platinum", price: "NPR 25,000/mo", color: "border-purple-500 bg-purple-900/40 text-purple-200", ring: "ring-purple-400" },
+];
+
+type TenantItem = {
+  id: number;
+  name: string;
+  vehicleCount: number;
+  passengerCount: number;
+  subscriptionTier: string;
+};
+
+function TenantRow({ tenant: initialTenant, onPlanChange }: {
+  tenant: TenantItem;
+  onPlanChange: (id: number, tier: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tenant, setTenant] = useState(initialTenant);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  async function handleSelect(tier: string) {
+    if (tier === tenant.subscriptionTier) { setOpen(false); return; }
+    setSaving(tier);
+    try {
+      await onPlanChange(tenant.id, tier);
+      setTenant((prev) => ({ ...prev, subscriptionTier: tier }));
+      setOpen(false);
+    } finally { setSaving(null); }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 bg-slate-800/60 hover:bg-slate-800 transition-colors p-3.5 text-left"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700 text-amber-400 font-bold text-sm">
+          {tenant.name.charAt(0)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-200 text-sm truncate">{tenant.name}</p>
+          <p className="text-xs text-slate-400">{tenant.vehicleCount} vehicles · {tenant.passengerCount} passengers</p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${TIER_COLORS[tenant.subscriptionTier] ?? TIER_COLORS.silver}`}>
+          {tenant.subscriptionTier}
+        </span>
+        <span className="text-slate-500 text-xs ml-1">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/70 p-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Change Subscription Plan</p>
+          <div className="grid grid-cols-3 gap-2">
+            {PLANS.map((p) => {
+              const active = tenant.subscriptionTier === p.tier;
+              return (
+                <button
+                  key={p.tier}
+                  onClick={() => handleSelect(p.tier)}
+                  disabled={saving !== null}
+                  className={`rounded-xl border p-3 text-center transition-all disabled:opacity-60 ${p.color} ${active ? `ring-2 ${p.ring}` : "opacity-70 hover:opacity-100"}`}
+                >
+                  <p className="text-xs font-bold">{p.label}</p>
+                  <p className="text-[10px] mt-0.5 opacity-70">{p.price}</p>
+                  {saving === p.tier && <p className="text-[10px] mt-1 opacity-80">Saving…</p>}
+                  {active && saving !== p.tier && <p className="text-[10px] mt-1 font-semibold">✓ Current</p>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Ad = {
   id: number;
   title: string;
@@ -271,6 +349,10 @@ export default function SuperadminPortal() {
     finally { setFormLoading(false); }
   }, [formTitle, formSubtitle, formImageUrl, formTargetUrl, ads.length]);
 
+  const handlePlanChange = useCallback(async (id: number, tier: string) => {
+    await apiReq("PATCH", `/tenants/${id}`, { subscriptionTier: tier });
+  }, []);
+
   const liveCount = ads.filter((a) => a.active).length;
 
   return (
@@ -324,18 +406,7 @@ export default function SuperadminPortal() {
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Active Tenants</p>
           <div className="space-y-2">
             {tenants?.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-700 p-3.5 hover:bg-slate-800 transition-colors">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700 text-amber-400 font-bold text-sm">
-                  {t.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-200 text-sm truncate">{t.name}</p>
-                  <p className="text-xs text-slate-400">{t.vehicleCount} vehicles · {t.passengerCount} passengers</p>
-                </div>
-                <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${TIER_COLORS[t.subscriptionTier] ?? TIER_COLORS.silver}`}>
-                  {t.subscriptionTier}
-                </span>
-              </div>
+              <TenantRow key={t.id} tenant={t} onPlanChange={handlePlanChange} />
             ))}
           </div>
         </div>
