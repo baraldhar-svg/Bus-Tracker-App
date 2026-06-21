@@ -194,4 +194,22 @@ router.post("/login-verify", async (req, res) => {
   return res.json({ verified: true, user: full });
 });
 
+// POST /api/auth/webauthn/disable
+router.post("/disable", async (req, res) => {
+  const { phone } = req.body as { phone?: string };
+  if (!phone) return res.status(400).json({ error: "phone required" });
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  await db.update(usersTable).set({
+    biometricEnabled: false,
+    biometricCredentialId: null,
+    biometricPublicKey: null,
+    biometricCounter: 0,
+  }).where(eq(usersTable.id, user.id));
+
+  return res.json({ disabled: true });
+});
+
 export default router;
