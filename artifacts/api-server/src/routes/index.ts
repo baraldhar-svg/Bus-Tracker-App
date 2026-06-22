@@ -19,6 +19,7 @@ import webauthnRouter from "./webauthn";
 import usersRouter from "./users";
 import whatsappRouter from "./whatsapp";
 import eventsRouter from "./events";
+import superadminRouter from "./superadmin";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use("/calendar-events", calendarRouter);
 router.use("/users", usersRouter);
 router.use("/whatsapp", whatsappRouter);
 router.use("/events", eventsRouter);
+router.use("/superadmin", superadminRouter);
 
 export default router;

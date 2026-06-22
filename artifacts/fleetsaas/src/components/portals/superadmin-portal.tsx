@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2, ChevronDown, ChevronRight, MapPin, Bus, Wifi, WifiOff, RefreshCw } from "lucide-react";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -696,6 +696,226 @@ function UserManager() {
   );
 }
 
+type LiveVehicle = {
+  vehicleId: number;
+  plateNumber: string;
+  model: string;
+  capacity: number;
+  tag: string | null;
+  isActive: boolean;
+  isOnline: boolean;
+  driverName: string | null;
+  driverPhone: string | null;
+  lat: number;
+  lng: number;
+};
+
+type LiveSchool = {
+  tenantId: number;
+  tenantName: string;
+  vehicleCount: number;
+  onlineCount: number;
+  activeCount: number;
+  vehicles: LiveVehicle[];
+};
+
+function VehicleStatusDot({ isOnline, isActive }: { isOnline: boolean; isActive: boolean }) {
+  if (isOnline) return <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse shrink-0" title="Online – en route" />;
+  if (isActive) return <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" title="Active – ready" />;
+  return <span className="h-2 w-2 rounded-full bg-slate-600 shrink-0" title="Offline" />;
+}
+
+function LiveSchoolCard({ school }: { school: LiveSchool }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${open ? "bg-slate-700/60" : "bg-slate-800/50 hover:bg-slate-800"}`}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-700 border border-slate-600">
+          <Bus size={13} className="text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-100 truncate">{school.tenantName}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {school.onlineCount > 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-bold text-green-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                {school.onlineCount} online
+              </span>
+            )}
+            {school.activeCount > 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-bold text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                {school.activeCount} ready
+              </span>
+            )}
+            {school.onlineCount === 0 && school.activeCount === 0 && (
+              <span className="text-[9px] text-slate-600">all offline</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-slate-700 border border-slate-600 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+            {school.vehicleCount}
+          </span>
+          {open ? <ChevronDown size={14} className="text-amber-400" /> : <ChevronRight size={14} className="text-slate-500" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/50">
+          <div className="max-h-56 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 p-2 space-y-1.5">
+            {school.vehicles.length === 0 ? (
+              <p className="py-6 text-center text-xs text-slate-600">No vehicles registered</p>
+            ) : (
+              school.vehicles.map((v) => (
+                <div
+                  key={v.vehicleId}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                    v.isOnline
+                      ? "bg-green-950/30 border border-green-800/40"
+                      : v.isActive
+                      ? "bg-amber-950/20 border border-amber-800/30"
+                      : "bg-slate-800/40 border border-slate-700/40"
+                  }`}
+                >
+                  <VehicleStatusDot isOnline={v.isOnline} isActive={v.isActive} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-slate-100 truncate">{v.plateNumber}</p>
+                      {v.tag && (
+                        <span className="shrink-0 rounded bg-slate-700 px-1 py-0 text-[9px] font-semibold text-slate-400">{v.tag}</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                      {v.model !== "Unknown" ? v.model : ""}{v.model !== "Unknown" && v.driverName ? " · " : ""}{v.driverName ?? "No driver"}
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className={`text-[9px] font-bold uppercase ${v.isOnline ? "text-green-400" : v.isActive ? "text-amber-400" : "text-slate-600"}`}>
+                      {v.isOnline ? "Online" : v.isActive ? "Ready" : "Offline"}
+                    </span>
+                    <a
+                      href={`https://www.google.com/maps?q=${v.lat.toFixed(6)},${v.lng.toFixed(6)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-0.5 text-[9px] font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                      title={`View on Google Maps (${v.lat.toFixed(4)}, ${v.lng.toFixed(4)})`}
+                    >
+                      <MapPin size={9} />Maps
+                    </a>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveVehiclesPanel() {
+  const [schools, setSchools] = useState<LiveSchool[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const fetchedRef = useRef(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/superadmin/live-vehicles`);
+      const data = await r.json() as LiveSchool[];
+      setSchools(data);
+      setLastRefresh(new Date());
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  function handleToggle() {
+    const opening = !open;
+    setOpen(opening);
+    if (opening && !fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchData();
+    }
+  }
+
+  const totalOnline = schools.reduce((s, sc) => s + sc.onlineCount, 0);
+  const totalVehicles = schools.reduce((s, sc) => s + sc.vehicleCount, 0);
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-700 border border-slate-600">
+          <Bus size={16} className="text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-slate-100 text-sm">Live Vehicles</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {open
+              ? totalOnline > 0
+                ? `${totalOnline} online · ${totalVehicles} total across ${schools.length} school${schools.length !== 1 ? "s" : ""}`
+                : `${totalVehicles} vehicles · ${schools.length} school${schools.length !== 1 ? "s" : ""} — none online`
+              : "Live status + Google Maps for every school's fleet"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {totalOnline > 0 && open && (
+            <span className="flex items-center gap-1 rounded-full bg-green-900/50 border border-green-700 px-2 py-0.5 text-[10px] font-bold text-green-400">
+              <Wifi size={9} />{totalOnline} live
+            </span>
+          )}
+          {open ? <ChevronDown size={16} className="text-amber-400" /> : <ChevronRight size={16} className="text-slate-500" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-700">
+          {/* Refresh bar */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/30">
+            <p className="text-[10px] text-slate-600">
+              {lastRefresh ? `Updated ${lastRefresh.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Loading…"}
+            </p>
+            <button
+              type="button"
+              onClick={fetchData}
+              disabled={loading}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-400 hover:text-amber-400 hover:bg-amber-950/30 disabled:opacity-40 transition-colors"
+            >
+              <RefreshCw size={10} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Per-school list */}
+          <div className="p-3 space-y-2 max-h-[520px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
+            {loading && schools.length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-500">Loading fleet data…</p>
+            ) : schools.length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-500">No schools found</p>
+            ) : (
+              schools.map((sc) => (
+                <LiveSchoolCard key={sc.tenantId} school={sc} />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TenantAccordion({ tenants, onPlanChange }: {
   tenants: TenantItem[];
   onPlanChange: (id: number, tier: string) => Promise<void>;
@@ -872,6 +1092,9 @@ export default function SuperadminPortal() {
 
       {/* User Manager */}
       <UserManager />
+
+      {/* Live Vehicles by School */}
+      <LiveVehiclesPanel />
 
       {/* Ad Carousel Manager */}
       <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
