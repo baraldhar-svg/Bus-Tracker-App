@@ -6,6 +6,7 @@ import {
   CreateAnnouncementBody,
   DeleteAnnouncementParams,
 } from "@workspace/api-zod";
+import { broadcast } from "../lib/sse";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.post("/", async (req, res) => {
     .insert(announcementsTable)
     .values({ tenantId: req.tenantId, message, messageNe: messageNe ?? null, severity: severity ?? "info" })
     .returning();
+  broadcast("announcements_updated", { tenantId: req.tenantId });
   return res.status(201).json(row);
 });
 
@@ -37,6 +39,7 @@ router.delete("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid id" });
   }
   await db.delete(announcementsTable).where(eq(announcementsTable.id, parsed.data.id));
+  broadcast("announcements_updated", { tenantId: req.tenantId });
   return res.status(204).send();
 });
 

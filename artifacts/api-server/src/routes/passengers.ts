@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { passengersTable, stationsTable, usersTable, tenantsTable, boardingLogsTable, driversTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { broadcast } from "../lib/sse";
 import {
   CreatePassengerBody,
   GetPassengerParams,
@@ -160,6 +161,7 @@ router.post("/:id/board", async (req, res) => {
       action: "boarded",
     });
   }
+  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "boarded" });
   return res.json(row);
 });
 
@@ -190,6 +192,7 @@ router.post("/:id/absent", async (req, res) => {
       action: "absent",
     });
   }
+  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "absent" });
   return res.json(row);
 });
 
@@ -205,6 +208,7 @@ router.post("/:id/unboard", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
+  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "unboarded" });
   return res.json(row);
 });
 
@@ -220,6 +224,7 @@ router.post("/:id/leave", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
+  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "leave" });
   return res.json(row);
 });
 

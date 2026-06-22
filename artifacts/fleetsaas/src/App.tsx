@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import SchoolProfile from "@/pages/school-profile";
 import { useEffect } from "react";
 import { sendWhatsAppNotification } from "@/lib/whatsapp";
+import { useRealtime } from "@/hooks/use-realtime";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,11 @@ function Router() {
   );
 }
 
+function RealtimeBridge() {
+  useRealtime();
+  return null;
+}
+
 function App() {
   async function handleTestWhatsApp() {
     await sendWhatsAppNotification("9779840077623");
@@ -64,6 +70,7 @@ function App() {
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>
+            <RealtimeBridge />
           </AuthProvider>
           <Toaster />
         </TooltipProvider>

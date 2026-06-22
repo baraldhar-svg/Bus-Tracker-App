@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { driversTable, passengersTable, stationsTable, announcementsTable } from "@workspace/db";
 import { eq, count, and } from "drizzle-orm";
+import { broadcast } from "../lib/sse";
 
 const router = Router();
 router.get("/active", async (req, res) => {
@@ -81,6 +82,7 @@ router.post("/start", async (req, res) => {
     severity: "info",
   });
 
+  broadcast("trip_started", { tenantId: req.tenantId, time: timeStr });
   return res.json({ acknowledged: true, message: `Journey started at ${timeStr}. All passengers and admins notified.` });
 });
 
@@ -113,6 +115,8 @@ router.post("/complete", async (req, res) => {
     message: `✅ ${busLabel} journey completed at ${timeStr}. All students have arrived safely. The driver has signed off for this trip.`,
     severity: "info",
   });
+
+  broadcast("trip_completed", { tenantId: req.tenantId, time: timeStr });
 
   // Reset all passengers back to "pending" so they're ready for the next journey
   await db

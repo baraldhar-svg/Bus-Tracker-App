@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { driversTable, usersTable, tenantsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { CreateDriverBody } from "@workspace/api-zod";
+import { broadcast } from "../lib/sse";
 
 const router = Router();
 
@@ -73,6 +74,8 @@ router.patch("/:id", async (req, res) => {
     .where(and(eq(driversTable.id, id), eq(driversTable.tenantId, req.tenantId)))
     .returning();
   if (!updated[0]) { res.status(404).json({ error: "Driver not found" }); return; }
+
+  broadcast("drivers_updated", { tenantId: req.tenantId, driverId: id });
 
   // When marking active, ensure the driver has a usersTable login account
   if (isActive === true) {
