@@ -11,6 +11,7 @@ import RegisterScreen from "@/pages/register-screen";
 import Dashboard from "@/pages/dashboard";
 import SchoolProfile from "@/pages/school-profile";
 import { useEffect } from "react";
+import { sendWhatsAppNotification } from "@/lib/whatsapp";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,10 @@ function Router() {
 }
 
 function App() {
+  async function handleTestWhatsApp() {
+    await sendWhatsAppNotification("9779840077623");
+  }
+
   return (
     <LanguageProvider>
       <QueryClientProvider client={queryClient}>
@@ -63,6 +68,12 @@ function App() {
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
+      <button
+        onClick={handleTestWhatsApp}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-green-500 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-green-600 active:scale-95 transition-all"
+      >
+        💬 Test WhatsApp Alert
+      </button>
     </LanguageProvider>
   );
 }
