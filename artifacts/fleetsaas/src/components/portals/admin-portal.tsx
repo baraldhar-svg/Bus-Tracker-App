@@ -506,6 +506,75 @@ type Passenger = {
   liveToday: number; stationId: number; stationName?: string | null; quickMessage?: string | null; photoUrl?: string | null;
 };
 
+function PassengerDetailCard({ p, onClose }: { p: Passenger; onClose: () => void }) {
+  const initials = p.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-sm rounded-3xl bg-card border border-border shadow-2xl overflow-hidden">
+        {/* Top banner with avatar */}
+        <div className="relative bg-gradient-to-br from-amber-400/20 to-amber-600/10 px-6 pt-8 pb-6 flex flex-col items-center gap-3 border-b border-border">
+          <button onClick={onClose}
+            className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+            ✕
+          </button>
+          {p.photoUrl ? (
+            <img src={p.photoUrl} alt={p.name}
+              className="h-20 w-20 rounded-full object-cover border-4 border-background shadow-lg" />
+          ) : (
+            <div className="h-20 w-20 rounded-full border-4 border-background shadow-lg bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+              <span className="text-2xl font-bold text-amber-700 dark:text-amber-300">{initials}</span>
+            </div>
+          )}
+          <div className="text-center">
+            <h3 className="text-lg font-bold text-foreground">{p.name}</h3>
+            <span className="rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs text-muted-foreground capitalize">{p.role}</span>
+          </div>
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
+            {STATUS_LABELS[p.status] ?? p.status}
+          </span>
+        </div>
+        {/* Detail rows */}
+        <div className="divide-y divide-border">
+          {p.phone && (
+            <div className="flex items-center gap-3 px-5 py-3">
+              <Phone size={14} className="text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Phone</p>
+                <p className="text-sm font-medium text-foreground">{p.phone}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-3 px-5 py-3">
+            <MapPin size={14} className="text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Stop</p>
+              <p className="text-sm font-medium text-foreground">{p.stationName ?? "—"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-5 py-3">
+            <CheckCircle size={14} className="text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Live Today</p>
+              <p className="text-sm font-medium text-foreground">{p.liveToday ? "Yes — riding today" : "Not confirmed"}</p>
+            </div>
+          </div>
+          {p.quickMessage && (
+            <div className="flex items-center gap-3 px-5 py-3">
+              <MessageSquare size={14} className="text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Message</p>
+                <p className="text-sm font-medium text-blue-500 italic">"{p.quickMessage}"</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="pb-4" />
+      </div>
+    </div>
+  );
+}
+
 function StatsDetailPanel({
   filter, passengers, onClose,
 }: {
@@ -513,6 +582,8 @@ function StatsDetailPanel({
   passengers: Passenger[];
   onClose: () => void;
 }) {
+  const [selected, setSelected] = useState<Passenger | null>(null);
+
   const filtered = (() => {
     if (filter === "boarded") return passengers.filter((p) => p.status === "boarded");
     if (filter === "live") return passengers.filter((p) => p.liveToday === 1);
@@ -530,74 +601,79 @@ function StatsDetailPanel({
   const meta = isBuses ? null : META[filter as keyof typeof META];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-3xl bg-card border border-border shadow-2xl min-h-[50vh] max-h-[80vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-border" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
-              {isBuses ? <><Bus size={15} className="text-foreground" />Active Buses</> : meta!.title}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {isBuses
-                ? `${FLEET_VEHICLES.filter((v) => v.status === "on-route").length} of ${FLEET_VEHICLES.length} on route`
-                : `${filtered.length} ${filtered.length === 1 ? "person" : "people"}`}
-            </p>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="w-full max-w-md rounded-3xl bg-card border border-border shadow-2xl min-h-[50vh] max-h-[80vh] flex flex-col">
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="h-1 w-10 rounded-full bg-border" />
           </div>
-          <button onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
-            ✕
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 divide-y divide-border [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
-          {isBuses ? (
-            FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
-              <div key={v.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center shrink-0"><Bus size={18} className="text-green-600 dark:text-green-400" /></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{v.plate}</p>
-                  <p className="text-xs text-muted-foreground truncate">{v.driver} · {v.route}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="rounded-full bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2 py-0.5 text-[10px] font-bold">
-                    ● On Route
-                  </span>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · {v.fuel}% fuel</p>
-                </div>
-              </div>
-            ))
-          ) : filtered.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <p className="text-sm text-muted-foreground">{meta!.empty}</p>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+            <div>
+              <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
+                {isBuses ? <><Bus size={15} className="text-foreground" />Active Buses</> : meta!.title}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {isBuses
+                  ? `${FLEET_VEHICLES.filter((v) => v.status === "on-route").length} of ${FLEET_VEHICLES.length} on route`
+                  : `${filtered.length} ${filtered.length === 1 ? "person" : "people"}`}
+              </p>
             </div>
-          ) : (
-            filtered.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 px-5 py-3">
-                <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                    <span className="rounded-full bg-muted border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">{p.role}</span>
+            <button onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 text-sm">
+              ✕
+            </button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 divide-y divide-border [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
+            {isBuses ? (
+              FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
+                <div key={v.id} className="flex items-center gap-3 px-5 py-3">
+                  <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center shrink-0"><Bus size={18} className="text-green-600 dark:text-green-400" /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{v.plate}</p>
+                    <p className="text-xs text-muted-foreground truncate">{v.driver} · {v.route}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{p.stationName ?? "—"}</p>
-                  {p.quickMessage && (
-                    <p className="text-[10px] text-blue-500 italic truncate flex items-center gap-1"><MessageSquare size={9} />"{p.quickMessage}"</p>
-                  )}
+                  <div className="text-right shrink-0">
+                    <span className="rounded-full bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2 py-0.5 text-[10px] font-bold">
+                      ● On Route
+                    </span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · {v.fuel}% fuel</p>
+                  </div>
                 </div>
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
-                  {STATUS_LABELS[p.status] ?? p.status}
-                </span>
+              ))
+            ) : filtered.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm text-muted-foreground">{meta!.empty}</p>
               </div>
-            ))
-          )}
+            ) : (
+              filtered.map((p) => (
+                <button key={p.id}
+                  onClick={() => setSelected(p)}
+                  className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-muted/50 active:bg-muted transition-colors">
+                  <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                      <span className="rounded-full bg-muted border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">{p.role}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{p.stationName ?? "—"}</p>
+                    {p.quickMessage && (
+                      <p className="text-[10px] text-blue-500 italic truncate flex items-center gap-1"><MessageSquare size={9} />"{p.quickMessage}"</p>
+                    )}
+                  </div>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLES.pending}`}>
+                    {STATUS_LABELS[p.status] ?? p.status}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="pb-6 shrink-0" />
         </div>
-        <div className="pb-6 shrink-0" />
       </div>
-    </div>
+      {selected && <PassengerDetailCard p={selected} onClose={() => setSelected(null)} />}
+    </>
   );
 }
 
