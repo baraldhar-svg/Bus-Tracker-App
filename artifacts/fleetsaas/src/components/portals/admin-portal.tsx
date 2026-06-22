@@ -1958,6 +1958,100 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
 }
 
 
+// ── SmartStationManager ───────────────────────────────────────────────────────
+type StationRow = { id: number; name: string; lat?: number | null; lng?: number | null; radius?: number | null };
+
+function SmartStationManager({
+  stations, onChanged,
+}: { stations: StationRow[] | undefined; onChanged: () => void }) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  async function handleConfirm(s: { name: string; lat: number; lng: number; radius: number }) {
+    await apiPost("/stations", { name: s.name, lat: s.lat, lng: s.lng, radius: s.radius });
+    onChanged();
+    setShowPicker(false);
+  }
+
+  async function handleDelete(id: number) {
+    setDeleting(id);
+    try { await apiDelete(`/stations/${id}`); onChanged(); }
+    finally { setDeleting(null); }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2">
+            <MapPin size={14} />Geofence Stations
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {stations?.length ?? 0} hub{(stations?.length ?? 0) !== 1 ? "s" : ""} · Google Places powered
+          </p>
+        </div>
+        <button
+          onClick={() => setShowPicker((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${showPicker ? "bg-muted text-muted-foreground border border-border" : "bg-amber-500 text-slate-900 hover:bg-amber-400"}`}
+        >
+          {showPicker ? <><X size={11} />Cancel</> : <><Plus size={11} />Add Station</>}
+        </button>
+      </div>
+
+      {/* Smart picker */}
+      {showPicker && (
+        <div className="p-4 border-b border-border bg-muted/20">
+          <StationMapPicker
+            onConfirm={handleConfirm}
+            onCancel={() => setShowPicker(false)}
+          />
+        </div>
+      )}
+
+      {/* Station list */}
+      <div className="divide-y divide-border max-h-64 overflow-y-auto">
+        {(!stations || stations.length === 0) && !showPicker && (
+          <p className="px-5 py-8 text-center text-xs text-muted-foreground italic">
+            No stations yet — click Add Station to create your first geofence hub
+          </p>
+        )}
+        {(stations ?? []).map((s) => (
+          <div key={s.id} className="flex items-center gap-3 px-5 py-3">
+            <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0">
+              <MapPin size={13} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{s.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {s.lat != null && s.lng != null ? (
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {(s.lat as number).toFixed(4)}, {(s.lng as number).toFixed(4)}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground italic">No coordinates</span>
+                )}
+                {s.radius != null && (
+                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">
+                    ⊙ {s.radius}m
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => handleDelete(s.id)}
+              disabled={deleting === s.id}
+              className="shrink-0 rounded-lg p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 transition-colors"
+            >
+              {deleting === s.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface BoardingLogEntry {
   id: number;
   passengerId: number;
@@ -2587,6 +2681,13 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
+      {/* Geofence Stations */}
+      <SmartStationManager
+        stations={stations as StationRow[] | undefined}
+        onChanged={() => {
+          queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
+        }}
+      />
       {/* Vehicle Asset Grid */}
       <VehicleTagGrid
         vehicles={vehicles as VehicleRow[] | undefined}
