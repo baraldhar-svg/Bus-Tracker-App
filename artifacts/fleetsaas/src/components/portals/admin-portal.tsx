@@ -621,6 +621,10 @@ function DriverDetailPanel({
   const [editName, setEditName] = useState(driver.name);
   const [editPhone, setEditPhone] = useState(driver.phone);
 
+  // Local active state so button reflects change immediately without waiting for parent refetch
+  const [localIsActive, setLocalIsActive] = useState(driver.isActive);
+  const [activeMsg, setActiveMsg] = useState("");
+
   // Vehicle change
   const [changingVehicle, setChangingVehicle] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -643,11 +647,16 @@ function DriverDetailPanel({
   }
 
   async function handleToggleActive() {
-    setSaving(true);
+    setSaving(true); setErr(""); setActiveMsg("");
+    const next = !localIsActive;
     try {
-      await apiPatch(`/drivers/${driver.id}`, { isActive: !driver.isActive });
+      await apiPatch(`/drivers/${driver.id}`, { isActive: next });
+      setLocalIsActive(next);
+      setActiveMsg(next ? "Driver marked active — they can now log in." : "Driver marked inactive.");
       onRefresh();
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to update status");
+    }
     finally { setSaving(false); }
   }
 
@@ -769,11 +778,16 @@ function DriverDetailPanel({
               </div>
             )}
             {/* Active toggle */}
+            {activeMsg && (
+              <p className={`text-[11px] font-semibold rounded-lg px-3 py-1.5 ${localIsActive ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
+                {activeMsg}
+              </p>
+            )}
             <button onClick={handleToggleActive} disabled={saving}
-              className={`w-full rounded-xl border py-2 text-xs font-semibold transition-colors ${driver.isActive
+              className={`w-full rounded-xl border py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${localIsActive
                 ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/30"
                 : "border-border bg-muted text-muted-foreground hover:border-amber-500 hover:text-amber-600"}`}>
-              {driver.isActive ? "✓ Mark Inactive" : "✓ Mark Active"}
+              {saving ? "Saving…" : localIsActive ? "✓ Mark Inactive" : "✓ Mark Active"}
             </button>
           </div>
 

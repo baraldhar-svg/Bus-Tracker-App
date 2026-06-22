@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { driversTable } from "@workspace/db";
+import { driversTable, usersTable, tenantsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { CreateDriverBody } from "@workspace/api-zod";
 
@@ -37,6 +37,21 @@ router.post("/", async (req, res) => {
     .insert(driversTable)
     .values({ tenantId: req.tenantId, name, phone, photoUrl: photoUrl ?? null, vehicleNumber, isActive: false })
     .returning();
+
+  // Auto-provision a usersTable login account so the driver can sign in immediately
+  const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (!existing.length) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
+    await db.insert(usersTable).values({
+      phone,
+      name,
+      role: "driver",
+      tenantId: req.tenantId,
+      schoolCode: tenant?.schoolCode ?? null,
+      photoUrl: photoUrl ?? null,
+    });
+  }
+
   return res.status(201).json(row);
 });
 
@@ -58,6 +73,24 @@ router.patch("/:id", async (req, res) => {
     .where(and(eq(driversTable.id, id), eq(driversTable.tenantId, req.tenantId)))
     .returning();
   if (!updated[0]) { res.status(404).json({ error: "Driver not found" }); return; }
+
+  // When marking active, ensure the driver has a usersTable login account
+  if (isActive === true) {
+    const driver = updated[0];
+    const existing = await db.select().from(usersTable).where(eq(usersTable.phone, driver.phone)).limit(1);
+    if (!existing.length) {
+      const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
+      await db.insert(usersTable).values({
+        phone: driver.phone,
+        name: driver.name,
+        role: "driver",
+        tenantId: req.tenantId,
+        schoolCode: tenant?.schoolCode ?? null,
+        photoUrl: driver.photoUrl ?? null,
+      });
+    }
+  }
+
   res.json(updated[0]);
 });
 

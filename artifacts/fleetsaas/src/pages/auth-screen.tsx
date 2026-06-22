@@ -291,14 +291,14 @@ export default function AuthScreen() {
             <div className="mb-4">
               <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Mobile Number</label>
               <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                <span className="text-sm text-slate-400 select-none">🇳🇵 +977</span>
+                <span className="text-sm text-slate-400 select-none">📱</span>
                 <input
                   type="tel"
-                  placeholder="98XXXXXXXX"
+                  placeholder="98XXXXXXXX or +1234567890"
                   value={phone}
-                  onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(""); }}
+                  onChange={(e) => { setPhone(e.target.value.replace(/[^\d+\s\-()]/g, "").slice(0, 20)); setErr(""); }}
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                  onKeyDown={(e) => e.key === "Enter" && phone.length === 10 && handleCheckPhone()}
+                  onKeyDown={(e) => e.key === "Enter" && phone.replace(/\D/g, "").length >= 7 && handleCheckPhone()}
                 />
               </div>
             </div>
@@ -312,7 +312,7 @@ export default function AuthScreen() {
 
             <button
               onClick={handleCheckPhone}
-              disabled={phone.length < 10 || loading}
+              disabled={phone.replace(/\D/g, "").length < 7 || loading}
               className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
             >
               {loading ? (

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable } from "@workspace/db";
+import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable, driversTable } from "@workspace/db";
 import { eq, and, gt, isNotNull } from "drizzle-orm";
 
 const router = Router();
@@ -13,22 +13,27 @@ function generateOtp(): string {
 // POST /auth/check-phone — look up phone, send OTP if found, deny if not
 router.post("/check-phone", async (req, res) => {
   const { phone } = req.body as { phone?: string };
-  if (!phone || !/^9[6-9]\d{8}$/.test(phone.replace(/\s/g, ""))) {
-    return res.status(400).json({ error: "Enter a valid Nepal mobile number (98xxxxxxxx)" });
+  const cleaned = (phone ?? "").replace(/[\s\-()]/g, "");
+  // Accept Nepal mobile numbers OR any international number (e.g. +countrycode...)
+  if (!cleaned || !/^\+?\d{7,15}$/.test(cleaned)) {
+    return res.status(400).json({ error: "Enter a valid mobile number" });
   }
 
-  let user = (await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1))[0];
+  let user = (await db.select().from(usersTable).where(eq(usersTable.phone, cleaned)).limit(1))[0];
+  // Also try the original phone string (in case stored with spaces)
+  if (!user && cleaned !== phone) {
+    user = (await db.select().from(usersTable).where(eq(usersTable.phone, phone!)).limit(1))[0];
+  }
 
   // Fallback: check passengersTable for users registered by admin before this fix
   if (!user) {
     const [passenger] = await db
       .select()
       .from(passengersTable)
-      .where(and(eq(passengersTable.phone, phone), isNotNull(passengersTable.phone)))
+      .where(and(eq(passengersTable.phone, phone!), isNotNull(passengersTable.phone)))
       .limit(1);
 
     if (passenger) {
-      // Auto-provision a usersTable entry so they can log in going forward
       let schoolCode: string | null = null;
       let tenantId: number | null = passenger.tenantId ?? null;
       if (tenantId) {
@@ -36,12 +41,39 @@ router.post("/check-phone", async (req, res) => {
         if (tenant) schoolCode = tenant.schoolCode ?? null;
       }
       const [created] = await db.insert(usersTable).values({
-        phone,
+        phone: phone!,
         name: passenger.name,
         role: passenger.role ?? "student",
         tenantId,
         schoolCode,
         photoUrl: passenger.photoUrl ?? null,
+      }).returning();
+      user = created;
+    }
+  }
+
+  // Fallback: check driversTable for drivers registered by admin
+  if (!user) {
+    const [driver] = await db
+      .select()
+      .from(driversTable)
+      .where(eq(driversTable.phone, phone!))
+      .limit(1);
+
+    if (driver) {
+      let schoolCode: string | null = null;
+      const tenantId: number | null = driver.tenantId ?? null;
+      if (tenantId) {
+        const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+        if (tenant) schoolCode = tenant.schoolCode ?? null;
+      }
+      const [created] = await db.insert(usersTable).values({
+        phone: phone!,
+        name: driver.name,
+        role: "driver",
+        tenantId,
+        schoolCode,
+        photoUrl: driver.photoUrl ?? null,
       }).returning();
       user = created;
     }
@@ -57,7 +89,7 @@ router.post("/check-phone", async (req, res) => {
   // Auto-issue OTP
   const code = generateOtp();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await db.insert(otpCodesTable).values({ phone, code, expiresAt, used: 0 });
+  await db.insert(otpCodesTable).values({ phone: phone!, code, expiresAt, used: 0 });
   return res.json({
     found: true,
     name: user.name,
