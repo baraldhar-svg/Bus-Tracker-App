@@ -532,7 +532,7 @@ function StatsDetailPanel({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[80vh] flex flex-col">
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl min-h-[50vh] max-h-[80vh] flex flex-col">
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="h-1 w-10 rounded-full bg-border" />
         </div>
@@ -553,7 +553,7 @@ function StatsDetailPanel({
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 divide-y divide-border">
+        <div className="overflow-y-auto flex-1 divide-y divide-border [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
           {isBuses ? (
             FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
               <div key={v.id} className="flex items-center gap-3 px-5 py-3">
