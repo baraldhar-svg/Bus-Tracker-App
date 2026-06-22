@@ -2769,21 +2769,21 @@ export const useAddRouteStation = <TError = ErrorType<unknown>,
     }
 
 export const getRemoveRouteStationUrl = (id: number,
-    stationId: number,) => {
+    routeStationId: number,) => {
 
 
 
 
-  return `/api/routes/${id}/stations/${stationId}`
+  return `/api/routes/${id}/stations/${routeStationId}`
 }
 
 /**
- * @summary Remove a station from a route
+ * @summary Remove a route-station entry by its row ID (supports duplicate stops)
  */
 export const removeRouteStation = async (id: number,
-    stationId: number, options?: RequestInit): Promise<void> => {
+    routeStationId: number, options?: RequestInit): Promise<void> => {
 
-  return customFetch<void>(getRemoveRouteStationUrl(id,stationId),
+  return customFetch<void>(getRemoveRouteStationUrl(id,routeStationId),
   {
     ...options,
     method: 'DELETE'
@@ -2796,8 +2796,8 @@ export const removeRouteStation = async (id: number,
 
 
 export const getRemoveRouteStationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;routeStationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;routeStationId: number}, TContext> => {
 
 const mutationKey = ['removeRouteStation'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2809,10 +2809,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeRouteStation>>, {id: number;stationId: number}> = (props) => {
-          const {id,stationId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeRouteStation>>, {id: number;routeStationId: number}> = (props) => {
+          const {id,routeStationId} = props ?? {};
 
-          return  removeRouteStation(id,stationId,requestOptions)
+          return  removeRouteStation(id,routeStationId,requestOptions)
         }
 
 
@@ -2827,14 +2827,14 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RemoveRouteStationMutationError = ErrorType<unknown>
 
     /**
- * @summary Remove a station from a route
+ * @summary Remove a route-station entry by its row ID (supports duplicate stops)
  */
 export const useRemoveRouteStation = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;stationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeRouteStation>>, TError,{id: number;routeStationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof removeRouteStation>>,
         TError,
-        {id: number;stationId: number},
+        {id: number;routeStationId: number},
         TContext
       > => {
       return useMutation(getRemoveRouteStationMutationOptions(options));

@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
 import { useListAnnouncements, useGetTripTimeline, useListCalendarEvents, useListRoutes } from "@workspace/api-client-react";
-import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle, Star } from "lucide-react";
+import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle, Star, Clock } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const ROUTE_PREF_KEY = "orbittrack_parent_route";
-const STATION_PREF_KEY = "orbittrack_parent_station";
+// v2: now stores route_station row ID (supports duplicate stops)
+const STOP_PREF_KEY = "orbittrack_parent_stop_v2";
 const LOCKED_KEY = "orbittrack_parent_locked";
 
-type RouteStation = { id: number; routeId: number; stationId: number; position: number; stationName: string | null; lat: number | null; lng: number | null; radius: number | null };
+type RouteStation = {
+  id: number; routeId: number; stationId: number; position: number;
+  direction: string; stopLabel: string | null; eta: string | null;
+  stationName: string | null; lat: number | null; lng: number | null; radius: number | null;
+};
 
 function todayAdStr() {
   const d = new Date();
@@ -41,8 +46,9 @@ export default function ParentPortal() {
     const v = localStorage.getItem(ROUTE_PREF_KEY);
     return v ? Number(v) : null;
   });
-  const [selectedStationId, setSelectedStationId] = useState<number | null>(() => {
-    const v = localStorage.getItem(STATION_PREF_KEY);
+  // selectedStopId = route_station row ID (not stationId) so duplicate stops are uniquely identified
+  const [selectedStopId, setSelectedStopId] = useState<number | null>(() => {
+    const v = localStorage.getItem(STOP_PREF_KEY);
     return v ? Number(v) : null;
   });
   const [locked, setLocked] = useState<boolean>(() => localStorage.getItem(LOCKED_KEY) === "1");
@@ -62,32 +68,39 @@ export default function ParentPortal() {
   function handleSelectRoute(id: number | null) {
     if (locked) return;
     setSelectedRouteId(id);
-    setSelectedStationId(null);
+    setSelectedStopId(null);
     setRouteStations([]);
     if (id) localStorage.setItem(ROUTE_PREF_KEY, String(id));
     else localStorage.removeItem(ROUTE_PREF_KEY);
-    localStorage.removeItem(STATION_PREF_KEY);
+    localStorage.removeItem(STOP_PREF_KEY);
   }
 
-  function handleSelectStation(id: number | null) {
+  function handleSelectStop(rowId: number | null) {
     if (locked) return;
-    setSelectedStationId(id);
-    if (id) localStorage.setItem(STATION_PREF_KEY, String(id));
-    else localStorage.removeItem(STATION_PREF_KEY);
+    setSelectedStopId(rowId);
+    if (rowId != null) localStorage.setItem(STOP_PREF_KEY, String(rowId));
+    else localStorage.removeItem(STOP_PREF_KEY);
   }
 
   function handleToggleLock() {
-    if (!selectedRouteId || !selectedStationId) return;
+    if (!selectedRouteId || !selectedStopId) return;
     const next = !locked;
     setLocked(next);
     localStorage.setItem(LOCKED_KEY, next ? "1" : "0");
   }
 
   const selectedRoute = (routes ?? []).find((r) => r.id === selectedRouteId) ?? null;
-  const selectedStation = routeStations.find((s) => s.stationId === selectedStationId) ?? null;
+  // Find by route_station row ID
+  const selectedStop = routeStations.find((s) => s.id === selectedStopId) ?? null;
 
-  const mapLat = selectedStation?.lat ?? 27.7172;
-  const mapLng = selectedStation?.lng ?? 85.3240;
+  const mapLat = selectedStop?.lat ?? 27.7172;
+  const mapLng = selectedStop?.lng ?? 85.3240;
+
+  const dirLabel = (dir: string) => dir === "return" ? "↩ Return" : "→ Forward";
+  const dirClass = (dir: string) =>
+    dir === "return"
+      ? "bg-blue-100 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400"
+      : "bg-green-100 dark:bg-green-950/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400";
 
   return (
     <div className="mx-auto w-full max-w-[480px] bg-card p-4 shadow-md sm:my-8 sm:rounded-xl space-y-5">
@@ -125,19 +138,21 @@ export default function ParentPortal() {
         </div>
       )}
 
-      {/* ── Bus Route & Station Picker ── */}
+      {/* ── Bus Route & Stop Picker ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-primary flex items-center gap-2"><Navigation size={14} />My Bus Settings</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Select your route and boarding station</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select your route and boarding stop — pick the correct direction for round-trips
+            </p>
           </div>
           {locked ? (
             <button onClick={handleToggleLock} className="flex items-center gap-1.5 rounded-xl bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-700 px-3 py-1.5 text-[10px] font-bold text-green-700 dark:text-green-400 hover:opacity-80 transition-opacity">
               <Lock size={10} />Locked
             </button>
           ) : (
-            <button onClick={handleToggleLock} disabled={!selectedRouteId || !selectedStationId}
+            <button onClick={handleToggleLock} disabled={!selectedRouteId || !selectedStopId}
               className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-[10px] font-semibold text-muted-foreground hover:border-amber-500 hover:text-amber-600 disabled:opacity-40 transition-colors">
               <Unlock size={10} />Lock Selection
             </button>
@@ -171,39 +186,71 @@ export default function ParentPortal() {
             )}
           </div>
 
-          {/* Station list for selected route */}
+          {/* Stop list — grouped by direction, showing ETA */}
           {selectedRouteId && (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Boarding Station</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Boarding Stop
+                <span className="ml-1 text-muted-foreground font-normal">— choose direction if same stop appears twice</span>
+              </label>
               {loadingStations ? (
-                <p className="text-xs text-muted-foreground py-2">Loading stations…</p>
+                <p className="text-xs text-muted-foreground py-2">Loading stops…</p>
               ) : routeStations.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">No stations on this route yet</p>
-              ) : locked && selectedStation ? (
-                <div className="flex items-center gap-2 rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20 px-3 py-2.5">
-                  <MapPin size={14} className="text-green-600 dark:text-green-400 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{selectedStation.stationName}</p>
-                    {selectedStation.lat && selectedStation.lng && (
-                      <p className="text-[10px] text-muted-foreground">{selectedStation.lat.toFixed(4)}, {selectedStation.lng.toFixed(4)}</p>
-                    )}
+                <p className="text-xs text-muted-foreground py-2 italic">No stops on this route yet</p>
+              ) : locked && selectedStop ? (
+                /* Locked state — show the selected stop with ETA */
+                <div className="rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20 px-4 py-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={14} className="text-green-600 dark:text-green-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {selectedStop.stopLabel || selectedStop.stationName}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${dirClass(selectedStop.direction)}`}>
+                          {dirLabel(selectedStop.direction)}
+                        </span>
+                        {selectedStop.eta && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                            <Clock size={9} />ETA {selectedStop.eta}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-52 overflow-y-auto rounded-xl border border-border">
+                /* Unlocked — scrollable stop list */
+                <div className="max-h-64 overflow-y-auto rounded-xl border border-border divide-y divide-border">
                   {routeStations.map((s) => (
                     <button
-                      key={s.stationId}
-                      onClick={() => handleSelectStation(s.stationId)}
+                      key={s.id}
+                      onClick={() => handleSelectStop(s.id)}
                       disabled={locked}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${selectedStationId === s.stationId ? "bg-amber-50 dark:bg-amber-950/30 border-l-2 border-amber-500" : "hover:bg-muted"}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${selectedStopId === s.id ? "bg-amber-50 dark:bg-amber-950/30 border-l-2 border-amber-500" : "hover:bg-muted"}`}
                     >
-                      <span className="text-[10px] font-bold text-[#FFF078] w-5 shrink-0">{s.position}</span>
+                      <span className="text-[10px] font-bold text-[#FFF078] w-5 shrink-0">{s.position + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{s.stationName}</p>
-                        {s.lat && s.lng && <p className="text-[10px] text-muted-foreground">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</p>}
+                        <p className="text-sm font-medium text-foreground leading-tight">
+                          {s.stopLabel || s.stationName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold ${dirClass(s.direction)}`}>
+                            {dirLabel(s.direction)}
+                          </span>
+                          {s.eta && (
+                            <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                              <Clock size={8} />ETA {s.eta}
+                            </span>
+                          )}
+                          {s.lat && s.lng && (
+                            <span className="text-[9px] text-muted-foreground">
+                              {s.lat.toFixed(3)}, {s.lng.toFixed(3)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {selectedStationId === s.stationId && <CheckCircle size={14} className="text-[#FFF078] shrink-0" />}
+                      {selectedStopId === s.id && <CheckCircle size={14} className="text-[#FFF078] shrink-0" />}
                     </button>
                   ))}
                 </div>
@@ -213,11 +260,18 @@ export default function ParentPortal() {
         </div>
       </div>
 
-      {/* Live Map for selected station */}
-      {selectedStationId && selectedStation?.lat && selectedStation?.lng && (
+      {/* Live Map for selected stop */}
+      {selectedStopId && selectedStop?.lat && selectedStop?.lng && (
         <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
-          <div className="px-5 py-3 border-b border-border bg-muted/30">
-            <p className="text-xs font-semibold text-primary flex items-center gap-1.5"><MapPin size={11} />Live Map — {selectedStation.stationName}</p>
+          <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+            <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+              <MapPin size={11} />Live Map — {selectedStop.stopLabel || selectedStop.stationName}
+            </p>
+            {selectedStop.eta && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <Clock size={9} />ETA {selectedStop.eta}
+              </span>
+            )}
           </div>
           <iframe
             title="station-map"
@@ -278,82 +332,46 @@ function DriverRating({ routeId }: { routeId: number | null }) {
   const [hover, setHover] = useState(0);
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [comment, setComment] = useState("");
 
   useEffect(() => {
     const saved = routeId ? localStorage.getItem(`${RATING_KEY}_${routeId}`) : null;
-    if (saved) { setRating(Number(saved)); setSubmitted(true); }
-    else { setRating(0); setSubmitted(false); setComment(""); }
+    setRating(saved ? Number(saved) : 0);
+    setSubmitted(!!saved);
   }, [routeId]);
 
-  function handleSubmit() {
+  function handleRate(r: number) {
     if (!rating || !routeId) return;
-    localStorage.setItem(`${RATING_KEY}_${routeId}`, String(rating));
+    localStorage.setItem(`${RATING_KEY}_${routeId}`, String(r));
+    setRating(r);
     setSubmitted(true);
   }
 
-  const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
+  if (!routeId) return null;
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-border">
-        <h2 className="font-semibold text-primary flex items-center gap-2">
-          <Star size={14} className="text-amber-400" />Rate Your Driver
-        </h2>
-        <p className="text-xs text-muted-foreground mt-0.5">After each journey — your feedback improves safety</p>
+    <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-3">
+      <div>
+        <h2 className="font-semibold text-primary flex items-center gap-2"><Star size={14} className="text-[#FFF078]" />Rate Your Driver</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">How was today's journey?</p>
       </div>
-
-      {!routeId ? (
-        <p className="px-5 py-6 text-center text-xs text-muted-foreground italic">Select a route above to rate your driver</p>
-      ) : submitted ? (
-        <div className="px-5 py-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex gap-1 mb-1">
-            {[1,2,3,4,5].map((s) => (
-              <Star key={s} size={22} className={s <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"} />
-            ))}
-          </div>
-          <p className="text-sm font-semibold text-foreground">Thanks for your rating!</p>
-          <p className="text-xs text-muted-foreground">{labels[rating]} — {rating}/5 stars submitted</p>
+      {submitted ? (
+        <div className="flex items-center gap-2">
+          {[1,2,3,4,5].map((s) => (
+            <Star key={s} size={24} className={s <= rating ? "text-amber-400 fill-amber-400" : "text-muted-foreground"} />
+          ))}
+          <p className="text-xs text-muted-foreground ml-2">Thanks for your feedback!</p>
           <button onClick={() => { setSubmitted(false); setRating(0); localStorage.removeItem(`${RATING_KEY}_${routeId}`); }}
-            className="mt-2 text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground">
-            Change rating
+            className="ml-auto text-[10px] text-muted-foreground hover:text-foreground underline">
+            Change
           </button>
         </div>
       ) : (
-        <div className="px-5 py-5 space-y-4">
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex gap-2"
-              onMouseLeave={() => setHover(0)}>
-              {[1,2,3,4,5].map((s) => (
-                <button key={s}
-                  onClick={() => setRating(s)}
-                  onMouseEnter={() => setHover(s)}
-                  className="transition-transform active:scale-90">
-                  <Star size={32}
-                    className={`transition-colors ${s <= (hover || rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30 hover:text-amber-300"}`} />
-                </button>
-              ))}
-            </div>
-            {(hover || rating) > 0 && (
-              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{labels[hover || rating]}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted-foreground">Comment (optional)</label>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="e.g. Very smooth ride, arrived on time…"
-              rows={2}
-              className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 resize-none"
-            />
-          </div>
-
-          <button onClick={handleSubmit} disabled={!rating}
-            className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors">
-            Submit Rating
-          </button>
+        <div className="flex items-center gap-2">
+          {[1,2,3,4,5].map((s) => (
+            <button key={s} onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)} onClick={() => handleRate(s)}>
+              <Star size={28} className={s <= (hover || rating) ? "text-amber-400 fill-amber-400" : "text-muted-foreground"} />
+            </button>
+          ))}
         </div>
       )}
     </div>

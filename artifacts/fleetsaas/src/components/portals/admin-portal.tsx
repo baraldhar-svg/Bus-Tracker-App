@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -1237,8 +1237,8 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
 }
 
 type GeocodeResult = { displayName: string; lat: number; lng: number };
-type RouteStation = { id: number; routeId: number; stationId: number; position: number; stationName: string | null; lat: number | null; lng: number | null; radius: number | null };
-type RouteRow = { id: number; name: string; driverId: number | null; vehicleId: number | null; isActive: boolean | null; driverName: string | null; vehiclePlate: string | null };
+type RouteStation = { id: number; routeId: number; stationId: number; position: number; direction: string; stopLabel: string | null; eta: string | null; stationName: string | null; lat: number | null; lng: number | null; radius: number | null };
+type RouteRow = { id: number; name: string; driverId: number | null; vehicleId: number | null; isActive: boolean | null; driverName: string | null; vehiclePlate: string | null; departureTime?: string | null; avgSpeedKmh?: number | null };
 type VehicleRow = { id: number; plateNumber: string; model: string; capacity: number; isActive: boolean; tag?: string | null };
 
 function RouteStationsPanel({
@@ -1255,68 +1255,138 @@ function RouteStationsPanel({
   const { data: stations } = useListStations();
   const [routeStations, setRouteStations] = useState<RouteStation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addingId, setAddingId] = useState("");
 
-  // Assignment state — kept in sync with route prop so refetch updates dropdowns
+  // Add-station state
+  const [addingId, setAddingId] = useState("");
+  const [addingDir, setAddingDir] = useState<"forward" | "return">("forward");
+  const [addingLabel, setAddingLabel] = useState("");
+  const [addingErr, setAddingErr] = useState("");
+
+  // Assignment state
   const [editVehicle, setEditVehicle] = useState(String(route.vehicleId ?? ""));
   const [editDriver, setEditDriver] = useState(String(route.driverId ?? ""));
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignSaved, setAssignSaved] = useState(false);
 
+  // ETA / speed settings
+  const [depTime, setDepTime] = useState(route.departureTime ?? "06:00 AM");
+  const [speedKmh, setSpeedKmh] = useState(String(route.avgSpeedKmh ?? 25));
+  const [etaSaving, setEtaSaving] = useState(false);
+  const [etaSaved, setEtaSaved] = useState(false);
+
   useEffect(() => {
     setEditVehicle(String(route.vehicleId ?? ""));
     setEditDriver(String(route.driverId ?? ""));
-  }, [route.vehicleId, route.driverId]);
+    setDepTime(route.departureTime ?? "06:00 AM");
+    setSpeedKmh(String(route.avgSpeedKmh ?? 25));
+  }, [route.vehicleId, route.driverId, route.departureTime, route.avgSpeedKmh]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/routes/${routeId}/stations`);
       const data = await r.json();
-      setRouteStations(data);
+      setRouteStations(Array.isArray(data) ? data : []);
     } finally { setLoading(false); }
   }, [routeId]);
 
   useEffect(() => { load(); }, [load]);
 
   async function handleAssign() {
-    setAssignSaving(true);
-    setAssignSaved(false);
+    setAssignSaving(true); setAssignSaved(false);
     try {
       await apiPatch(`/routes/${routeId}`, {
         vehicleId: editVehicle ? Number(editVehicle) : null,
         driverId: editDriver ? Number(editDriver) : null,
       });
-      onRouteUpdated();
-      setAssignSaved(true);
+      onRouteUpdated(); setAssignSaved(true);
       setTimeout(() => setAssignSaved(false), 2000);
     } catch { /* ignore */ }
     finally { setAssignSaving(false); }
   }
 
-  async function handleAdd() {
-    if (!addingId) return;
-    await apiPost(`/routes/${routeId}/stations`, { stationId: Number(addingId) });
-    setAddingId("");
-    load();
+  async function handleSaveEta() {
+    setEtaSaving(true); setEtaSaved(false);
+    try {
+      await apiPatch(`/routes/${routeId}`, {
+        departureTime: depTime,
+        avgSpeedKmh: Number(speedKmh) || 25,
+      });
+      onRouteUpdated();
+      await load();
+      setEtaSaved(true);
+      setTimeout(() => setEtaSaved(false), 2000);
+    } catch { /* ignore */ }
+    finally { setEtaSaving(false); }
   }
 
-  async function handleRemove(stationId: number) {
-    await apiDelete(`/routes/${routeId}/stations/${stationId}`);
+  async function handleAdd() {
+    if (!addingId) return;
+    setAddingErr("");
+    const station = (stations ?? []).find((s) => s.id === Number(addingId));
+    const autoLabel = addingLabel.trim() || (station ? `${station.name} (${addingDir === "forward" ? "Forward" : "Return"})` : "");
+    try {
+      await apiPost(`/routes/${routeId}/stations`, {
+        stationId: Number(addingId),
+        direction: addingDir,
+        stopLabel: autoLabel,
+      });
+      setAddingId(""); setAddingLabel("");
+      load();
+    } catch { setAddingErr("Failed to add station"); }
+  }
+
+  // Remove by route_station row ID (supports duplicate stops)
+  async function handleRemove(rowId: number) {
+    await apiDelete(`/routes/${routeId}/stations/${rowId}`);
     load();
     queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
   }
 
-  const assignedIds = new Set(routeStations.map((rs) => rs.stationId));
-  const available = (stations ?? []).filter((s) => !assignedIds.has(s.id));
-
   const vehicleLabel = (v: VehicleRow) => v.tag ? `${v.tag} — ${v.plateNumber}` : v.plateNumber;
+
+  const dirBadge = (dir: string) => dir === "return"
+    ? <span className="rounded-full bg-blue-100 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 text-[8px] font-bold text-blue-700 dark:text-blue-400 shrink-0">↩ Return</span>
+    : <span className="rounded-full bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-700 px-1.5 py-0.5 text-[8px] font-bold text-green-700 dark:text-green-400 shrink-0">→ Forward</span>;
 
   return (
     <div className="bg-muted/30 border border-border rounded-xl p-4 mt-2 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-muted-foreground">Stations on this route ({routeStations.length})</p>
+        <p className="text-xs font-semibold text-muted-foreground">Stops on this route ({routeStations.length})</p>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+      </div>
+
+      {/* ETA Engine Settings */}
+      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+          <Clock size={9} />ETA Engine Settings
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Base Departure Time</label>
+            <input
+              value={depTime}
+              onChange={(e) => setDepTime(e.target.value)}
+              placeholder="06:00 AM"
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Avg Fleet Speed (km/h)</label>
+            <input
+              type="number" min={5} max={120} value={speedKmh}
+              onChange={(e) => setSpeedKmh(e.target.value)}
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSaveEta}
+          disabled={etaSaving}
+          className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${etaSaved ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900 hover:bg-amber-400"}`}
+        >
+          {etaSaving ? "Saving…" : etaSaved ? "✓ ETAs recalculated!" : "Save & Recalculate ETAs"}
+        </button>
       </div>
 
       {/* Bus & Driver assignment */}
@@ -1325,72 +1395,88 @@ function RouteStationsPanel({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Bus</label>
-            <select
-              value={editVehicle}
-              onChange={(e) => setEditVehicle(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
-            >
+            <select value={editVehicle} onChange={(e) => setEditVehicle(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
               <option value="">None</option>
-              {(vehicles ?? []).map((v) => (
-                <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
-              ))}
+              {(vehicles ?? []).map((v) => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">Driver</label>
-            <select
-              value={editDriver}
-              onChange={(e) => setEditDriver(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
-            >
+            <select value={editDriver} onChange={(e) => setEditDriver(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
               <option value="">None</option>
-              {(drivers ?? []).map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
+              {(drivers ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
         </div>
-        <button
-          onClick={handleAssign}
-          disabled={assignSaving}
-          className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${
-            assignSaved
-              ? "bg-green-500 text-white"
-              : "bg-amber-500 text-slate-900 hover:bg-amber-400"
-          }`}
-        >
+        <button onClick={handleAssign} disabled={assignSaving}
+          className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${assignSaved ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900 hover:bg-amber-400"}`}>
           {assignSaving ? "Saving…" : assignSaved ? "✓ Saved!" : "Save Assignment"}
         </button>
       </div>
+
+      {/* Stop timeline with ETAs */}
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
       ) : (
         <div className="space-y-1">
-          {routeStations.length === 0 && <p className="text-xs text-muted-foreground italic">No stations assigned yet</p>}
+          {routeStations.length === 0 && <p className="text-xs text-muted-foreground italic">No stops yet — add below</p>}
           {routeStations.map((rs, idx) => (
             <div key={rs.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2">
               <span className="text-[10px] font-bold text-[#FFF078] w-4 shrink-0">{idx + 1}</span>
               <Navigation size={11} className="text-muted-foreground shrink-0" />
-              <p className="flex-1 text-xs text-foreground">{rs.stationName ?? `Station #${rs.stationId}`}</p>
-              {rs.radius && <span className="text-[9px] text-muted-foreground">{rs.radius}m</span>}
-              <button onClick={() => handleRemove(rs.stationId)} className="text-red-400 hover:text-red-600 shrink-0"><Trash2 size={11} /></button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-xs font-semibold text-foreground leading-none">
+                    {rs.stopLabel || rs.stationName || `Stop #${rs.stationId}`}
+                  </p>
+                  {dirBadge(rs.direction)}
+                </div>
+                {rs.eta && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                    ⏱ ETA {rs.eta}
+                  </p>
+                )}
+              </div>
+              {rs.radius && <span className="text-[9px] text-muted-foreground shrink-0">{rs.radius}m</span>}
+              <button onClick={() => handleRemove(rs.id)} className="text-red-400 hover:text-red-600 shrink-0">
+                <Trash2 size={11} />
+              </button>
             </div>
           ))}
         </div>
       )}
-      {available.length > 0 && (
+
+      {/* Add stop (allows same station twice — forward + return) */}
+      <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          <Plus size={9} />Add Stop (duplicate stops supported for round-trips)
+        </p>
         <div className="flex gap-2">
           <select value={addingId} onChange={(e) => setAddingId(e.target.value)}
-            className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-xs text-foreground outline-none focus:border-amber-500">
-            <option value="">Add a station…</option>
-            {available.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            className="flex-1 rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
+            <option value="">Select station…</option>
+            {(stations ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <button onClick={handleAdd} disabled={!addingId}
-            className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400">
-            <Plus size={13} />
-          </button>
+          <select value={addingDir} onChange={(e) => setAddingDir(e.target.value as "forward" | "return")}
+            className="rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
+            <option value="forward">→ Forward</option>
+            <option value="return">↩ Return</option>
+          </select>
         </div>
-      )}
+        <input
+          value={addingLabel}
+          onChange={(e) => setAddingLabel(e.target.value)}
+          placeholder="Custom label (optional — auto-generated if blank)"
+          className="w-full rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500"
+        />
+        {addingErr && <p className="text-[10px] text-red-500">{addingErr}</p>}
+        <button onClick={handleAdd} disabled={!addingId}
+          className="w-full rounded-lg bg-amber-500 py-1.5 text-[10px] font-bold text-slate-900 disabled:opacity-50 hover:bg-amber-400">
+          Add Stop to Route
+        </button>
+      </div>
     </div>
   );
 }

@@ -484,7 +484,9 @@ export const ListRoutesResponseItem = zod.object({
   "vehicleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "driverName": zod.string().nullish(),
-  "vehiclePlate": zod.string().nullish()
+  "vehiclePlate": zod.string().nullish(),
+  "departureTime": zod.string().optional().describe('Base departure time string e.g. \'06:00 AM\''),
+  "avgSpeedKmh": zod.number().optional().describe('Average fleet speed in km\/h for ETA calculation')
 })
 export const ListRoutesResponse = zod.array(ListRoutesResponseItem)
 
@@ -495,7 +497,9 @@ export const ListRoutesResponse = zod.array(ListRoutesResponseItem)
 export const CreateRouteBody = zod.object({
   "name": zod.string(),
   "driverId": zod.number().optional(),
-  "vehicleId": zod.number().optional()
+  "vehicleId": zod.number().optional(),
+  "departureTime": zod.string().optional(),
+  "avgSpeedKmh": zod.number().optional()
 })
 
 
@@ -510,7 +514,9 @@ export const UpdateRouteBody = zod.object({
   "name": zod.string().optional(),
   "driverId": zod.number().nullish(),
   "vehicleId": zod.number().nullish(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "departureTime": zod.string().optional(),
+  "avgSpeedKmh": zod.number().optional()
 })
 
 export const UpdateRouteResponse = zod.object({
@@ -521,7 +527,9 @@ export const UpdateRouteResponse = zod.object({
   "vehicleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "driverName": zod.string().nullish(),
-  "vehiclePlate": zod.string().nullish()
+  "vehiclePlate": zod.string().nullish(),
+  "departureTime": zod.string().optional().describe('Base departure time string e.g. \'06:00 AM\''),
+  "avgSpeedKmh": zod.number().optional().describe('Average fleet speed in km\/h for ETA calculation')
 })
 
 
@@ -545,10 +553,13 @@ export const ListRouteStationsResponseItem = zod.object({
   "routeId": zod.number(),
   "stationId": zod.number(),
   "position": zod.number(),
+  "direction": zod.string().optional().describe('\'forward\' or \'return\''),
+  "stopLabel": zod.string().nullish().describe('Optional custom label e.g. \"Koteshwor (Return)\"'),
   "stationName": zod.string().optional(),
   "lat": zod.number().optional(),
   "lng": zod.number().optional(),
-  "radius": zod.number().optional()
+  "radius": zod.number().optional(),
+  "eta": zod.string().nullish().describe('Computed ETA string e.g. \'06:20 AM\'')
 })
 export const ListRouteStationsResponse = zod.array(ListRouteStationsResponseItem)
 
@@ -562,16 +573,18 @@ export const AddRouteStationParams = zod.object({
 
 export const AddRouteStationBody = zod.object({
   "stationId": zod.number(),
-  "position": zod.number().optional()
+  "position": zod.number().optional(),
+  "direction": zod.string().optional().describe('\'forward\' or \'return\''),
+  "stopLabel": zod.string().optional().describe('Optional custom display label')
 })
 
 
 /**
- * @summary Remove a station from a route
+ * @summary Remove a route-station entry by its row ID (supports duplicate stops)
  */
 export const RemoveRouteStationParams = zod.object({
   "id": zod.coerce.number(),
-  "stationId": zod.coerce.number()
+  "routeStationId": zod.coerce.number()
 })
 
 
@@ -583,7 +596,7 @@ export const ReorderRouteStationsParams = zod.object({
 })
 
 export const ReorderRouteStationsBody = zod.object({
-  "orderedStationIds": zod.array(zod.number())
+  "orderedIds": zod.array(zod.number()).describe('Ordered list of route_station row IDs (supports duplicate stops)')
 })
 
 export const ReorderRouteStationsResponseItem = zod.object({
@@ -591,10 +604,13 @@ export const ReorderRouteStationsResponseItem = zod.object({
   "routeId": zod.number(),
   "stationId": zod.number(),
   "position": zod.number(),
+  "direction": zod.string().optional().describe('\'forward\' or \'return\''),
+  "stopLabel": zod.string().nullish().describe('Optional custom label e.g. \"Koteshwor (Return)\"'),
   "stationName": zod.string().optional(),
   "lat": zod.number().optional(),
   "lng": zod.number().optional(),
-  "radius": zod.number().optional()
+  "radius": zod.number().optional(),
+  "eta": zod.string().nullish().describe('Computed ETA string e.g. \'06:20 AM\'')
 })
 export const ReorderRouteStationsResponse = zod.array(ReorderRouteStationsResponseItem)
 

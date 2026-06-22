@@ -95,12 +95,18 @@ export interface Route {
   driverName?: string | null;
   /** @nullable */
   vehiclePlate?: string | null;
+  /** Base departure time string e.g. '06:00 AM' */
+  departureTime?: string;
+  /** Average fleet speed in km/h for ETA calculation */
+  avgSpeedKmh?: number;
 }
 
 export interface RouteInput {
   name: string;
   driverId?: number;
   vehicleId?: number;
+  departureTime?: string;
+  avgSpeedKmh?: number;
 }
 
 export interface RouteUpdate {
@@ -110,6 +116,8 @@ export interface RouteUpdate {
   /** @nullable */
   vehicleId?: number | null;
   isActive?: boolean;
+  departureTime?: string;
+  avgSpeedKmh?: number;
 }
 
 export interface RouteStation {
@@ -117,19 +125,36 @@ export interface RouteStation {
   routeId: number;
   stationId: number;
   position: number;
+  /** 'forward' or 'return' */
+  direction?: string;
+  /**
+     * Optional custom label e.g. "Koteshwor (Return)"
+     * @nullable
+     */
+  stopLabel?: string | null;
   stationName?: string;
   lat?: number;
   lng?: number;
   radius?: number;
+  /**
+     * Computed ETA string e.g. '06:20 AM'
+     * @nullable
+     */
+  eta?: string | null;
 }
 
 export interface RouteStationInput {
   stationId: number;
   position?: number;
+  /** 'forward' or 'return' */
+  direction?: string;
+  /** Optional custom display label */
+  stopLabel?: string;
 }
 
 export interface ReorderStationsInput {
-  orderedStationIds: number[];
+  /** Ordered list of route_station row IDs (supports duplicate stops) */
+  orderedIds: number[];
 }
 
 export interface GeocodeResult {

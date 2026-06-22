@@ -52,6 +52,8 @@ export const routesTable = pgTable("routes", {
   driverId: integer("driver_id").references(() => driversTable.id),
   vehicleId: integer("vehicle_id").references(() => vehiclesTable.id),
   isActive: boolean("is_active").notNull().default(true),
+  departureTime: text("departure_time").notNull().default("06:00 AM"),
+  avgSpeedKmh: integer("avg_speed_kmh").notNull().default(25),
 });
 
 export const insertRouteSchema = createInsertSchema(routesTable).omit({ id: true });
@@ -63,6 +65,8 @@ export const routeStationsTable = pgTable("route_stations", {
   routeId: integer("route_id").notNull().references(() => routesTable.id, { onDelete: "cascade" }),
   stationId: integer("station_id").notNull().references(() => stationsTable.id, { onDelete: "cascade" }),
   position: integer("position").notNull().default(0),
+  direction: text("direction").notNull().default("forward"),
+  stopLabel: text("stop_label"),
 });
 
 export const insertRouteStationSchema = createInsertSchema(routeStationsTable).omit({ id: true });

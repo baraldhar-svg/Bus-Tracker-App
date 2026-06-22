@@ -661,18 +661,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/RouteStation"
 
-  /routes/{id}/stations/{stationId}:
+  /routes/{id}/stations/{routeStationId}:
     delete:
       operationId: removeRouteStation
       tags: [routes]
-      summary: Remove a station from a route
+      summary: Remove a route-station entry by its row ID (supports duplicate stops)
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
-        - name: stationId
+        - name: routeStationId
           in: path
           required: true
           schema:
@@ -966,6 +966,12 @@ components:
           type: ["string", "null"]
         vehiclePlate:
           type: ["string", "null"]
+        departureTime:
+          type: string
+          description: "Base departure time string e.g. '06:00 AM'"
+        avgSpeedKmh:
+          type: integer
+          description: Average fleet speed in km/h for ETA calculation
 
     RouteInput:
       type: object
@@ -976,6 +982,10 @@ components:
         driverId:
           type: integer
         vehicleId:
+          type: integer
+        departureTime:
+          type: string
+        avgSpeedKmh:
           type: integer
 
     RouteUpdate:
@@ -989,6 +999,10 @@ components:
           type: ["integer", "null"]
         isActive:
           type: boolean
+        departureTime:
+          type: string
+        avgSpeedKmh:
+          type: integer
 
     RouteStation:
       type: object
@@ -1002,6 +1016,12 @@ components:
           type: integer
         position:
           type: integer
+        direction:
+          type: string
+          description: "'forward' or 'return'"
+        stopLabel:
+          type: ["string", "null"]
+          description: Optional custom label e.g. "Koteshwor (Return)"
         stationName:
           type: string
         lat:
@@ -1010,6 +1030,9 @@ components:
           type: number
         radius:
           type: integer
+        eta:
+          type: ["string", "null"]
+          description: "Computed ETA string e.g. '06:20 AM'"
 
     RouteStationInput:
       type: object
@@ -1019,15 +1042,22 @@ components:
           type: integer
         position:
           type: integer
+        direction:
+          type: string
+          description: "'forward' or 'return'"
+        stopLabel:
+          type: string
+          description: Optional custom display label
 
     ReorderStationsInput:
       type: object
-      required: [orderedStationIds]
+      required: [orderedIds]
       properties:
-        orderedStationIds:
+        orderedIds:
           type: array
           items:
             type: integer
+          description: Ordered list of route_station row IDs (supports duplicate stops)
 
     GeocodeResult:
       type: object
