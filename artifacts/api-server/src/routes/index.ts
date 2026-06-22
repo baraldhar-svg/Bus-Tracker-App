@@ -17,6 +17,7 @@ import geocodeRouter from "./geocode";
 import calendarRouter from "./calendar";
 import webauthnRouter from "./webauthn";
 import usersRouter from "./users";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/routes", routesRouter);
 router.use("/geocode", geocodeRouter);
 router.use("/calendar-events", calendarRouter);
 router.use("/users", usersRouter);
+router.use("/whatsapp", whatsappRouter);
 
 export default router;

@@ -1,32 +1,23 @@
-import axios from 'axios';
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-export const sendWhatsAppNotification = async (userNumber: string) => {
-  const PHONE_NUMBER_ID = '1098483366689745';
-
-  const ACCESS_TOKEN = 'YOUR_TEMPORARY_ACCESS_TOKEN_HERE';
-
-  const url = `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`;
-
-  const data = {
-    messaging_product: "whatsapp",
-    to: userNumber,
-    type: "template",
-    template: {
-      name: "hello_world",
-      language: { code: "en_US" }
-    }
-  };
-
+export const sendWhatsAppNotification = async (userNumber: string): Promise<{ success: boolean; data?: unknown; error?: unknown }> => {
   try {
-    const response = await axios.post(url, data, {
-      headers: {
-        'Authorization': `Bearer ${ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
+    const response = await fetch(`${BASE}/api/whatsapp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: userNumber }),
     });
-    return { success: true, data: response.data };
-  } catch (error: any) {
-    console.error('WhatsApp Error:', error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("WhatsApp Error:", data);
+      return { success: false, error: data };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("WhatsApp Error:", error);
+    return { success: false, error };
   }
 };
