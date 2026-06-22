@@ -2628,16 +2628,18 @@ export default function AdminPortal() {
               {noticeSaving ? "…" : "Post"}
             </button>
           </div>
-          {announcements?.map((a) => (
-            <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 dark:bg-red-950/20 p-3 bg-[#C7C7C7]">
-              <p className="flex-1 text-sm dark:text-red-300 bg-[#cec9d1] text-[#000] font-bold">{a.message}</p>
-              <button onClick={() => handleDeleteNotice(a.id)}
-                className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 text-lg leading-none">×</button>
-            </div>
-          ))}
-          {announcements?.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-3">No notices yet</p>
-          )}
+          <div className="max-h-56 overflow-y-auto space-y-2 pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 dark:[&::-webkit-scrollbar-thumb]:bg-amber-700 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
+            {announcements?.map((a) => (
+              <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 dark:bg-red-950/20 p-3 bg-[#C7C7C7]">
+                <p className="flex-1 text-sm dark:text-red-300 bg-[#cec9d1] text-[#000] font-bold">{a.message}</p>
+                <button onClick={() => handleDeleteNotice(a.id)}
+                  className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 text-lg leading-none">×</button>
+              </div>
+            ))}
+            {announcements?.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-3">No notices yet</p>
+            )}
+          </div>
         </div>
       </div>
       {/* Passengers */}
