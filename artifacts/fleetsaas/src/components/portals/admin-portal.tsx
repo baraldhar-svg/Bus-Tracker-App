@@ -530,9 +530,9 @@ function StatsDetailPanel({
   const meta = isBuses ? null : META[filter as keyof typeof META];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl min-h-[50vh] max-h-[80vh] flex flex-col">
+      <div className="w-full max-w-md rounded-3xl bg-card border border-border shadow-2xl min-h-[50vh] max-h-[80vh] flex flex-col">
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="h-1 w-10 rounded-full bg-border" />
         </div>
