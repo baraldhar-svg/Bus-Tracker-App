@@ -446,37 +446,42 @@ function SchoolSection({ schoolName, members, onSave, onDelete }: {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Group members by role
-  const byRole = members.reduce<Record<string, UserItem[]>>((acc, u) => {
+  const q = search.trim().toLowerCase();
+
+  // All unique roles present, ordered by ROLE_ORDER then any extras
+  const allRoles = Array.from(new Set(members.map((u) => u.role ?? "student")));
+  const orderedRoles = ROLE_ORDER.filter((r) => allRoles.includes(r))
+    .concat(allRoles.filter((r) => !ROLE_ORDER.includes(r)));
+
+  // Role badge count for the header (always from full members list)
+  const roleCount: Record<string, number> = {};
+  for (const u of members) {
     const r = u.role ?? "student";
-    if (!acc[r]) acc[r] = [];
-    acc[r].push(u);
-    return acc;
-  }, {});
+    roleCount[r] = (roleCount[r] ?? 0) + 1;
+  }
 
-  const roleKeys = ROLE_ORDER.filter((r) => byRole[r]?.length).concat(
-    Object.keys(byRole).filter((r) => !ROLE_ORDER.includes(r) && byRole[r]?.length)
-  );
+  // Filtered users per role for the expanded list
+  const filteredByRole: Array<{ role: string; users: UserItem[] }> = orderedRoles
+    .map((role) => ({
+      role,
+      users: members.filter(
+        (u) =>
+          (u.role ?? "student") === role &&
+          (!q ||
+            u.name.toLowerCase().includes(q) ||
+            u.phone.includes(q) ||
+            u.role.toLowerCase().includes(q))
+      ),
+    }))
+    .filter((g) => g.users.length > 0);
 
-  const visible = members.filter((u) => {
-    const q = search.toLowerCase();
-    return !q || u.name.toLowerCase().includes(q) || u.phone.includes(q) || u.role.includes(q);
-  });
-
-  const visibleByRole = roleKeys.reduce<Record<string, UserItem[]>>((acc, r) => {
-    const filtered = (byRole[r] ?? []).filter((u) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return u.name.toLowerCase().includes(q) || u.phone.includes(q) || u.role.includes(q);
-    });
-    if (filtered.length) acc[r] = filtered;
-    return acc;
-  }, {});
+  const totalVisible = filteredByRole.reduce((s, g) => s + g.users.length, 0);
 
   return (
     <div className="rounded-xl border border-slate-700 overflow-hidden">
-      {/* School header row */}
+      {/* School header row — click to expand */}
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${open ? "bg-slate-700/60" : "bg-slate-800/50 hover:bg-slate-800"}`}
       >
@@ -485,11 +490,13 @@ function SchoolSection({ schoolName, members, onSave, onDelete }: {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-100 truncate">{schoolName}</p>
-          {/* Role breakdown badges */}
           <div className="flex flex-wrap gap-1 mt-1">
-            {roleKeys.map((r) => (
-              <span key={r} className={`rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide ${ROLE_BADGE[r] ?? ROLE_BADGE.staff}`}>
-                {ROLE_LABELS[r] ?? r}: {byRole[r].length}
+            {orderedRoles.map((r) => (
+              <span
+                key={r}
+                className={`rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide ${ROLE_BADGE[r] ?? ROLE_BADGE.staff}`}
+              >
+                {ROLE_LABELS[r] ?? r}: {roleCount[r]}
               </span>
             ))}
           </div>
@@ -505,7 +512,7 @@ function SchoolSection({ schoolName, members, onSave, onDelete }: {
         </div>
       </button>
 
-      {/* Expanded users list grouped by role */}
+      {/* Expanded list grouped by role */}
       {open && (
         <div className="border-t border-slate-700 bg-slate-900/40">
           {members.length > 3 && (
@@ -521,18 +528,18 @@ function SchoolSection({ schoolName, members, onSave, onDelete }: {
               </div>
             </div>
           )}
-          <div className="p-3 space-y-3">
-            {visible.length === 0 ? (
-              <p className="py-4 text-center text-xs text-slate-600">No users match</p>
+
+          <div className="p-3 space-y-4">
+            {totalVisible === 0 ? (
+              <p className="py-4 text-center text-xs text-slate-600">No users match your search</p>
             ) : (
-              Object.entries(visibleByRole).map(([role, users]) => (
+              filteredByRole.map(({ role, users }) => (
                 <div key={role}>
-                  {/* Role group header */}
-                  <div className="flex items-center gap-2 mb-1.5 px-1">
+                  <div className="flex items-center gap-2 mb-2 px-1">
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${ROLE_BADGE[role] ?? ROLE_BADGE.staff}`}>
                       {ROLE_LABELS[role] ?? role}
                     </span>
-                    <span className="text-[10px] text-slate-600">{users.length} {users.length === 1 ? "user" : "users"}</span>
+                    <span className="text-[10px] text-slate-500">{users.length} {users.length === 1 ? "user" : "users"}</span>
                     <div className="flex-1 h-px bg-slate-800" />
                   </div>
                   <div className="space-y-1.5">
