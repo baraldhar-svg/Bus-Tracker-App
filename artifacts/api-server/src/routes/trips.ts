@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { driversTable, passengersTable, stationsTable, announcementsTable } from "@workspace/db";
-import { eq, count } from "drizzle-orm";
+import { eq, count, and } from "drizzle-orm";
 
 const router = Router();
 router.get("/active", async (req, res) => {
@@ -60,6 +60,15 @@ router.post("/start", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
+  // Fetch the active driver to get their bus/vehicle number
+  const [activeDriver] = await db
+    .select()
+    .from(driversTable)
+    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)))
+    .limit(1);
+
+  const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
+
   // Mark active driver as online
   await db
     .update(driversTable)
@@ -68,7 +77,7 @@ router.post("/start", async (req, res) => {
 
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
-    message: `🚌 Bus journey started at ${timeStr}. The driver is on the way — students will be picked up at their stops shortly.`,
+    message: `🚌 ${busLabel} journey started at ${timeStr}. The driver is on the way — students will be picked up at their stops shortly.`,
     severity: "info",
   });
 
@@ -83,6 +92,15 @@ router.post("/complete", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
+  // Fetch the active driver BEFORE marking offline, so we can include the bus number
+  const [activeDriver] = await db
+    .select()
+    .from(driversTable)
+    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)))
+    .limit(1);
+
+  const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
+
   // Mark all drivers for this tenant as offline
   await db
     .update(driversTable)
@@ -92,7 +110,7 @@ router.post("/complete", async (req, res) => {
   // Create a journey-complete announcement visible to all portals
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
-    message: `✅ Bus journey completed at ${timeStr}. All students have arrived safely. The driver has signed off for this trip.`,
+    message: `✅ ${busLabel} journey completed at ${timeStr}. All students have arrived safely. The driver has signed off for this trip.`,
     severity: "info",
   });
 
