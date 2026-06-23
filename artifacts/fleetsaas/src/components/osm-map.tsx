@@ -9,7 +9,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Crosshair, Maximize2, ExternalLink, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
+import { Crosshair, Maximize2, Minimize2, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -250,7 +250,8 @@ export default function OsmMap({
   const clickCbRef     = useRef<((e: any) => void) | null>(null);
   const pendingPinRef  = useRef<unknown>(null);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Always-current ref for onMapClick (avoids stale closure in Leaflet event)
   const onMapClickRef = useRef(onMapClick);
@@ -263,6 +264,7 @@ export default function OsmMap({
   const [showDrop, setShowDrop]       = useState(false);
   const [srchIdx, setSrchIdx]         = useState(-1);
   const [reverseLoading, setReverseLoading] = useState(false);
+  const [isFullscreen, setIsFullscreen]     = useState(false);
 
   // ── 1. Init map ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -289,10 +291,11 @@ export default function OsmMap({
         touchZoom: true,
       });
 
-      // OSM tile layer — 100% free, no key
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      // CartoDB Positron — clean, clear street tiles, no key required
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        subdomains: "abc",
+        subdomains: "abcd",
+        attribution: "© OpenStreetMap contributors © CARTO",
       }).addTo(map);
 
       leafletRef.current = map;
@@ -616,17 +619,21 @@ export default function OsmMap({
   function zoomIn()  { (leafletRef.current as LMap | null)?.zoomIn(); }
   function zoomOut() { (leafletRef.current as LMap | null)?.zoomOut(); }
 
-  // ── Open in new tab ───────────────────────────────────────────────────────
+  // ── Same-page fullscreen (Fullscreen API) ─────────────────────────────────
+  useEffect(() => {
+    function onFsChange() { setIsFullscreen(!!document.fullscreenElement); }
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   function openFullscreen() {
-    const map = leafletRef.current as (LMap & { getCenter: () => { lat: number; lng: number } }) | null;
-    if (!map) return;
-    const center = map.getCenter();
-    const zoom   = map.getZoom();
-    window.open(
-      `https://www.openstreetmap.org/#map=${zoom}/${center.lat.toFixed(5)}/${center.lng.toFixed(5)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    }
   }
 
   function fitAll() {
@@ -703,7 +710,7 @@ export default function OsmMap({
   const isBuild = mode === "build";
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height }}>
+    <div ref={containerRef} className="relative w-full overflow-hidden bg-white" style={{ height }}>
 
       {/* Map canvas */}
       <div ref={mapDivRef} className="absolute inset-0" />
@@ -853,10 +860,10 @@ export default function OsmMap({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); openFullscreen(); }}
-          title="Open in full screen (new tab)"
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen map"}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground hover:bg-muted transition-colors"
         >
-          <ExternalLink size={13} />
+          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
         </button>
       </div>
 
