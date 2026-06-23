@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
+import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, getListAnnouncementsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import OsmMap, { type RouteStop } from "@/components/osm-map";
@@ -1366,6 +1366,13 @@ function RouteStationsPanel({
   const [etaSaving, setEtaSaving] = useState(false);
   const [etaSaved, setEtaSaved] = useState(false);
 
+  // Round-trip auto-mirror + absent-student alert
+  const { data: allPassengers } = useListPassengers();
+  const [autoReturnLoading, setAutoReturnLoading] = useState(false);
+  const [autoReturnDone, setAutoReturnDone] = useState(false);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [alertSent, setAlertSent] = useState(false);
+
   useEffect(() => {
     setEditVehicle(String(route.vehicleId ?? ""));
     setEditDriver(String(route.driverId ?? ""));
@@ -1433,6 +1440,42 @@ function RouteStationsPanel({
     await apiDelete(`/routes/${routeId}/stations/${rowId}`);
     load();
     queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+  }
+
+  // Auto-mirror all forward stops as return stops (reversed order)
+  async function handleAutoReturn() {
+    const fwd = routeStations.filter((rs) => rs.direction === "forward");
+    if (fwd.length === 0) return;
+    setAutoReturnLoading(true); setAutoReturnDone(false);
+    try {
+      for (const rs of [...fwd].reverse()) {
+        await apiPost(`/routes/${routeId}/stations`, {
+          stationId: rs.stationId,
+          direction: "return",
+          stopLabel: rs.stopLabel ? `${rs.stopLabel} (Return)` : undefined,
+        });
+      }
+      await load();
+      setAutoReturnDone(true);
+      setTimeout(() => setAutoReturnDone(false), 3000);
+    } finally { setAutoReturnLoading(false); }
+  }
+
+  // Send an announcement alerting about students not yet boarded on this route
+  async function handleAlertAbsent() {
+    const absent = ((allPassengers ?? []) as Array<{ id: number; name: string; routeId?: number | null; boardedAt?: string | null }>)
+      .filter((p) => p.routeId === routeId && !p.boardedAt);
+    const names = absent.length > 0 ? absent.map((p) => p.name).join(", ") : null;
+    const msg = names
+      ? `⚠ Return trip alert — ${route.name}: ${absent.length} student(s) not yet boarded: ${names}. Bus is returning — parents please verify.`
+      : `ℹ Return trip — ${route.name}: All assigned students are confirmed boarded. Bus is returning safely.`;
+    setAlertLoading(true); setAlertSent(false);
+    try {
+      await apiPost("/announcements", { message: msg, severity: names ? "urgent" : "info" });
+      queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
+      setAlertSent(true);
+      setTimeout(() => setAlertSent(false), 3000);
+    } finally { setAlertLoading(false); }
   }
 
   const vehicleLabel = (v: VehicleRow) => v.tag ? `${v.tag} — ${v.plateNumber}` : v.plateNumber;
@@ -1539,6 +1582,61 @@ function RouteStationsPanel({
           ))}
         </div>
       )}
+
+      {/* Return Route & Alert panel */}
+      <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-2">
+        <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+          <RefreshCw size={9} />Return Trip Actions
+        </p>
+
+        {/* Auto-generate return stops */}
+        <div className="space-y-1">
+          <p className="text-[10px] text-muted-foreground">
+            Mirror all <span className="font-semibold text-green-600 dark:text-green-400">Forward</span> stops in reverse order as <span className="font-semibold text-blue-600 dark:text-blue-400">Return</span> stops — one click round-trip setup.
+          </p>
+          <button
+            onClick={handleAutoReturn}
+            disabled={autoReturnLoading || routeStations.filter((rs) => rs.direction === "forward").length === 0}
+            className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${
+              autoReturnDone ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-400"
+            }`}
+          >
+            {autoReturnLoading
+              ? "Generating return stops…"
+              : autoReturnDone
+              ? `✓ Return stops added!`
+              : `⟺ Auto-generate Return Route (${routeStations.filter((rs) => rs.direction === "forward").length} stops)`}
+          </button>
+        </div>
+
+        {/* Alert absent students */}
+        <div className="space-y-1 pt-1 border-t border-blue-200 dark:border-blue-800">
+          <p className="text-[10px] text-muted-foreground">
+            Send an emergency notice to all parents on this route listing students who have <span className="font-semibold text-red-500">not boarded</span> yet.
+          </p>
+          {(() => {
+            const absentCount = ((allPassengers ?? []) as Array<{ routeId?: number | null; boardedAt?: string | null }>)
+              .filter((p) => p.routeId === routeId && !p.boardedAt).length;
+            return (
+              <button
+                onClick={handleAlertAbsent}
+                disabled={alertLoading}
+                className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${
+                  alertSent ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-400"
+                }`}
+              >
+                {alertLoading
+                  ? "Sending alert…"
+                  : alertSent
+                  ? "✓ Alert sent to parent board!"
+                  : absentCount > 0
+                  ? `🔔 Alert ${absentCount} absent student${absentCount !== 1 ? "s" : ""} not boarded`
+                  : "🔔 Send Return Trip Notice (all boarded)"}
+              </button>
+            );
+          })()}
+        </div>
+      </div>
 
       {/* Add stop (allows same station twice — forward + return) */}
       <div className="space-y-2 rounded-xl border border-border bg-card p-3">
