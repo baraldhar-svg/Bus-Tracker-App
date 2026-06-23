@@ -9,7 +9,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Crosshair, Maximize2, Minimize2, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
+import { Crosshair, Maximize2, Minimize2, Scan, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -705,7 +705,7 @@ export default function OsmMap({
   const isBuild = mode === "build";
 
   return (
-    <div ref={containerRef} className="relative w-full overflow-hidden bg-white" style={{ height }}>
+    <div ref={containerRef} className="relative w-full bg-white" style={{ height, overflow: "clip" }}>
 
       {/* Map canvas */}
       <div ref={mapDivRef} className="absolute inset-0" />
@@ -850,12 +850,12 @@ export default function OsmMap({
             title="Fit all stops in view"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground hover:bg-muted transition-colors"
           >
-            <Maximize2 size={13} />
+            <Scan size={13} />
           </button>
         )}
         <button
           onClick={(e) => { e.stopPropagation(); openFullscreen(); }}
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground hover:bg-muted transition-colors"
         >
           {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
