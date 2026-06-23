@@ -91,9 +91,10 @@ export default function StationMapPicker({ onConfirm, onCancel }: StationMapPick
           .marker([lat, lng], { icon, draggable: true });
         (marker as { addTo: (map: unknown) => void }).addTo(leafletRef.current);
         (marker as {
-          on: (ev: string, cb: (e: { latlng: { lat: number; lng: number } }) => void) => void
-        }).on("dragend", (e) => {
-          const nl = e.latlng;
+          on: (ev: string, cb: () => void) => void;
+          getLatLng: () => { lat: number; lng: number };
+        }).on("dragend", function (this: { getLatLng: () => { lat: number; lng: number } }) {
+          const nl = (marker as { getLatLng: () => { lat: number; lng: number } }).getLatLng();
           setPicked((p) => p ? { ...p, lat: nl.lat, lng: nl.lng } : null);
           updateCircle(nl.lat, nl.lng, radius);
         });
