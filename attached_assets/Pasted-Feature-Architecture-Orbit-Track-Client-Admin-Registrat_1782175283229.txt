@@ -1,0 +1,26 @@
+Feature Architecture: Orbit Track - Client Admin Registration & Multi-Stage Verification Workflow
+​1. Step 1: Client Admin Registration Form (User Panel)
+​Inside the public register panel, when a user clicks on "Admin", render a custom form with these exact validation fields:
+​Your School Name (text input)
+​Your School Contact Name (text input)
+​Landline Number Only (telephone input with strict landline formatting validation)
+​Your School Email Address (email input)
+​Your Name (text input)
+​Position / Designation (text input)
+​Your Mobile Number (phone input)
+​On Submit Action: Upon clicking the Submit button, freeze the form and trigger an overlay Popup Modal Message in Nepali:
+​"कृपया धैर्य गर्नुस तपाइको दर्ता प्रमाणीकरणमा गएको छ ५-१० मिनेटमा तपाइको स्कूलको इमेलमा भेरिफिकेसन कोड आउनेछ"
+​Set the account registration status to Pending_Super_Admin_Approval in the database.
+​2. Step 2: Super Admin Review & Alphanumeric Tenant Key Generation
+​Create a secure Super Admin Dashboard Panel accessible only to system owners.
+​Display a data grid showing all pending applications with their full submitted details.
+​Approval Trigger: When the Super Admin clicks "Approve", the backend must automatically:
+​Generate a unique school identity code combining parts of the school's name and numbers (e.g., KHWOPA2026).
+​Dispatch an automated email to the registered School Email Address containing this unique identity profile and a Secure Verification Link.
+​3. Step 3: Orbit Track Verification Page & WhatsApp OTP Authentication
+​When the user clicks the verification link from their email, redirect them to the dedicated Orbit Track Verification Page.
+​Render exactly two primary data input boxes:
+​Box 1: Admin Mobile Number
+​Box 2: System-Generated Unique School Code
+​The OTP Trigger: Once filled and submitted, invoke a WhatsApp Gateway API to send a secure OTP Code directly to that registered mobile number.
+​Upon entering the correct WhatsApp OTP, permanently change the database status to Verified_Active and immediately route the session to the Main Admin Dashboard Page.

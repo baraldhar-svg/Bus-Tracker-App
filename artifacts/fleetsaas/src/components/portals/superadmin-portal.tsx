@@ -820,6 +820,211 @@ function LiveSchoolCard({ school }: { school: LiveSchool }) {
   );
 }
 
+// ── Types ──────────────────────────────────────────────────────────────────
+interface AdminRegistration {
+  id: number;
+  schoolName: string;
+  contactName: string;
+  landline: string;
+  email: string;
+  adminName: string;
+  position: string;
+  mobile: string;
+  status: string;
+  schoolCode: string | null;
+  tenantId: number | null;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+function PendingRegistrationsPanel() {
+  const [regs, setRegs] = useState<AdminRegistration[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [acting, setActing] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const fetchRegs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/superadmin/pending-registrations`);
+      const data = await r.json() as AdminRegistration[];
+      setRegs(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (open) fetchRegs(); }, [open, fetchRegs]);
+
+  const pendingCount = regs.filter(r => r.status === "pending_super_admin_approval").length;
+
+  async function approve(id: number) {
+    setActing(id);
+    try {
+      const r = await fetch(`${BASE}/api/superadmin/pending-registrations/${id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      if (r.ok) await fetchRegs();
+    } catch { /* ignore */ } finally { setActing(null); }
+  }
+
+  async function reject(id: number) {
+    setActing(id);
+    try {
+      const r = await fetch(`${BASE}/api/superadmin/pending-registrations/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Application not approved at this time." }),
+      });
+      if (r.ok) await fetchRegs();
+    } catch { /* ignore */ } finally { setActing(null); }
+  }
+
+  function copyVerifyLink(reg: AdminRegistration) {
+    const link = `${window.location.origin}${BASE}/admin-verify?code=${reg.schoolCode}&mobile=${reg.mobile}`;
+    navigator.clipboard.writeText(link).catch(() => {});
+    setCopiedId(reg.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+    pending_super_admin_approval: { label: "Pending", cls: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
+    approved: { label: "Approved", cls: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
+    verified_active: { label: "Active", cls: "bg-green-500/20 text-green-300 border-green-500/30" },
+    rejected: { label: "Rejected", cls: "bg-red-500/20 text-red-300 border-red-500/30" },
+  };
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 border-b border-slate-700 hover:bg-slate-800/40 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg">📋</span>
+          <div className="text-left">
+            <h2 className="font-bold text-slate-100 text-sm">School Registration Applications</h2>
+            <p className="text-xs text-slate-400">Review and approve new school admin registrations</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5">
+          {pendingCount > 0 && (
+            <span className="rounded-full bg-amber-500 text-slate-900 text-xs font-black px-2.5 py-0.5 animate-pulse">
+              {pendingCount} pending
+            </span>
+          )}
+          <span className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>▼</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-slate-400">{regs.length} total application{regs.length !== 1 ? "s" : ""}</p>
+            <button type="button" onClick={fetchRegs} disabled={loading} className="text-xs text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors">
+              {loading ? "Refreshing…" : "↻ Refresh"}
+            </button>
+          </div>
+
+          {regs.length === 0 && !loading && (
+            <div className="py-8 text-center text-slate-500 text-sm">No applications yet</div>
+          )}
+
+          <div className="space-y-3">
+            {regs.map(reg => {
+              const st = STATUS_LABEL[reg.status] ?? { label: reg.status, cls: "bg-slate-700 text-slate-300 border-slate-600" };
+              const isActing = acting === reg.id;
+              return (
+                <div key={reg.id} className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <p className="font-bold text-slate-100 text-sm">{reg.schoolName}</p>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${st.cls}`}>
+                          {st.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">{reg.adminName} · {reg.position}</p>
+                    </div>
+                    <p className="text-[10px] text-slate-500 shrink-0 mt-0.5">
+                      {new Date(reg.createdAt).toLocaleDateString("en-NP", { month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wide">Contact</p>
+                      <p className="text-xs text-slate-300">{reg.contactName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wide">Mobile</p>
+                      <p className="text-xs text-slate-300">{reg.mobile}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wide">Landline</p>
+                      <p className="text-xs text-slate-300">{reg.landline}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wide">Email</p>
+                      <p className="text-xs text-slate-300 truncate">{reg.email}</p>
+                    </div>
+                  </div>
+
+                  {reg.status === "approved" && reg.schoolCode && (
+                    <div className="mb-3 rounded-lg border border-blue-700/40 bg-blue-900/20 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide mb-0.5">School Code (share with admin)</p>
+                          <p className="text-sm font-mono font-black text-blue-300 tracking-widest">{reg.schoolCode}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyVerifyLink(reg)}
+                          className="shrink-0 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                        >
+                          {copiedId === reg.id ? "✓ Copied!" : "Copy Link"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1.5">
+                        📧 In production this code + verification link would be emailed to <span className="text-slate-300">{reg.email}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {reg.status === "pending_super_admin_approval" && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => approve(reg.id)}
+                        disabled={isActing}
+                        className="flex-1 rounded-lg bg-green-600 hover:bg-green-500 py-2 text-xs font-bold text-white disabled:opacity-40 transition-colors"
+                      >
+                        {isActing ? "…" : "✓ Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => reject(reg.id)}
+                        disabled={isActing}
+                        className="flex-1 rounded-lg bg-red-900/50 hover:bg-red-700 border border-red-700/40 py-2 text-xs font-bold text-red-300 disabled:opacity-40 transition-colors"
+                      >
+                        {isActing ? "…" : "✗ Reject"}
+                      </button>
+                    </div>
+                  )}
+
+                  {reg.status === "rejected" && reg.rejectionReason && (
+                    <p className="text-xs text-red-400 italic">Reason: {reg.rejectionReason}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveVehiclesPanel() {
   const [schools, setSchools] = useState<LiveSchool[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1092,6 +1297,9 @@ export default function SuperadminPortal() {
 
       {/* User Manager */}
       <UserManager />
+
+      {/* School Registration Applications */}
+      <PendingRegistrationsPanel />
 
       {/* Live Vehicles by School */}
       <LiveVehiclesPanel />

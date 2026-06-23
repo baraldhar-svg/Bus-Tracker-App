@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable, driversTable } from "@workspace/db";
+import { usersTable, otpCodesTable, tenantsTable, stationsTable, passengersTable, driversTable, adminRegistrationsTable } from "@workspace/db";
 import { eq, and, gt, isNotNull } from "drizzle-orm";
 
 const router = Router();
@@ -263,6 +263,96 @@ router.post("/register-school", async (req, res) => {
   }
 
   return res.status(201).json({ user, tenant, schoolCode });
+});
+
+// POST /auth/register-admin — Step 1: submit admin registration for SuperAdmin approval
+router.post("/register-admin", async (req, res) => {
+  const { schoolName, contactName, landline, email, adminName, position, mobile } = req.body as {
+    schoolName?: string; contactName?: string; landline?: string; email?: string;
+    adminName?: string; position?: string; mobile?: string;
+  };
+  if (!schoolName || !contactName || !landline || !email || !adminName || !position || !mobile) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
+
+  const [reg] = await db.insert(adminRegistrationsTable).values({
+    schoolName: schoolName.trim(),
+    contactName: contactName.trim(),
+    landline: landline.trim(),
+    email: email.trim().toLowerCase(),
+    adminName: adminName.trim(),
+    position: position.trim(),
+    mobile: mobile.trim(),
+    status: "pending_super_admin_approval",
+  }).returning();
+  return res.status(201).json({ id: reg.id, status: reg.status });
+});
+
+// POST /auth/admin-send-otp — Step 3: send WhatsApp OTP for admin verification
+router.post("/admin-send-otp", async (req, res) => {
+  const { mobile, schoolCode } = req.body as { mobile?: string; schoolCode?: string };
+  if (!mobile || !schoolCode) return res.status(400).json({ error: "Mobile and school code required" });
+
+  // Verify the school code exists and is approved
+  const [reg] = await db
+    .select()
+    .from(adminRegistrationsTable)
+    .where(eq(adminRegistrationsTable.schoolCode, schoolCode.trim().toUpperCase()))
+    .limit(1);
+
+  if (!reg) return res.status(404).json({ error: "Invalid school code. Contact OrbitTrack support." });
+  if (reg.status === "pending_super_admin_approval") return res.status(403).json({ error: "Your registration is still pending SuperAdmin approval." });
+  if (reg.status === "rejected") return res.status(403).json({ error: "Your registration was not approved. Contact OrbitTrack support." });
+  if (reg.status === "verified_active") return res.status(409).json({ error: "This school is already verified. Use Sign In instead." });
+
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await db.insert(otpCodesTable).values({ phone: mobile.trim(), code, expiresAt, used: 0 });
+  return res.json({ success: true, demoCode: code, schoolName: reg.schoolName });
+});
+
+// POST /auth/admin-verify-otp — Step 3: verify OTP → activate school → create admin session
+router.post("/admin-verify-otp", async (req, res) => {
+  const { mobile, schoolCode, otpCode } = req.body as { mobile?: string; schoolCode?: string; otpCode?: string };
+  if (!mobile || !schoolCode || !otpCode) return res.status(400).json({ error: "Mobile, school code and OTP required" });
+
+  const [otp] = await db
+    .select()
+    .from(otpCodesTable)
+    .where(and(eq(otpCodesTable.phone, mobile.trim()), eq(otpCodesTable.code, otpCode.trim()), eq(otpCodesTable.used, 0), gt(otpCodesTable.expiresAt, new Date())))
+    .limit(1);
+  if (!otp) return res.status(401).json({ error: "Invalid or expired OTP code" });
+  await db.update(otpCodesTable).set({ used: 1 }).where(eq(otpCodesTable.id, otp.id));
+
+  const [reg] = await db
+    .select()
+    .from(adminRegistrationsTable)
+    .where(eq(adminRegistrationsTable.schoolCode, schoolCode.trim().toUpperCase()))
+    .limit(1);
+  if (!reg || !reg.tenantId) return res.status(404).json({ error: "School registration not found" });
+
+  // Mark verified
+  await db.update(adminRegistrationsTable).set({ status: "verified_active" }).where(eq(adminRegistrationsTable.id, reg.id));
+
+  // Create or find user account for the admin
+  const existing = await db.select().from(usersTable).where(eq(usersTable.phone, mobile.trim())).limit(1);
+  let user;
+  if (existing.length > 0) {
+    [user] = await db.update(usersTable).set({ tenantId: reg.tenantId, role: "admin", schoolCode: reg.schoolCode }).where(eq(usersTable.phone, mobile.trim())).returning();
+  } else {
+    [user] = await db.insert(usersTable).values({
+      phone: mobile.trim(),
+      name: reg.adminName,
+      role: "admin",
+      tenantId: reg.tenantId,
+      schoolCode: reg.schoolCode,
+    }).returning();
+  }
+
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, reg.tenantId)).limit(1);
+  return res.json({ verified: true, user: { ...user, tenant: tenant ?? null } });
 });
 
 router.patch("/profile", async (req, res) => {

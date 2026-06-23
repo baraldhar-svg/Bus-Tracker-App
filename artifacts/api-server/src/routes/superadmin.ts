@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { driversTable, vehiclesTable, tenantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { driversTable, vehiclesTable, tenantsTable, adminRegistrationsTable, stationsTable, usersTable, subscriptionsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -107,6 +107,81 @@ router.get("/live-vehicles", async (_req, res) => {
   });
 
   res.json(result);
+});
+
+// ── Admin Registration Review ──────────────────────────────────────────────
+
+// GET /api/superadmin/pending-registrations
+router.get("/pending-registrations", async (_req, res) => {
+  const regs = await db
+    .select()
+    .from(adminRegistrationsTable)
+    .orderBy(desc(adminRegistrationsTable.createdAt));
+  res.json(regs);
+});
+
+// POST /api/superadmin/pending-registrations/:id/approve
+router.post("/pending-registrations/:id/approve", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const [reg] = await db.select().from(adminRegistrationsTable).where(eq(adminRegistrationsTable.id, id)).limit(1);
+  if (!reg) return res.status(404).json({ error: "Registration not found" });
+  if (reg.status !== "pending_super_admin_approval") return res.status(409).json({ error: "Already processed" });
+
+  // Generate unique school code: first 6 alpha chars of school name + year
+  const namePart = reg.schoolName.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 6).padEnd(4, "X");
+  const year = new Date().getFullYear();
+  const rand = String(Math.floor(10 + Math.random() * 90));
+  const schoolCode = `${namePart}${year}${rand}`;
+
+  // Create tenant
+  const [tenant] = await db.insert(tenantsTable).values({
+    name: reg.schoolName,
+    contactPhone: reg.landline,
+    schoolCode,
+  }).returning();
+
+  // Seed a default bus stop
+  await db.insert(stationsTable).values({
+    tenantId: tenant.id,
+    name: "School Main Stop",
+    lat: 27.7172,
+    lng: 85.3240,
+    radius: 200,
+  });
+
+  // Create a trial subscription
+  await db.insert(subscriptionsTable).values({
+    tenantId: tenant.id,
+    userRole: "admin",
+    tier: "trial",
+    isActive: true,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+
+  // Mark registration approved
+  const [updated] = await db
+    .update(adminRegistrationsTable)
+    .set({ status: "approved", schoolCode, tenantId: tenant.id })
+    .where(eq(adminRegistrationsTable.id, id))
+    .returning();
+
+  return res.json({ registration: updated, tenant, schoolCode });
+});
+
+// POST /api/superadmin/pending-registrations/:id/reject
+router.post("/pending-registrations/:id/reject", async (req, res) => {
+  const id = Number(req.params.id);
+  const { reason } = req.body as { reason?: string };
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const [updated] = await db
+    .update(adminRegistrationsTable)
+    .set({ status: "rejected", rejectionReason: reason ?? null })
+    .where(eq(adminRegistrationsTable.id, id))
+    .returning();
+  if (!updated) return res.status(404).json({ error: "Registration not found" });
+  return res.json(updated);
 });
 
 export default router;

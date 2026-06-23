@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-type Step = "phone" | "login" | "new";
+type Step = "phone" | "login" | "new" | "admin_form" | "admin_pending";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -53,6 +53,15 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Admin registration state
+  const [adminSchoolName, setAdminSchoolName] = useState("");
+  const [adminContactName, setAdminContactName] = useState("");
+  const [adminLandline, setAdminLandline] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPosition, setAdminPosition] = useState("");
+  const [adminMobile, setAdminMobile] = useState("");
+  const [adminName, setAdminName] = useState("");
 
   function resetToPhone() {
     setStep("phone");
@@ -120,6 +129,31 @@ export default function RegisterScreen() {
   }
 
   // ── Step 2b: Register new user ────────────────────────────────────────
+  const handleAdminRegister = useCallback(async () => {
+    if (!adminSchoolName.trim()) { setErr("School name is required"); return; }
+    if (!adminContactName.trim()) { setErr("Contact name is required"); return; }
+    if (!adminLandline.trim()) { setErr("Landline number is required"); return; }
+    if (!adminEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) { setErr("Enter a valid school email"); return; }
+    if (!adminName.trim()) { setErr("Your name is required"); return; }
+    if (!adminPosition.trim()) { setErr("Position/designation is required"); return; }
+    if (!adminMobile.trim() || adminMobile.length < 10) { setErr("Enter your 10-digit mobile number"); return; }
+    setErr(""); setLoading(true);
+    try {
+      await apiPost("/auth/register-admin", {
+        schoolName: adminSchoolName.trim(),
+        contactName: adminContactName.trim(),
+        landline: adminLandline.trim(),
+        email: adminEmail.trim(),
+        adminName: adminName.trim(),
+        position: adminPosition.trim(),
+        mobile: adminMobile.trim(),
+      });
+      setStep("admin_pending");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Registration failed");
+    } finally { setLoading(false); }
+  }, [adminSchoolName, adminContactName, adminLandline, adminEmail, adminName, adminPosition, adminMobile]);
+
   const handleRegister = useCallback(async () => {
     if (!name.trim()) { setErr("Name is required"); return; }
     if (password && password.length < 6) { setErr("Password must be at least 6 characters"); return; }
@@ -326,26 +360,15 @@ export default function RegisterScreen() {
               </div>
             </div>
 
-            {/* Full Name */}
-            <div className="mb-3">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Full Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Priya Maharjan"
-                value={name}
-                onChange={(e) => { setName(e.target.value); setErr(""); }}
-                className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
-              />
-            </div>
-
-            {/* Role */}
-            <div className="mb-3">
+            {/* Role picker — always visible */}
+            <div className="mb-4">
               <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">I am a…</label>
               <div className="grid grid-cols-2 gap-2">
                 {(["student", "staff", "driver", "admin"] as const).map((r) => (
                   <button
                     key={r}
-                    onClick={() => setRole(r)}
+                    type="button"
+                    onClick={() => { setRole(r); setErr(""); }}
                     className={`rounded-xl border py-2.5 text-xs font-semibold capitalize transition-all ${
                       role === r
                         ? "border-amber-500 bg-amber-500/10 text-amber-300"
@@ -358,93 +381,243 @@ export default function RegisterScreen() {
               </div>
             </div>
 
-            {/* School Code */}
-            <div className="mb-4">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                School Code <span className="text-slate-500 normal-case font-normal">(optional — links you to a school)</span>
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                <span className="text-slate-400 text-sm">🏫</span>
-                <input
-                  type="text"
-                  placeholder="e.g. APEX-ALPHA-1234"
-                  value={regSchoolCode}
-                  onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
-                  autoCapitalize="characters"
-                />
-              </div>
-              <p className="mt-1 text-xs text-slate-500">Your school code was provided by your school administrator</p>
-            </div>
-
-            {/* Password */}
-            <div className="mb-3">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                Password <span className="text-slate-500 normal-case font-normal">(optional — enables password login)</span>
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                <span className="text-slate-400 text-sm">🔑</span>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Min. 6 characters"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErr(""); }}
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                  autoComplete="new-password"
-                />
-                <button type="button" onClick={() => setShowPassword((v) => !v)}
-                  className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
-                  {showPassword ? "Hide" : "Show"}
+            {/* Admin role: show a special CTA — no standard form */}
+            {role === "admin" ? (
+              <>
+                <div className="mb-4 rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-3.5">
+                  <p className="text-sm font-bold text-amber-300 mb-1">🏫 Register Your School</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    School Admin registration requires SuperAdmin verification. You'll fill in your school's details and wait for approval (5–10 minutes). A verification code will then be sent to your school email.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAdminMobile(phone); setStep("admin_form"); setErr(""); }}
+                  className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 transition-colors"
+                >
+                  Register as School Admin →
                 </button>
-              </div>
+              </>
+            ) : (
+              <>
+                {/* Full Name */}
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Priya Maharjan"
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); setErr(""); }}
+                    className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+
+                {/* School Code */}
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                    School Code <span className="text-slate-500 normal-case font-normal">(optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                    <span className="text-slate-400 text-sm">🏫</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. GOLDEN202647"
+                      value={regSchoolCode}
+                      onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
+                      autoCapitalize="characters"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Provided by your school administrator</p>
+                </div>
+
+                {/* Password */}
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                    Password <span className="text-slate-500 normal-case font-normal">(optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                    <span className="text-slate-400 text-sm">🔑</span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Min. 6 characters"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setErr(""); }}
+                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                      autoComplete="new-password"
+                    />
+                    <button type="button" onClick={() => setShowPassword((v) => !v)}
+                      className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                {password.length >= 1 && (
+                  <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Confirm Password</label>
+                    <div className={`flex items-center gap-2 rounded-xl border bg-slate-900 px-3 py-2.5 transition-colors ${confirmPassword && confirmPassword !== password ? "border-red-600" : confirmPassword === password && confirmPassword ? "border-green-600" : "border-slate-600"}`}>
+                      <span className="text-slate-400 text-sm">🔒</span>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Re-enter password"
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setErr(""); }}
+                        className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                        autoComplete="new-password"
+                      />
+                      {confirmPassword && (
+                        <span className="text-sm">{confirmPassword === password ? "✓" : "✗"}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {!password && (
+                  <p className="mb-4 text-[11px] text-slate-500 -mt-1">
+                    Skip password to use OTP-only login.
+                  </p>
+                )}
+
+                {err && (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
+                    <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                    <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleRegister}
+                  disabled={!name.trim() || (!!password && password !== confirmPassword) || loading}
+                  className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
+                      Creating account…
+                    </span>
+                  ) : "Create Account →"}
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── STEP: Admin registration form ── */}
+        {step === "admin_form" && (
+          <>
+            <div className="mb-5">
+              <h2 className="text-base font-bold text-slate-100 mb-0.5">School Admin Registration</h2>
+              <p className="text-xs text-slate-400">Fill in your school details. A SuperAdmin will review within 5–10 minutes.</p>
             </div>
 
-            {password.length >= 1 && (
-              <div className="mb-4">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Confirm Password</label>
-                <div className={`flex items-center gap-2 rounded-xl border bg-slate-900 px-3 py-2.5 transition-colors ${confirmPassword && confirmPassword !== password ? "border-red-600" : confirmPassword === password && confirmPassword ? "border-green-600" : "border-slate-600"}`}>
-                  <span className="text-slate-400 text-sm">🔒</span>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Re-enter password"
-                    value={confirmPassword}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setErr(""); }}
-                    className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                    autoComplete="new-password"
-                  />
-                  {confirmPassword && (
-                    <span className="text-sm">{confirmPassword === password ? "✓" : "✗"}</span>
-                  )}
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Name</label>
+                <input type="text" placeholder="e.g. Golden Gate International School"
+                  value={adminSchoolName}
+                  onChange={(e) => { setAdminSchoolName(e.target.value); setErr(""); }}
+                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Contact Person</label>
+                <input type="text" placeholder="e.g. Ram Prasad Sharma"
+                  value={adminContactName}
+                  onChange={(e) => { setAdminContactName(e.target.value); setErr(""); }}
+                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Landline</label>
+                <input type="tel" placeholder="e.g. 01-4XXXXXX"
+                  value={adminLandline}
+                  onChange={(e) => { setAdminLandline(e.target.value); setErr(""); }}
+                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Email</label>
+                <input type="email" placeholder="admin@yourschool.edu.np"
+                  value={adminEmail}
+                  onChange={(e) => { setAdminEmail(e.target.value); setErr(""); }}
+                  className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+                <p className="mt-1 text-xs text-slate-500">Verification code will be sent here</p>
+              </div>
+              <div className="border-t border-slate-700 pt-3">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Your Details (Person Registering)</p>
+                <div className="space-y-3">
+                  <input type="text" placeholder="Your full name"
+                    value={adminName}
+                    onChange={(e) => { setAdminName(e.target.value); setErr(""); }}
+                    className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+                  <input type="text" placeholder="Position / Designation (e.g. Principal)"
+                    value={adminPosition}
+                    onChange={(e) => { setAdminPosition(e.target.value); setErr(""); }}
+                    className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors" />
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                    <span className="text-sm text-slate-400 select-none">🇳🇵 +977</span>
+                    <input type="tel" placeholder="Your 10-digit mobile"
+                      value={adminMobile}
+                      onChange={(e) => { setAdminMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(""); }}
+                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none" />
+                  </div>
                 </div>
               </div>
-            )}
-
-            {!password && (
-              <p className="mb-4 text-[11px] text-slate-500 -mt-1">
-                Skip password to use OTP-only login. You can add a password later from your profile.
-              </p>
-            )}
+            </div>
 
             {err && (
               <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-800/50 bg-red-900/20 px-3.5 py-3">
-                <span className="text-red-400 mt-0.5 text-sm shrink-0">⚠️</span>
+                <span className="text-red-400 mt-0.5 shrink-0">⚠️</span>
                 <p className="text-xs text-red-300 leading-relaxed">{err}</p>
               </div>
             )}
 
             <button
-              onClick={handleRegister}
-              disabled={!name.trim() || (!!password && password !== confirmPassword) || loading}
+              onClick={handleAdminRegister}
+              disabled={loading}
               className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-40 transition-colors"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-4 w-4 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
-                  Creating account…
+                  Submitting…
                 </span>
-              ) : "Create Account →"}
+              ) : "Submit for Verification →"}
             </button>
           </>
+        )}
+
+        {/* ── STEP: Admin pending approval (Nepali modal) ── */}
+        {step === "admin_pending" && (
+          <div className="py-2 text-center">
+            <div className="text-5xl mb-4">🕐</div>
+            <h2 className="text-lg font-black text-amber-400 mb-3">दर्ता सफल भयो!</h2>
+            <div className="rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-4 mb-5 text-left">
+              <p className="text-sm text-amber-200 leading-relaxed">
+                कृपया धैर्य गर्नुस् — तपाइँको दर्ता प्रमाणीकरणमा गएको छ।
+              </p>
+              <p className="text-sm text-slate-300 leading-relaxed mt-2">
+                ५–१० मिनेटमा तपाइँको स्कूलको इमेलमा <strong className="text-amber-300">भेरिफिकेसन कोड</strong> आउनेछ।
+              </p>
+              <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                कोड प्राप्त भएपछि <strong className="text-slate-200">Admin Verify</strong> पेजमा गई आफ्नो मोबाइल नम्बर र स्कूल कोड राख्नुस्।
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 mb-5">
+              <p className="text-xs text-slate-400 mb-2">Verification link</p>
+              <p className="text-xs font-mono text-amber-300 break-all">{window.location.origin}{import.meta.env.BASE_URL}admin-verify</p>
+            </div>
+            <button
+              onClick={() => navigate("/admin-verify")}
+              className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 transition-colors"
+            >
+              Go to Verification Page →
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Return to Home
+            </button>
+          </div>
         )}
       </div>
 

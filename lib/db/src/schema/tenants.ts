@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -20,6 +20,26 @@ export const tenantsTable = pgTable("tenants", {
 export const insertTenantSchema = createInsertSchema(tenantsTable).omit({ id: true, createdAt: true });
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenantsTable.$inferSelect;
+
+// Admin registration applications — pending SuperAdmin approval
+export const adminRegistrationsTable = pgTable("admin_registrations", {
+  id: serial("id").primaryKey(),
+  schoolName: text("school_name").notNull(),
+  contactName: text("contact_name").notNull(),
+  landline: text("landline").notNull(),
+  email: text("email").notNull(),
+  adminName: text("admin_name").notNull(),
+  position: text("position").notNull(),
+  mobile: text("mobile").notNull(),
+  // pending_super_admin_approval | approved | verified_active | rejected
+  status: text("status").notNull().default("pending_super_admin_approval"),
+  schoolCode: text("school_code"),
+  tenantId: integer("tenant_id"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AdminRegistration = typeof adminRegistrationsTable.$inferSelect;
 
 export const announcementsTable = pgTable("announcements", {
   id: serial("id").primaryKey(),
