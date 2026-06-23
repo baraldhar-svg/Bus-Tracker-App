@@ -1904,6 +1904,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
                   value={pendingName}
                   onChange={(e) => setPendingName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && pendingName.trim() && !pendingSaving) handleAddPendingStation(); }}
+                  onFocus={(e) => e.target.select()}
                   placeholder="Station name…"
                   autoFocus
                   className="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm outline-none focus:border-amber-500"
