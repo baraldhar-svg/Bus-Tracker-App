@@ -248,8 +248,13 @@ export default function OsmMap({
   const stopMarkersRef = useRef<unknown[]>([]);
   const polylineRef    = useRef<unknown>(null);
   const clickCbRef     = useRef<((e: any) => void) | null>(null);
+  const pendingPinRef  = useRef<unknown>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Always-current ref for onMapClick (avoids stale closure in Leaflet event)
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   // search state (build mode)
   const [query, setQuery]             = useState("");
@@ -257,6 +262,7 @@ export default function OsmMap({
   const [searching, setSearching]     = useState(false);
   const [showDrop, setShowDrop]       = useState(false);
   const [srchIdx, setSrchIdx]         = useState(-1);
+  const [reverseLoading, setReverseLoading] = useState(false);
 
   // ── 1. Init map ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -304,10 +310,24 @@ export default function OsmMap({
 
       if (mode === "build") {
         _syncBuildStops(L, map, stops, activeStopIndex);
-        if (!viewMode && onMapClick) {
+        if (!viewMode) {
           const cb = (e: any) => {
-            onMapClick(e.latlng.lat, e.latlng.lng);
+            const { lat: clat, lng: clng } = e.latlng;
             setQuery(""); setSuggestions([]); setShowDrop(false);
+            _showPendingPin(L, map, clat, clng);
+            setReverseLoading(true);
+            fetch(`${BASE}/api/geocode/reverse?lat=${clat}&lng=${clng}`)
+              .then((r) => r.ok ? r.json() as Promise<{ name: string }> : Promise.resolve(null))
+              .then((data) => {
+                _clearPendingPin();
+                setReverseLoading(false);
+                onMapClickRef.current?.(clat, clng, data?.name ?? undefined);
+              })
+              .catch(() => {
+                _clearPendingPin();
+                setReverseLoading(false);
+                onMapClickRef.current?.(clat, clng);
+              });
           };
           clickCbRef.current = cb;
           map.on("click", cb);
@@ -532,6 +552,34 @@ export default function OsmMap({
     }
   }
 
+  // ── Pending pin (build mode — shown while reverse geocoding) ─────────────
+  function _showPendingPin(L: any, map: any, la: number, ln: number) {
+    if (pendingPinRef.current) (pendingPinRef.current as any).remove();
+    const icon = L.divIcon({
+      html: `<div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#f59e0b;border:3px solid white;
+             box-shadow:0 2px 10px rgba(245,158,11,0.6);display:flex;align-items:center;justify-content:center;
+             animation:osm-ripple 1s ease-out infinite;">
+          <div style="width:8px;height:8px;border-radius:50%;background:white;opacity:0.9;"></div>
+        </div>
+        <div style="width:2px;height:10px;background:#f59e0b;opacity:0.7;"></div>
+      </div>`,
+      className: "",
+      iconSize: [24, 36],
+      iconAnchor: [12, 36],
+    });
+    const pin = L.marker([la, ln], { icon, zIndexOffset: 2000, interactive: false });
+    (pin as any).addTo(map);
+    pendingPinRef.current = pin;
+  }
+
+  function _clearPendingPin() {
+    if (pendingPinRef.current) {
+      (pendingPinRef.current as any).remove();
+      pendingPinRef.current = null;
+    }
+  }
+
   // ── My Location (tracking mode) ───────────────────────────────────────────
   function locateMe() {
     if (!("geolocation" in navigator) || !leafletRef.current) return;
@@ -729,6 +777,24 @@ export default function OsmMap({
         <div className="absolute top-2 left-2 z-[1001] flex items-center gap-1.5 rounded-full bg-green-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-md backdrop-blur-sm pointer-events-none">
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
           GPS LIVE
+        </div>
+      )}
+
+      {/* ── Build: reverse geocoding loading badge ── */}
+      {isBuild && reverseLoading && (
+        <div className="absolute top-12 left-2 right-14 z-[1002] flex items-center gap-2 rounded-xl bg-amber-500/95 border border-amber-400 px-3 py-2 shadow-lg backdrop-blur-sm pointer-events-none">
+          <RefreshCw size={11} className="animate-spin text-white shrink-0" />
+          <span className="text-xs font-semibold text-white">Looking up location name…</span>
+        </div>
+      )}
+
+      {/* ── Build: click-to-add hint ── */}
+      {isBuild && !viewMode && !reverseLoading && stops.length === 0 && (
+        <div className="absolute bottom-14 left-2 right-2 z-[1001] flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-1.5 rounded-full bg-slate-800/80 border border-slate-600 px-3 py-1.5 text-[10px] font-semibold text-slate-200 backdrop-blur-sm shadow-md">
+            <MapPin size={10} className="text-amber-400" />
+            Click anywhere on the map to add a stop
+          </div>
         </div>
       )}
 

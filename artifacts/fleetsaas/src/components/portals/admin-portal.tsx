@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
-import OsmMap from "@/components/osm-map";
+import OsmMap, { type RouteStop } from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -2142,13 +2142,38 @@ type StationRow = { id: number; name: string; lat?: number | null; lng?: number 
 function SmartStationManager({
   stations, onChanged,
 }: { stations: StationRow[] | undefined; onChanged: () => void }) {
-  const [showPicker, setShowPicker] = useState(false);
+  const [pendingStop, setPendingStop] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [pendingName, setPendingName] = useState("");
+  const [pendingRadius, setPendingRadius] = useState(100);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  async function handleConfirm(s: { name: string; lat: number; lng: number; radius: number }) {
-    await apiPost("/stations", { name: s.name, lat: s.lat, lng: s.lng, radius: s.radius });
-    onChanged();
-    setShowPicker(false);
+  const buildStops: RouteStop[] = (stations ?? [])
+    .filter((s) => s.lat != null && s.lng != null)
+    .map((s) => ({ id: s.id, name: s.name, lat: s.lat as number, lng: s.lng as number }));
+
+  function handleMapClick(lat: number, lng: number, name?: string) {
+    const resolved = name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    setPendingStop({ lat, lng, name: resolved });
+    setPendingName(resolved);
+    setPendingRadius(100);
+  }
+
+  async function handleSave() {
+    if (!pendingStop) return;
+    setSaving(true);
+    try {
+      await apiPost("/stations", {
+        name: pendingName.trim() || pendingStop.name,
+        lat: pendingStop.lat,
+        lng: pendingStop.lng,
+        radius: pendingRadius,
+      });
+      onChanged();
+      setPendingStop(null);
+      setPendingName("");
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
   }
 
   async function handleDelete(id: number) {
@@ -2166,38 +2191,72 @@ function SmartStationManager({
             <MapPin size={14} />Geofence Stations
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {stations?.length ?? 0} hub{(stations?.length ?? 0) !== 1 ? "s" : ""} · Google Places powered
+            {stations?.length ?? 0} hub{(stations?.length ?? 0) !== 1 ? "s" : ""} · OpenStreetMap · click map to pin
           </p>
         </div>
-        <button
-          onClick={() => setShowPicker((v) => !v)}
-          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${showPicker ? "bg-muted text-muted-foreground border border-border" : "bg-amber-500 text-slate-900 hover:bg-amber-400"}`}
-        >
-          {showPicker ? <><X size={11} />Cancel</> : <><Plus size={11} />Add Station</>}
-        </button>
       </div>
 
-      {/* Smart picker */}
-      {showPicker && (
-        <div className="p-4 border-b border-border bg-muted/20">
-          <StationMapPicker
-            onConfirm={handleConfirm}
-            onCancel={() => setShowPicker(false)}
+      {/* Interactive build map */}
+      <div className="border-b border-border">
+        <OsmMap
+          mode="build"
+          height={300}
+          stops={buildStops}
+          onMapClick={handleMapClick}
+        />
+      </div>
+
+      {/* Confirm tray — slides in after a map click */}
+      {pendingStop && (
+        <div className="px-4 py-3 border-b border-border bg-amber-50 dark:bg-amber-950/20 space-y-2">
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+            <MapPin size={10} />New Stop — {pendingStop.lat.toFixed(4)}, {pendingStop.lng.toFixed(4)}
+          </p>
+          <input
+            value={pendingName}
+            onChange={(e) => setPendingName(e.target.value)}
+            placeholder="Station name…"
+            className="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
           />
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] font-semibold text-muted-foreground whitespace-nowrap">Radius: {pendingRadius}m</label>
+            <input
+              type="range" min={50} max={500} step={10}
+              value={pendingRadius}
+              onChange={(e) => setPendingRadius(Number(e.target.value))}
+              className="flex-1 accent-amber-500"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saving || !pendingName.trim()}
+              className="flex-1 rounded-lg bg-amber-500 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+            >
+              {saving ? <RefreshCw size={11} className="animate-spin inline mr-1" /> : <Plus size={11} className="inline mr-1" />}
+              {saving ? "Saving…" : "Add Station"}
+            </button>
+            <button
+              onClick={() => setPendingStop(null)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <X size={11} className="inline mr-1" />Cancel
+            </button>
+          </div>
         </div>
       )}
 
       {/* Station list */}
-      <div className="divide-y divide-border max-h-64 overflow-y-auto">
-        {(!stations || stations.length === 0) && !showPicker && (
-          <p className="px-5 py-8 text-center text-xs text-muted-foreground italic">
-            No stations yet — click Add Station to create your first geofence hub
+      <div className="divide-y divide-border max-h-56 overflow-y-auto">
+        {(!stations || stations.length === 0) && (
+          <p className="px-5 py-6 text-center text-xs text-muted-foreground italic">
+            No stations yet — click anywhere on the map above to add your first hub
           </p>
         )}
-        {(stations ?? []).map((s) => (
-          <div key={s.id} className="flex items-center gap-3 px-5 py-3">
-            <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0">
-              <MapPin size={13} className="text-amber-600 dark:text-amber-400" />
+        {(stations ?? []).map((s, idx) => (
+          <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+            <div className="h-6 w-6 rounded-full bg-amber-500 border-2 border-white shadow-sm flex items-center justify-center shrink-0">
+              <span className="text-[9px] font-bold text-white leading-none">{idx + 1}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">{s.name}</p>

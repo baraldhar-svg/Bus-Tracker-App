@@ -110,4 +110,40 @@ router.get("/place", async (req, res) => {
   }
 });
 
+// GET /geocode/reverse?lat=&lng= — Nominatim reverse geocoding, returns best local name
+router.get("/reverse", async (req, res) => {
+  const lat = parseFloat(String(req.query.lat ?? ""));
+  const lng = parseFloat(String(req.query.lng ?? ""));
+  if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: "lat and lng required" });
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "OrbitTrack School Bus Tracker/1.0 (nepal-fleet@orbittrack.app)",
+        "Accept": "application/json",
+      },
+    });
+    if (!response.ok) throw new Error(`Nominatim error: ${response.status}`);
+    const data = await response.json() as {
+      display_name?: string;
+      address?: {
+        suburb?: string; neighbourhood?: string; road?: string;
+        village?: string; town?: string; city?: string; county?: string;
+        quarter?: string; residential?: string;
+      };
+    };
+    const addr = data.address ?? {};
+    const name =
+      addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? addr.residential ??
+      addr.village ?? addr.road ?? addr.town ?? addr.city ?? addr.county ??
+      (data.display_name ? data.display_name.split(",")[0]?.trim() : null) ??
+      `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    return res.json({ name, lat, lng });
+  } catch (err) {
+    req.log.error({ err }, "Reverse geocode failed");
+    return res.status(502).json({ error: "Reverse geocode unavailable" });
+  }
+});
+
 export default router;
