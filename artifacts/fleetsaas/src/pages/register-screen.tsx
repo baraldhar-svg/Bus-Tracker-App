@@ -48,6 +48,7 @@ const FACULTY_OPTIONS = [
   "BCA/CSIT",
   "BBA",
   "Vocational",
+  "Others",
 ];
 
 const FACULTY_CLASSES = new Set(["11", "12", "Others"]);
@@ -81,6 +82,7 @@ export default function RegisterScreen() {
   const [section, setSection] = useState("");
   const [rollNumber, setRollNumber] = useState("");
   const [faculty, setFaculty] = useState("");
+  const [customFaculty, setCustomFaculty] = useState("");
 
   // Admin registration state
   const [adminSchoolName, setAdminSchoolName] = useState("");
@@ -215,7 +217,9 @@ export default function RegisterScreen() {
           customClass: className === "Others" ? customClass.trim() || undefined : undefined,
           section: section.trim() || undefined,
           rollNumber: rollNumber.trim() || undefined,
-          faculty: FACULTY_CLASSES.has(className) ? faculty || undefined : undefined,
+          faculty: FACULTY_CLASSES.has(className)
+            ? (faculty === "Others" ? customFaculty.trim() || "Others" : faculty || undefined)
+            : undefined,
         } : {}),
       });
       login({ ...user, tenant: user.tenant ?? null });
@@ -228,7 +232,7 @@ export default function RegisterScreen() {
         setErr(msg);
       }
     } finally { setLoading(false); }
-  }, [phone, name, role, regSchoolCode, password, confirmPassword, className, customClass, section, rollNumber, faculty, login, navigate]);
+  }, [phone, name, role, regSchoolCode, password, confirmPassword, className, customClass, section, rollNumber, faculty, customFaculty, login, navigate]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
@@ -516,7 +520,7 @@ export default function RegisterScreen() {
                         <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Faculty</label>
                         <select
                           value={faculty}
-                          onChange={(e) => { setFaculty(e.target.value); setErr(""); }}
+                          onChange={(e) => { setFaculty(e.target.value); setCustomFaculty(""); setErr(""); }}
                           className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition-colors appearance-none"
                         >
                           <option value="">Select Faculty…</option>
@@ -524,6 +528,16 @@ export default function RegisterScreen() {
                             <option key={f} value={f}>{f}</option>
                           ))}
                         </select>
+                        {faculty === "Others" && (
+                          <input
+                            type="text"
+                            placeholder="e.g. Agriculture, Fine Arts, Architecture"
+                            value={customFaculty}
+                            onChange={(e) => { setCustomFaculty(e.target.value); setErr(""); }}
+                            className="mt-2 w-full rounded-xl border border-amber-600/60 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+                            autoFocus
+                          />
+                        )}
                       </div>
                     )}
 
