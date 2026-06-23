@@ -5,6 +5,7 @@ import { eq, count, and } from "drizzle-orm";
 import { broadcast } from "../lib/sse";
 
 const router = Router();
+
 router.get("/active", async (req, res) => {
   const [driver] = await db
     .select()
@@ -28,10 +29,18 @@ router.get("/active", async (req, res) => {
     .where(eq(stationsTable.tenantId, req.tenantId))
     .limit(1);
 
+  // Use real GPS coords from driver record; fall back to Kathmandu centre only if no fix yet
+  const currentLat = driver?.currentLat ?? 27.7172;
+  const currentLng = driver?.currentLng ?? 85.3240;
+  const locationUpdatedAt = driver?.locationUpdatedAt ?? null;
+  const isLive = driver?.isOnline === true && driver?.currentLat != null;
+
   res.json({
     tripId: 1,
-    currentLat: 27.6915,
-    currentLng: 85.3331,
+    currentLat,
+    currentLng,
+    locationUpdatedAt,
+    isLive,
     etaMinutes: 7,
     nextStationName: nextStation?.name ?? "Koteshwor Chowk",
     routeName: "Route #4B - Koteshwor",
@@ -57,11 +66,35 @@ router.get("/timeline", async (_req, res) => {
   ]);
 });
 
+// POST /api/trips/location — called by the driver's mobile every time the browser geolocation updates
+router.post("/location", async (req, res) => {
+  const { lat, lng, accuracy } = req.body as { lat?: number; lng?: number; accuracy?: number };
+
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    return res.status(400).json({ error: "lat and lng (numbers) are required" });
+  }
+
+  const now = new Date().toISOString();
+
+  await db
+    .update(driversTable)
+    .set({
+      currentLat: lat,
+      currentLng: lng,
+      locationUpdatedAt: now,
+      isOnline: true,
+    })
+    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)));
+
+  broadcast("location_update", { tenantId: req.tenantId, lat, lng, accuracy: accuracy ?? null, updatedAt: now });
+
+  return res.json({ ok: true });
+});
+
 router.post("/start", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
-  // Fetch the active driver to get their bus/vehicle number
   const [activeDriver] = await db
     .select()
     .from(driversTable)
@@ -70,7 +103,6 @@ router.post("/start", async (req, res) => {
 
   const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
 
-  // Mark active driver as online
   await db
     .update(driversTable)
     .set({ isOnline: true })
@@ -94,7 +126,6 @@ router.post("/complete", async (req, res) => {
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
-  // Fetch the active driver BEFORE marking offline, so we can include the bus number
   const [activeDriver] = await db
     .select()
     .from(driversTable)
@@ -103,13 +134,11 @@ router.post("/complete", async (req, res) => {
 
   const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
 
-  // Mark all drivers for this tenant as offline
   await db
     .update(driversTable)
     .set({ isOnline: false })
     .where(eq(driversTable.tenantId, req.tenantId));
 
-  // Create a journey-complete announcement visible to all portals
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
     message: `✅ ${busLabel} journey completed at ${timeStr}. All students have arrived safely. The driver has signed off for this trip.`,
@@ -118,7 +147,6 @@ router.post("/complete", async (req, res) => {
 
   broadcast("trip_completed", { tenantId: req.tenantId, time: timeStr });
 
-  // Reset all passengers back to "pending" so they're ready for the next journey
   await db
     .update(passengersTable)
     .set({ status: "pending", boardedAt: null })

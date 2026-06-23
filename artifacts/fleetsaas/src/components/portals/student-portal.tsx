@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useDriverLocation } from "@/hooks/use-driver-location";
 import {
   useListAnnouncements,
   useGetTripTimeline,
@@ -28,22 +29,10 @@ const QUICK_MESSAGES = [
   { Icon: ThumbsUp,   label: "On the bus",          value: "On the bus" },
 ];
 
-// Simulated bus GPS route through Kathmandu
-const BUS_POSITIONS = [
-  { lat: 27.6726, lng: 85.3130, name: "Balkhu", eta: 18 },
-  { lat: 27.6857, lng: 85.3176, name: "Ekantakuna", eta: 15 },
-  { lat: 27.6922, lng: 85.3206, name: "Satdobato", eta: 12 },
-  { lat: 27.7010, lng: 85.3171, name: "Lagankhel", eta: 9 },
-  { lat: 27.7089, lng: 85.3208, name: "Jawalakhel", eta: 6 },
-  { lat: 27.7172, lng: 85.3240, name: "Pulchowk", eta: 4 },
-  { lat: 27.7244, lng: 85.3291, name: "Tripureshwor", eta: 2 },
-  { lat: 27.7315, lng: 85.3250, name: "Ratnapark", eta: 0 },
-];
+// Student's home stop ETA alert threshold
+const GEO_ALERT_THRESHOLD_METERS = 800;
 
-// Student's home stop is Kalanki — bus is close when ETA <= 4 min
-const GEO_ALERT_THRESHOLD_ETA = 5;
-
-type RouteStationItem = { id: number; stationId: number; stationName: string | null; position: number; radius: number | null };
+type RouteStationItem = { id: number; stationId: number; stationName: string | null; position: number; radius: number | null; lat?: number | null; lng?: number | null };
 
 export default function StudentPortal() {
   const t = useT();
@@ -55,7 +44,7 @@ export default function StudentPortal() {
   const updatePassenger = useUpdatePassenger();
   const queryClient = useQueryClient();
 
-  const [posIdx, setPosIdx] = useState(0);
+  const driverLoc = useDriverLocation();
   const [sentMsg, setSentMsg] = useState<string | null>(null);
   const [liveToday, setLiveToday] = useState(false);
   const [onLeave, setOnLeave] = useState(false);
@@ -116,17 +105,14 @@ export default function StudentPortal() {
     finally { setTransportSaving(false); }
   }, [selectedRouteId, selectedStationId, updatePassenger, queryClient]);
 
-  // Bus position simulation every 4 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPosIdx((i) => (i + 1) % BUS_POSITIONS.length);
-      setGeoAlertDismissed(false); // reset alert for each new position
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const pos = BUS_POSITIONS[posIdx];
-  const nearbyAlert = pos.eta <= GEO_ALERT_THRESHOLD_ETA && !geoAlertDismissed;
+  // Geofencing: alert when driver is within threshold of student's stop
+  const myStop = routeStations.find((rs) => String(rs.stationId) === selectedStationId);
+  const nearbyAlert = (() => {
+    if (!driverLoc.isLive || !myStop?.lat || !myStop?.lng || geoAlertDismissed) return false;
+    const dLat = (driverLoc.lat - myStop.lat) * 111000;
+    const dLng = (driverLoc.lng - myStop.lng) * 111000 * Math.cos(myStop.lat * (Math.PI / 180));
+    return Math.sqrt(dLat * dLat + dLng * dLng) < GEO_ALERT_THRESHOLD_METERS;
+  })();
 
   const handleLiveToday = useCallback(async () => {
     if (onLeave) return;
@@ -166,7 +152,6 @@ export default function StudentPortal() {
     queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
   }, [updatePassenger, queryClient]);
 
-  const etaProgress = Math.max(0, 100 - (pos.eta / 18) * 100);
 
   return (
     <div className="w-full px-4 pb-8 pt-4 flex flex-col gap-5">
@@ -191,16 +176,16 @@ export default function StudentPortal() {
           })}
         </div>
       )}
-      {/* Geofencing Alert */}
+      {/* Geofencing Alert — fires when live GPS puts the bus within 800m of student's stop */}
       {nearbyAlert && (
-        <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg animate-pulse-once border-t-[#ffee47] border-r-[#ffee47] border-b-[#ffee47] border-l-[#ffee47]">
+        <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <Bus size={36} className="text-white drop-shadow" />
               <div>
-                <p className="font-bold text-sm">Bus is nearby — {pos.eta} min away!</p>
+                <p className="font-bold text-sm">Bus is nearby — get ready!</p>
                 <p className="text-xs text-amber-100 mt-0.5">
-                  Approaching {pos.name} stop · Get ready now
+                  {myStop?.lat ? `Approaching ${myStop.stationName ?? "your stop"} · head out now` : "Bus is close — head to your stop"}
                 </p>
               </div>
             </div>
@@ -209,13 +194,6 @@ export default function StudentPortal() {
               className="shrink-0 rounded-full p-1 hover:bg-white/20 text-white text-xs"
             >✕</button>
           </div>
-          <div className="mt-3 h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-[3500ms] bg-[#47FF69] text-background"
-              style={{ width: `${etaProgress}%` }}
-            />
-          </div>
-          <p className="mt-1 text-right text-[10px] text-amber-100">Route progress {Math.round(etaProgress)}%</p>
         </div>
       )}
       {/* Welcome bar */}
@@ -343,30 +321,32 @@ export default function StudentPortal() {
           );
         })()}
 
-        {/* ETA Bar */}
+        {/* GPS Status Bar */}
         <div className="rounded-xl border border-border bg-muted/40 p-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs text-muted-foreground">Current Location</p>
-            <p className="text-sm font-semibold text-foreground">{pos.name}</p>
-          </div>
-          <div className="flex-1 mx-2">
-            <div className="h-2 rounded-full bg-border overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-[3500ms] ease-linear bg-[#47FF69]"
-                style={{ width: `${etaProgress}%` }}
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">Bus Location</p>
+            <p className="text-sm font-semibold text-foreground font-mono">
+              {driverLoc.isLive
+                ? `${driverLoc.lat.toFixed(4)}°N, ${driverLoc.lng.toFixed(4)}°E`
+                : "Waiting for GPS…"}
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">ETA</p>
-            <p className={`text-sm font-bold ${pos.eta <= 4 ? "text-red-500" : "text-green-600"}`}>
-              {pos.eta === 0 ? "NOW" : `${pos.eta} min`}
+            <p className="text-xs text-muted-foreground">Status</p>
+            <p className={`text-sm font-bold flex items-center gap-1 justify-end ${driverLoc.isLive ? "text-green-600" : "text-muted-foreground"}`}>
+              <span className={`h-2 w-2 rounded-full inline-block ${driverLoc.isLive ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
+              {driverLoc.isLive ? "LIVE" : "Offline"}
             </p>
           </div>
         </div>
 
         <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 280 }}>
-          <BusMap route={BUS_POSITIONS} posIdx={posIdx} />
+          <BusMap
+            route={routeStations.filter((rs) => rs.lat && rs.lng).map((rs) => ({ lat: rs.lat!, lng: rs.lng!, name: rs.stationName ?? `Stop ${rs.id}` }))}
+            busLat={driverLoc.lat}
+            busLng={driverLoc.lng}
+            isLive={driverLoc.isLive}
+          />
         </div>
         {routeStations.length > 0 ? (
           <p className="text-xs text-muted-foreground text-center">

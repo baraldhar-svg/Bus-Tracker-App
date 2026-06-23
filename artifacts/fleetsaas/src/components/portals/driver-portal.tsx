@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendDriverMessage } from "@/lib/driver-messages";
@@ -77,6 +77,58 @@ export default function DriverPortal() {
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
 
+  // GPS tracking — driver's phone as the live tracker
+  const watchIdRef = useRef<number | null>(null);
+  const [gpsActive, setGpsActive] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+
+  const BASE_GPS = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  function startGpsTracking() {
+    if (!("geolocation" in navigator)) {
+      setGpsError("GPS not supported on this device");
+      return;
+    }
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setGpsActive(true);
+        setGpsError(null);
+        const { latitude: lat, longitude: lng, accuracy } = position.coords;
+        const tenantId = getTenantId();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+        // Fire-and-forget — non-blocking
+        void fetch(`${BASE_GPS}/api/trips/location`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ lat, lng, accuracy }),
+        });
+      },
+      (err) => {
+        setGpsActive(false);
+        if (err.code === 1) setGpsError("GPS permission denied — enable location");
+        else if (err.code === 2) setGpsError("GPS signal unavailable");
+        else setGpsError("GPS error");
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
+      }
+    );
+  }
+
+  function stopGpsTracking() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setGpsActive(false);
+  }
+
+  // Cleanup on unmount
+  useEffect(() => () => stopGpsTracking(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const currentStation = stations?.[stationIdx];
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
   const totalCount = passengers?.length ?? 0;
@@ -149,6 +201,8 @@ export default function DriverPortal() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     setJourneyTime(timeStr);
+    // Start streaming GPS from the driver's phone
+    startGpsTracking();
     try {
       await startJourney.mutateAsync();
       queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
@@ -161,6 +215,8 @@ export default function DriverPortal() {
     if (journeyCompleted) return;
     setJourneyCompleted(true);
     setCountdown(60);
+    // Stop GPS — no more location updates
+    stopGpsTracking();
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
     try {
@@ -210,6 +266,20 @@ export default function DriverPortal() {
           </div>
         </div>
       </header>
+
+      {/* GPS Status bar — shown while journey is active */}
+      {journeyStarted && !journeyCompleted && (
+        <div className={`flex items-center gap-2 px-4 py-2 border-b ${gpsActive ? "bg-green-900/20 border-green-800/40" : "bg-amber-900/20 border-amber-800/40"}`}>
+          <span className={`h-2 w-2 rounded-full shrink-0 ${gpsActive ? "bg-green-400 animate-pulse" : "bg-amber-400"}`} />
+          {gpsActive ? (
+            <p className="text-xs text-green-300 font-medium flex-1">GPS active — streaming live coordinates to all portals</p>
+          ) : gpsError ? (
+            <p className="text-xs text-amber-300 font-medium flex-1">⚠ {gpsError}</p>
+          ) : (
+            <p className="text-xs text-amber-300 font-medium flex-1">Acquiring GPS signal…</p>
+          )}
+        </div>
+      )}
 
       {/* Offline banner */}
       {isOffline && (

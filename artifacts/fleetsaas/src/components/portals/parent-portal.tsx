@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import BusMap from "@/components/bus-map";
+import { useDriverLocation } from "@/hooks/use-driver-location";
 import { useListAnnouncements, useGetTripTimeline, useListCalendarEvents, useListRoutes } from "@workspace/api-client-react";
 import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle, Star, Clock } from "lucide-react";
 
@@ -93,6 +95,7 @@ export default function ParentPortal() {
   // Find by route_station row ID
   const selectedStop = routeStations.find((s) => s.id === selectedStopId) ?? null;
 
+  const driverLoc = useDriverLocation();
   const mapLat = selectedStop?.lat ?? 27.7172;
   const mapLng = selectedStop?.lng ?? 85.3240;
 
@@ -260,33 +263,54 @@ export default function ParentPortal() {
         </div>
       </div>
 
-      {/* Live Map for selected stop */}
-      {selectedStopId && selectedStop?.lat && selectedStop?.lng && (
-        <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
-          <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
-            <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
-              <MapPin size={11} />Live Map — {selectedStop.stopLabel || selectedStop.stationName}
-            </p>
-            {selectedStop.eta && (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+      {/* Live Bus Tracking Map */}
+      <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
+        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+            <MapPin size={11} />Live Bus Map
+            {selectedStop?.stopLabel || selectedStop?.stationName
+              ? ` — ${selectedStop.stopLabel || selectedStop.stationName}`
+              : ""}
+          </p>
+          <div className="flex items-center gap-1.5">
+            {driverLoc.isLive ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-green-600 dark:text-green-400">GPS LIVE</span>
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">Bus offline</span>
+            )}
+            {selectedStop?.eta && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 ml-2">
                 <Clock size={9} />ETA {selectedStop.eta}
               </span>
             )}
           </div>
-          <iframe
-            title="station-map"
-            className="w-full h-48 border-0"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapLng - 0.01}%2C${mapLat - 0.008}%2C${mapLng + 0.01}%2C${mapLat + 0.008}&layer=mapnik&marker=${mapLat}%2C${mapLng}`}
-          />
-          <div className="px-5 py-2 flex items-center justify-between bg-muted/20">
-            <p className="text-[10px] text-muted-foreground">{mapLat.toFixed(4)}, {mapLng.toFixed(4)}</p>
-            <a href={`https://www.openstreetmap.org/?mlat=${mapLat}&mlon=${mapLng}#map=16/${mapLat}/${mapLng}`} target="_blank" rel="noreferrer"
-              className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold hover:underline">
-              Open full map →
-            </a>
-          </div>
         </div>
-      )}
+        <div style={{ height: 220 }}>
+          <BusMap
+            route={routeStations.filter((s) => s.lat && s.lng).map((s) => ({ lat: s.lat!, lng: s.lng!, name: s.stopLabel || s.stationName || `Stop ${s.id}` }))}
+            busLat={driverLoc.lat}
+            busLng={driverLoc.lng}
+            isLive={driverLoc.isLive}
+          />
+        </div>
+        <div className="px-5 py-2 flex items-center justify-between bg-muted/20">
+          <p className="text-[10px] text-muted-foreground font-mono">
+            {driverLoc.isLive
+              ? `Bus: ${driverLoc.lat.toFixed(4)}°N, ${driverLoc.lng.toFixed(4)}°E`
+              : "Awaiting driver GPS…"}
+          </p>
+          <a
+            href={`https://www.google.com/maps?q=${driverLoc.lat},${driverLoc.lng}`}
+            target="_blank" rel="noreferrer"
+            className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold hover:underline"
+          >
+            Open in Google Maps →
+          </a>
+        </div>
+      </div>
 
       {/* Announcements */}
       {announcements?.length ? (

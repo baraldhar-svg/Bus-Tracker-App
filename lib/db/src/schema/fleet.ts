@@ -12,6 +12,10 @@ export const driversTable = pgTable("drivers", {
   vehicleNumber: text("vehicle_number").notNull(),
   isActive: boolean("is_active").notNull().default(false),
   isOnline: boolean("is_online").notNull().default(false),
+  // Live GPS — updated by driver mobile via POST /api/trips/location
+  currentLat: real("current_lat"),
+  currentLng: real("current_lng"),
+  locationUpdatedAt: text("location_updated_at"),
 });
 
 export const insertDriverSchema = createInsertSchema(driversTable).omit({ id: true });
