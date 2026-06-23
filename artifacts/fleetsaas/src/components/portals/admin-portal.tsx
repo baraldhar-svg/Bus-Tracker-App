@@ -2109,7 +2109,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
         </div>
       )}
 
-      <div className="divide-y divide-border/50">
+      <div className="divide-y divide-border/50 max-h-[420px] overflow-y-auto">
         {(routes ?? []).length === 0 && !creating && (
           <p className="px-5 py-8 text-center text-xs text-muted-foreground">No routes yet — create one above</p>
         )}
