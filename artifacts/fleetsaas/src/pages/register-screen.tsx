@@ -31,6 +31,27 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
 };
 
+const CLASS_OPTIONS = [
+  "Play Group", "Nursery", "LKG", "UKG",
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
+  "Others",
+];
+
+const FACULTY_OPTIONS = [
+  "Science",
+  "Management",
+  "Humanities/Arts",
+  "Law",
+  "Education",
+  "Engineering",
+  "Medical/Nursing",
+  "BCA/CSIT",
+  "BBA",
+  "Vocational",
+];
+
+const FACULTY_CLASSES = new Set(["11", "12", "Others"]);
+
 export default function RegisterScreen() {
   const { login } = useAuth();
   const [, navigate] = useLocation();
@@ -53,6 +74,13 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Student-specific registration state
+  const [className, setClassName] = useState("");
+  const [customClass, setCustomClass] = useState("");
+  const [section, setSection] = useState("");
+  const [rollNumber, setRollNumber] = useState("");
+  const [faculty, setFaculty] = useState("");
 
   // Admin registration state
   const [adminSchoolName, setAdminSchoolName] = useState("");
@@ -175,25 +203,32 @@ export default function RegisterScreen() {
     if (password && password !== confirmPassword) { setErr("Passwords do not match"); return; }
     setErr(""); setLoading(true);
     try {
+      const effectiveClass = className === "Others" ? "Others" : className;
       const user = await apiPost("/auth/register", {
         phone,
         name: name.trim(),
         role,
         schoolCode: regSchoolCode.trim() || undefined,
         password: password || undefined,
+        ...(role === "student" ? {
+          className: effectiveClass || undefined,
+          customClass: className === "Others" ? customClass.trim() || undefined : undefined,
+          section: section.trim() || undefined,
+          rollNumber: rollNumber.trim() || undefined,
+          faculty: FACULTY_CLASSES.has(className) ? faculty || undefined : undefined,
+        } : {}),
       });
       login({ ...user, tenant: user.tenant ?? null });
       navigate("/dashboard");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Registration failed";
-      // If already registered, prompt to log in instead
       if (msg.toLowerCase().includes("already registered")) {
         setErr("This number already has an account. Use Sign In instead.");
       } else {
         setErr(msg);
       }
     } finally { setLoading(false); }
-  }, [phone, name, role, regSchoolCode, password, confirmPassword, login, navigate]);
+  }, [phone, name, role, regSchoolCode, password, confirmPassword, className, customClass, section, rollNumber, faculty, login, navigate]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0F172A] px-4 py-8">
@@ -415,7 +450,7 @@ export default function RegisterScreen() {
               </>
             ) : (
               <>
-                {/* Full Name */}
+                {/* Row 1: Full Name — full width */}
                 <div className="mb-3">
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Full Name</label>
                   <input
@@ -427,69 +462,161 @@ export default function RegisterScreen() {
                   />
                 </div>
 
-                {/* School Code */}
-                <div className="mb-4">
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                    School Code <span className="text-slate-500 normal-case font-normal">(optional)</span>
-                  </label>
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                    <span className="text-slate-400 text-sm">🏫</span>
-                    <input
-                      type="text"
-                      placeholder="e.g. GOLDEN202647"
-                      value={regSchoolCode}
-                      onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
-                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
-                      autoCapitalize="characters"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">Provided by your school administrator</p>
-                </div>
-
-                {/* Password */}
-                <div className="mb-3">
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                    Password <span className="text-slate-500 normal-case font-normal">(optional)</span>
-                  </label>
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
-                    <span className="text-slate-400 text-sm">🔑</span>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Min. 6 characters"
-                      value={password}
-                      onChange={(e) => { setPassword(e.target.value); setErr(""); }}
-                      className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                      autoComplete="new-password"
-                    />
-                    <button type="button" onClick={() => setShowPassword((v) => !v)}
-                      className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
-                      {showPassword ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                </div>
-
-                {password.length >= 1 && (
-                  <div className="mb-4">
-                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Confirm Password</label>
-                    <div className={`flex items-center gap-2 rounded-xl border bg-slate-900 px-3 py-2.5 transition-colors ${confirmPassword && confirmPassword !== password ? "border-red-600" : confirmPassword === password && confirmPassword ? "border-green-600" : "border-slate-600"}`}>
-                      <span className="text-slate-400 text-sm">🔒</span>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Re-enter password"
-                        value={confirmPassword}
-                        onChange={(e) => { setConfirmPassword(e.target.value); setErr(""); }}
-                        className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
-                        autoComplete="new-password"
-                      />
-                      {confirmPassword && (
-                        <span className="text-sm">{confirmPassword === password ? "✓" : "✗"}</span>
-                      )}
+                {/* Student-specific fields */}
+                {role === "student" && (
+                  <>
+                    {/* Row 2: Class | Section */}
+                    <div className="mb-3 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Class</label>
+                        <select
+                          value={className}
+                          onChange={(e) => { setClassName(e.target.value); setCustomClass(""); setFaculty(""); setErr(""); }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition-colors appearance-none"
+                        >
+                          <option value="">Select…</option>
+                          {CLASS_OPTIONS.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Section</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. A"
+                          value={section}
+                          maxLength={5}
+                          onChange={(e) => { setSection(e.target.value.toUpperCase()); setErr(""); }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+                        />
+                      </div>
                     </div>
+
+                    {/* Conditional: Others → custom class text input */}
+                    {className === "Others" && (
+                      <div className="mb-3">
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                          Custom Class <span className="text-amber-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. BBA, B.Ed, MBA"
+                          value={customClass}
+                          onChange={(e) => { setCustomClass(e.target.value); setErr(""); }}
+                          className="w-full rounded-xl border border-amber-600/60 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors"
+                          autoFocus
+                        />
+                      </div>
+                    )}
+
+                    {/* Conditional: Faculty for class 11, 12, Others */}
+                    {FACULTY_CLASSES.has(className) && (
+                      <div className="mb-3">
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Faculty</label>
+                        <select
+                          value={faculty}
+                          onChange={(e) => { setFaculty(e.target.value); setErr(""); }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition-colors appearance-none"
+                        >
+                          <option value="">Select Faculty…</option>
+                          {FACULTY_OPTIONS.map((f) => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Row 3: Roll Number | School Code */}
+                    <div className="mb-4 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Roll No.</label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 23"
+                          value={rollNumber}
+                          onChange={(e) => { setRollNumber(e.target.value); setErr(""); }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">School Code</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. APEX1234"
+                          value={regSchoolCode}
+                          onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                          className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500 transition-colors font-mono"
+                          autoCapitalize="characters"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Non-student roles: School Code full width */}
+                {role !== "student" && (
+                  <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                      School Code <span className="text-slate-500 normal-case font-normal">(optional)</span>
+                    </label>
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                      <span className="text-slate-400 text-sm">🏫</span>
+                      <input
+                        type="text"
+                        placeholder="e.g. GOLDEN202647"
+                        value={regSchoolCode}
+                        onChange={(e) => { setRegSchoolCode(e.target.value.toUpperCase()); setErr(""); }}
+                        className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none font-mono tracking-wider"
+                        autoCapitalize="characters"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Provided by your school administrator</p>
                   </div>
                 )}
 
+                {/* Row 4: Password | Confirm Password */}
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                      Password <span className="text-slate-500 normal-case font-normal text-[10px]">(opt.)</span>
+                    </label>
+                    <div className="flex items-center gap-1.5 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 focus-within:border-amber-500 transition-colors">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Min. 6 chars"
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setErr(""); }}
+                        className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none"
+                        autoComplete="new-password"
+                      />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)}
+                        className="shrink-0 text-slate-500 hover:text-slate-300 text-[10px] transition-colors">
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Confirm</label>
+                    <div className={`flex items-center gap-1.5 rounded-xl border bg-slate-900 px-3 py-2.5 transition-colors ${!password ? "border-slate-600 opacity-40 pointer-events-none" : confirmPassword && confirmPassword !== password ? "border-red-600" : confirmPassword === password && confirmPassword ? "border-green-600" : "border-slate-600"}`}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Re-enter"
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setErr(""); }}
+                        disabled={!password}
+                        className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 outline-none disabled:cursor-not-allowed"
+                        autoComplete="new-password"
+                      />
+                      {confirmPassword && password && (
+                        <span className="text-xs shrink-0">{confirmPassword === password ? "✓" : "✗"}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {!password && (
-                  <p className="mb-4 text-[11px] text-slate-500 -mt-1">
+                  <p className="mb-3 text-[11px] text-slate-500">
                     Skip password to use OTP-only login.
                   </p>
                 )}

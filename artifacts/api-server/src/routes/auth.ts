@@ -166,8 +166,9 @@ router.post("/login-password", async (req, res) => {
 });
 
 router.post("/register", async (req, res) => {
-  const { phone, name, title, role, schoolCode, photoUrl, password } = req.body as {
+  const { phone, name, title, role, schoolCode, photoUrl, password, className, customClass, section, rollNumber, faculty } = req.body as {
     phone?: string; name?: string; title?: string; role?: string; schoolCode?: string; photoUrl?: string; password?: string;
+    className?: string; customClass?: string; section?: string; rollNumber?: string; faculty?: string;
   };
   if (!phone || !name) return res.status(400).json({ error: "Phone and name are required" });
 
@@ -217,6 +218,11 @@ router.post("/register", async (req, res) => {
         role: user.role ?? "student",
         stationId: station.id,
         status: "pending",
+        className: className ?? null,
+        customClass: customClass ?? null,
+        section: section ?? null,
+        rollNumber: rollNumber ?? null,
+        faculty: faculty ?? null,
       });
     }
   }

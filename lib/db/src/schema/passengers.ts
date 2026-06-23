@@ -17,6 +17,11 @@ export const passengersTable = pgTable("passengers", {
   boardedAt: timestamp("boarded_at"),
   liveToday: integer("live_today").notNull().default(0),
   quickMessage: text("quick_message"),
+  className: text("class_name"),
+  customClass: text("custom_class"),
+  section: text("section"),
+  rollNumber: text("roll_number"),
+  faculty: text("faculty"),
 });
 
 export const insertPassengerSchema = createInsertSchema(passengersTable).omit({ id: true, boardedAt: true });
