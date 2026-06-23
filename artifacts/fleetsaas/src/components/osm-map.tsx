@@ -9,7 +9,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Crosshair, Maximize2, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
+import { Crosshair, Maximize2, ExternalLink, Search, RefreshCw, MapPin, X, Lock } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -616,6 +616,19 @@ export default function OsmMap({
   function zoomIn()  { (leafletRef.current as LMap | null)?.zoomIn(); }
   function zoomOut() { (leafletRef.current as LMap | null)?.zoomOut(); }
 
+  // ── Open in new tab ───────────────────────────────────────────────────────
+  function openFullscreen() {
+    const map = leafletRef.current as (LMap & { getCenter: () => { lat: number; lng: number } }) | null;
+    if (!map) return;
+    const center = map.getCenter();
+    const zoom   = map.getZoom();
+    window.open(
+      `https://www.openstreetmap.org/#map=${zoom}/${center.lat.toFixed(5)}/${center.lng.toFixed(5)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   function fitAll() {
     if (!leafletRef.current) return;
     import("leaflet").then((L) => {
@@ -827,18 +840,25 @@ export default function OsmMap({
         </div>
       )}
 
-      {/* ── Top-right: fit-all button ── */}
-      {(isFleet || isBuild) && (
-        <div className="absolute top-2 right-2 z-[1001]">
+      {/* ── Top-right: fit-all + open-in-new-tab ── */}
+      <div className="absolute top-2 right-2 z-[1001] flex flex-col gap-1">
+        {(isFleet || isBuild) && (
           <button
             onClick={(e) => { e.stopPropagation(); fitAll(); }}
-            title="Fit all in view"
+            title="Fit all stops in view"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground hover:bg-muted transition-colors"
           >
             <Maximize2 size={13} />
           </button>
-        </div>
-      )}
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); openFullscreen(); }}
+          title="Open in full screen (new tab)"
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-border shadow-md text-foreground hover:bg-muted transition-colors"
+        >
+          <ExternalLink size={13} />
+        </button>
+      </div>
 
       {/* ── Bottom-right: My Location + zoom ── */}
       <div className="absolute bottom-2 right-2 z-[1001] flex flex-col gap-1">
