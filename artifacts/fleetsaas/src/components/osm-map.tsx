@@ -730,7 +730,7 @@ export default function OsmMap({
   const isBuild = mode === "build";
 
   return (
-    <div ref={containerRef} className="relative w-full bg-white" style={{ height, overflow: "clip" }}>
+    <div ref={containerRef} className="relative w-full bg-white" style={{ height, overflow: "clip", isolation: "isolate" }}>
 
       {/* Map canvas */}
       <div ref={mapDivRef} className="absolute inset-0" />
