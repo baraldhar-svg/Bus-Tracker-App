@@ -110,4 +110,12 @@ router.get("/place", async (req, res) => {
   }
 });
 
+// GET /geocode/maps-key — returns the Maps JS API key so the browser can load
+// the Google Maps JS SDK. The key is always visible in the Maps script URL anyway;
+// serving it here keeps it out of frontend source code.
+router.get("/maps-key", (_req, res) => {
+  const key = process.env.GOOGLE_MAPS_API_KEY ?? "";
+  return res.json({ key });
+});
+
 export default router;
