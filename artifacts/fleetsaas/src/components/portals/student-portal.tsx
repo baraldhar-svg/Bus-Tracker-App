@@ -409,7 +409,7 @@ export default function StudentPortal() {
         <div className="space-y-2">
           <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
               {routeStations.map((rs, idx) => {
                 const isMyStop = String(rs.stationId) === selectedStationId;
                 return (
