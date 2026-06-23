@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -62,6 +62,21 @@ export default function RegisterScreen() {
   const [adminPosition, setAdminPosition] = useState("");
   const [adminMobile, setAdminMobile] = useState("");
   const [adminName, setAdminName] = useState("");
+
+  // Geo-detection state — null = detecting, true = Nepal, false = international
+  const [isNepal, setIsNepal] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (step !== "admin_pending") return;
+    setIsNepal(null);
+    fetch("https://ipapi.co/json/")
+      .then(r => r.json())
+      .then((d: { country_code?: string }) => setIsNepal(d.country_code === "NP"))
+      .catch(() => {
+        // Fallback: Nepal mobile numbers start with 97x / 98x / 96x
+        setIsNepal(/^9[6-8]/.test(adminMobile));
+      });
+  }, [step, adminMobile]);
 
   function resetToPhone() {
     setStep("phone");
@@ -585,38 +600,38 @@ export default function RegisterScreen() {
           </>
         )}
 
-        {/* ── STEP: Admin pending approval (Nepali modal) ── */}
+        {/* ── STEP: Admin pending approval — geo-aware, no nav shortcuts ── */}
         {step === "admin_pending" && (
           <div className="py-2 text-center">
-            <div className="text-5xl mb-4">🕐</div>
-            <h2 className="text-lg font-black text-amber-400 mb-3">दर्ता सफल भयो!</h2>
-            <div className="rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-4 mb-5 text-left">
-              <p className="text-sm text-amber-200 leading-relaxed">
-                कृपया धैर्य गर्नुस् — तपाइँको दर्ता प्रमाणीकरणमा गएको छ।
-              </p>
-              <p className="text-sm text-slate-300 leading-relaxed mt-2">
-                ५–१० मिनेटमा तपाइँको स्कूलको इमेलमा <strong className="text-amber-300">भेरिफिकेसन कोड</strong> आउनेछ।
-              </p>
-              <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-                कोड प्राप्त भएपछि <strong className="text-slate-200">Admin Verify</strong> पेजमा गई आफ्नो मोबाइल नम्बर र स्कूल कोड राख्नुस्।
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 mb-5">
-              <p className="text-xs text-slate-400 mb-2">Verification link</p>
-              <p className="text-xs font-mono text-amber-300 break-all">{window.location.origin}{import.meta.env.BASE_URL}admin-verify</p>
-            </div>
-            <button
-              onClick={() => navigate("/admin-verify")}
-              className="w-full rounded-xl bg-amber-500 py-3 font-bold text-slate-900 hover:bg-amber-400 transition-colors"
-            >
-              Go to Verification Page →
-            </button>
-            <button
-              onClick={() => navigate("/")}
-              className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              Return to Home
-            </button>
+            {isNepal === null ? (
+              /* Detecting region */
+              <div className="py-10 flex flex-col items-center gap-3">
+                <span className="h-7 w-7 rounded-full border-2 border-amber-500/30 border-t-amber-400 animate-spin" />
+                <p className="text-xs text-slate-400">Detecting your region…</p>
+              </div>
+            ) : isNepal ? (
+              /* ── Nepal locale (Nepali) ── */
+              <>
+                <div className="text-5xl mb-4">🕐</div>
+                <h2 className="text-lg font-black text-amber-400 mb-4">दर्ता सफल भयो!</h2>
+                <div className="rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-5 text-left">
+                  <p className="text-sm text-amber-200 leading-relaxed font-medium">
+                    कृपया धैर्य गर्नुस् तपाइँको दर्ता प्रमाणीकरणमा गएको छ ५–१० मिनेटमा तपाइँको स्कूलको इमेलमा भेरिफिकेसन कोड आउनेछ।
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* ── International locale (English) ── */
+              <>
+                <div className="text-5xl mb-4">🕐</div>
+                <h2 className="text-lg font-black text-amber-400 mb-4">Registration Submitted!</h2>
+                <div className="rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-5 text-left">
+                  <p className="text-sm text-amber-200 leading-relaxed font-medium">
+                    Please wait. Your registration is undergoing verification. A verification code will be sent to your school's email address within 5–10 minutes.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

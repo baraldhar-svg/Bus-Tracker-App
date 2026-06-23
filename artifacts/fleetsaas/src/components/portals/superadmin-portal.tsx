@@ -985,9 +985,45 @@ function PendingRegistrationsPanel() {
                           {copiedId === reg.id ? "✓ Copied!" : "Copy Link"}
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1.5">
-                        📧 In production this code + verification link would be emailed to <span className="text-slate-300">{reg.email}</span>
-                      </p>
+                      {/* Localized email template preview */}
+                      {(() => {
+                        const verifyLink = `${window.location.origin}${BASE}/admin-verify?code=${reg.schoolCode}&mobile=${reg.mobile}`;
+                        const isNepalMobile = /^9[6-8]/.test(reg.mobile);
+                        return (
+                          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2.5">
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-1.5">
+                              📧 Email that would be sent to {reg.email}
+                            </p>
+                            {isNepalMobile ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-slate-300 leading-relaxed">
+                                  <span className="font-semibold text-amber-300">विषय:</span> OrbitTrack — तपाइँको स्कूल भेरिफिकेसन कोड
+                                </p>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                  प्रिय <span className="text-slate-200">{reg.adminName}</span>, तपाइँको स्कूल <span className="text-slate-200">{reg.schoolName}</span> को दर्ता अनुमोदन भएको छ।
+                                </p>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                  स्कूल कोड: <span className="font-mono font-bold text-blue-300">{reg.schoolCode}</span>
+                                </p>
+                                <p className="text-xs text-blue-400 break-all">{verifyLink}</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <p className="text-xs text-slate-300 leading-relaxed">
+                                  <span className="font-semibold text-amber-300">Subject:</span> OrbitTrack — Your School Verification Code
+                                </p>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                  Dear <span className="text-slate-200">{reg.adminName}</span>, your school <span className="text-slate-200">{reg.schoolName}</span> has been approved on OrbitTrack.
+                                </p>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                  School Code: <span className="font-mono font-bold text-blue-300">{reg.schoolCode}</span>
+                                </p>
+                                <p className="text-xs text-blue-400 break-all">{verifyLink}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
