@@ -1782,9 +1782,9 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
 
   function handleMapClick(lat: number, lng: number, name?: string) {
     const resolved = name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    // Always update position + name; don't reset radius (persists across drags)
     setMapClickPending({ lat, lng, name: resolved });
     setPendingName(resolved);
-    setPendingRadius(100);
   }
 
   async function handleAddPendingStation() {
@@ -1797,6 +1797,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
       setStagedStations((prev) => [...prev, { stationId: created.id, name, lat: mapClickPending.lat, lng: mapClickPending.lng }]);
       setMapClickPending(null);
       setPendingName("");
+      setPendingRadius(100); // Reset radius only after station is saved
     } catch { /* noop */ }
     finally { setPendingSaving(false); }
   }

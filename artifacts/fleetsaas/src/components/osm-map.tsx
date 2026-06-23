@@ -553,21 +553,46 @@ export default function OsmMap({
   // ── Pending pin (build mode — shown while reverse geocoding) ─────────────
   function _showPendingPin(L: any, map: any, la: number, ln: number) {
     if (pendingPinRef.current) (pendingPinRef.current as any).remove();
+
+    // Draggable icon — move-arrows inside amber circle signals "drag to reposition"
     const icon = L.divIcon({
-      html: `<div style="display:flex;flex-direction:column;align-items:center;">
-        <div style="width:24px;height:24px;border-radius:50%;background:#f59e0b;border:3px solid white;
-             box-shadow:0 2px 10px rgba(245,158,11,0.6);display:flex;align-items:center;justify-content:center;
-             animation:osm-ripple 1s ease-out infinite;">
-          <div style="width:8px;height:8px;border-radius:50%;background:white;opacity:0.9;"></div>
+      html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:grab;">
+        <div style="width:30px;height:30px;border-radius:50%;background:#f59e0b;border:3px solid white;
+             box-shadow:0 2px 14px rgba(245,158,11,0.65);display:flex;align-items:center;justify-content:center;
+             animation:osm-ripple 1.2s ease-out infinite;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/>
+            <polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/>
+            <line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/>
+          </svg>
         </div>
-        <div style="width:2px;height:10px;background:#f59e0b;opacity:0.7;"></div>
+        <div style="width:2px;height:10px;background:#f59e0b;opacity:0.75;"></div>
       </div>`,
       className: "",
-      iconSize: [24, 36],
-      iconAnchor: [12, 36],
+      iconSize: [30, 42],
+      iconAnchor: [15, 42],
     });
-    const pin = L.marker([la, ln], { icon, zIndexOffset: 2000, interactive: false });
+
+    const pin = L.marker([la, ln], { icon, zIndexOffset: 2000, interactive: true, draggable: true });
     (pin as any).addTo(map);
+
+    // On drag-end: re-reverse-geocode the new position and bubble it up
+    (pin as any).on("dragend", () => {
+      const { lat: newLat, lng: newLng } = (pin as any).getLatLng();
+      setReverseLoading(true);
+      fetch(`${BASE}/api/geocode/reverse?lat=${newLat}&lng=${newLng}`)
+        .then((r) => r.ok ? r.json() as Promise<{ name: string }> : Promise.resolve(null))
+        .then((data) => {
+          setReverseLoading(false);
+          onMapClickRef.current?.(newLat, newLng, data?.name ?? undefined);
+        })
+        .catch(() => {
+          setReverseLoading(false);
+          onMapClickRef.current?.(newLat, newLng);
+        });
+    });
+
     pendingPinRef.current = pin;
   }
 
