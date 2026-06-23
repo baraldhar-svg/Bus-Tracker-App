@@ -1380,6 +1380,10 @@ function RouteStationsPanel({
     setSpeedKmh(String(route.avgSpeedKmh ?? 25));
   }, [route.vehicleId, route.driverId, route.departureTime, route.avgSpeedKmh]);
 
+  // Persistent lock: re-enable (amber) when the user changes inputs after a save
+  useEffect(() => { setAssignSaved(false); }, [editVehicle, editDriver]);
+  useEffect(() => { setEtaSaved(false); }, [depTime, speedKmh]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1399,7 +1403,6 @@ function RouteStationsPanel({
         driverId: editDriver ? Number(editDriver) : null,
       });
       onRouteUpdated(); setAssignSaved(true);
-      setTimeout(() => setAssignSaved(false), 2000);
     } catch { /* ignore */ }
     finally { setAssignSaving(false); }
   }
@@ -1414,7 +1417,6 @@ function RouteStationsPanel({
       onRouteUpdated();
       await load();
       setEtaSaved(true);
-      setTimeout(() => setEtaSaved(false), 2000);
     } catch { /* ignore */ }
     finally { setEtaSaving(false); }
   }
@@ -1457,7 +1459,6 @@ function RouteStationsPanel({
       }
       await load();
       setAutoReturnDone(true);
-      setTimeout(() => setAutoReturnDone(false), 3000);
     } finally { setAutoReturnLoading(false); }
   }
 
@@ -1471,10 +1472,9 @@ function RouteStationsPanel({
       : `ℹ Return trip — ${route.name}: All assigned students are confirmed boarded. Bus is returning safely.`;
     setAlertLoading(true); setAlertSent(false);
     try {
-      await apiPost("/announcements", { message: msg, severity: names ? "urgent" : "info" });
+      await apiPost("/announcements", { message: msg, severity: names ? "emergency" : "info" });
       queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
       setAlertSent(true);
-      setTimeout(() => setAlertSent(false), 3000);
     } finally { setAlertLoading(false); }
   }
 
@@ -1598,7 +1598,7 @@ function RouteStationsPanel({
             onClick={handleAutoReturn}
             disabled={autoReturnLoading || routeStations.filter((rs) => rs.direction === "forward").length === 0}
             className={`w-full rounded-lg py-1.5 text-[10px] font-bold transition-colors disabled:opacity-50 ${
-              autoReturnDone ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-400"
+              autoReturnDone ? "bg-green-500 text-white" : "bg-amber-500 text-slate-900 hover:bg-amber-400"
             }`}
           >
             {autoReturnLoading
