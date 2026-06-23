@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import BusMap from "@/components/bus-map";
+import OsmMap from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
 import { useListAnnouncements, useGetTripTimeline, useListCalendarEvents, useListRoutes } from "@workspace/api-client-react";
 import { Bus, Lock, Unlock, MapPin, Navigation, ChevronDown, CheckCircle, Star, Clock } from "lucide-react";
@@ -289,11 +289,13 @@ export default function ParentPortal() {
           </div>
         </div>
         <div style={{ height: 220 }}>
-          <BusMap
+          <OsmMap
+            mode="tracking"
             route={routeStations.filter((s) => s.lat && s.lng).map((s) => ({ lat: s.lat!, lng: s.lng!, name: s.stopLabel || s.stationName || `Stop ${s.id}` }))}
-            busLat={driverLoc.lat}
-            busLng={driverLoc.lng}
+            lat={driverLoc.lat}
+            lng={driverLoc.lng}
             isLive={driverLoc.isLive}
+            height={220}
           />
         </div>
         <div className="px-5 py-2 flex items-center justify-between bg-muted/20">

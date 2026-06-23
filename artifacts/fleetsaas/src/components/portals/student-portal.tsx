@@ -10,7 +10,7 @@ import {
   useListCalendarEvents,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import BusMap from "@/components/bus-map";
+import OsmMap from "@/components/osm-map";
 import PaymentModal from "@/components/PaymentModal";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
@@ -386,11 +386,13 @@ export default function StudentPortal() {
         </div>
 
         <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 280 }}>
-          <BusMap
+          <OsmMap
+            mode="tracking"
             route={routeStations.filter((rs) => rs.lat && rs.lng).map((rs) => ({ lat: rs.lat!, lng: rs.lng!, name: rs.stationName ?? `Stop ${rs.id}` }))}
-            busLat={driverLoc.lat}
-            busLng={driverLoc.lng}
+            lat={driverLoc.lat}
+            lng={driverLoc.lng}
             isLive={driverLoc.isLive}
+            height={280}
           />
         </div>
         {routeStations.length > 0 ? (

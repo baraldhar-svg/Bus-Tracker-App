@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
-import FleetMap from "@/components/fleet-map";
+import OsmMap from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -2816,13 +2816,14 @@ export default function AdminPortal() {
             </div>
           )}
         </div>
-        <FleetMap
+        <OsmMap
+          mode="fleet"
           buses={FLEET_VEHICLES.map((v) => ({
             id: v.id,
             label: v.plate,
             driverName: v.driver,
-            lat: v.id === 1 && driverLoc.isLive ? driverLoc.lat : v.lat,
-            lng: v.id === 1 && driverLoc.isLive ? driverLoc.lng : v.lng,
+            lat: v.lat,
+            lng: v.lng,
             status: v.status,
             speed: v.speed,
           }))}
