@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, getListAnnouncementsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User, Bell } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import OsmMap, { type RouteStop } from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
@@ -2861,35 +2861,95 @@ export default function AdminPortal() {
           </div>
         )}
       </div>
-      {/* Notices */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border border-t-[#ffb900] border-r-[#ffb900] border-b-[#ffb900] border-l-[#ffb900] bg-[#ffb900] rounded-tl-[12px] rounded-tr-[12px] rounded-br-[12px] rounded-bl-[12px]">
-          <h2 className="font-semibold text-primary">Notices & Announcements</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Shown on all student & staff dashboards</p>
+      {/* Live Fleet Activity Feed */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight">Live Fleet Activity Feed</h2>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium mt-0.5">Notices & Announcements · Shown on all dashboards</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            {announcements?.length ?? 0} active
+          </span>
         </div>
-        <div className="p-4 space-y-2">
-          <div className="flex gap-2">
-            <input value={newNotice} onChange={(e) => setNewNotice(e.target.value)}
-              placeholder="e.g. Bus will be 15 min late tomorrow…"
-              className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500"
-              onKeyDown={(e) => e.key === "Enter" && handleAddNotice()} />
-            <button onClick={handleAddNotice} disabled={!newNotice.trim() || noticeSaving}
-              className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
-              {noticeSaving ? "…" : "Post"}
-            </button>
-          </div>
-          <div className="max-h-56 overflow-y-auto space-y-2 pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 dark:[&::-webkit-scrollbar-thumb]:bg-amber-700 hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-            {announcements?.map((a) => (
-              <div key={a.id} className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 dark:bg-red-950/20 p-3 bg-[#C7C7C7]">
-                <p className="flex-1 text-sm dark:text-red-300 bg-[#cec9d1] text-[#000] font-bold">{a.message}</p>
+
+        {/* Compose */}
+        <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex gap-2">
+          <input value={newNotice} onChange={(e) => setNewNotice(e.target.value)}
+            placeholder="e.g. Bus A will be 15 min late tomorrow…"
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none focus:border-amber-400 focus:bg-white dark:focus:bg-slate-700 transition-colors"
+            onKeyDown={(e) => e.key === "Enter" && handleAddNotice()} />
+          <button onClick={handleAddNotice} disabled={!newNotice.trim() || noticeSaving}
+            className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition-colors whitespace-nowrap">
+            {noticeSaving ? "…" : "Post"}
+          </button>
+        </div>
+
+        {/* Feed */}
+        <div className="max-h-72 overflow-y-auto p-4 space-y-2.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700">
+          {(announcements ?? []).length === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Bell size={20} className="text-slate-300 dark:text-slate-600" />
+              <p className="text-xs text-slate-400 dark:text-slate-500">No active notices</p>
+            </div>
+          )}
+          {(announcements ?? []).map((a) => {
+            const msg = a.message.toLowerCase();
+            const isEmergency = a.severity === "emergency" || msg.includes("sos") || msg.includes("accident") || msg.includes("urgent") || msg.includes("alert");
+            const isDelay = !isEmergency && (msg.includes(" late") || msg.includes("delay") || msg.includes("min late") || msg.includes("slow") || msg.includes("15 min") || msg.includes("30 min"));
+            const isBoarded = !isEmergency && !isDelay && (msg.includes("board") || msg.includes("pickup") || msg.includes("confirmed") || msg.includes("on route") || msg.includes("returning"));
+            const isCompleted = !isEmergency && !isDelay && !isBoarded && (msg.includes("complet") || msg.includes("arrived") || msg.includes("journey") || msg.includes("finish") || msg.includes("all assigned"));
+
+            const cfg = isEmergency
+              ? { icon: <AlertTriangle size={13} />, card: "border-red-100 dark:border-red-900/40 bg-red-50/60 dark:bg-red-950/10", wrap: "text-red-500 bg-red-100 dark:bg-red-950/40", dot: "bg-red-500", label: "Emergency" }
+              : isDelay
+              ? { icon: <Clock size={13} />, card: "border-amber-100 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-950/10", wrap: "text-amber-500 bg-amber-100 dark:bg-amber-950/40", dot: "bg-amber-500 animate-pulse", label: "Delay" }
+              : isBoarded
+              ? { icon: <Bus size={13} />, card: "border-blue-100 dark:border-blue-900/30 bg-blue-50/40 dark:bg-blue-950/10", wrap: "text-blue-600 bg-blue-100 dark:bg-blue-950/40", dot: "bg-blue-500", label: "Boarding" }
+              : isCompleted
+              ? { icon: <CheckCircle size={13} />, card: "border-green-100 dark:border-green-900/30 bg-green-50/40 dark:bg-green-950/10", wrap: "text-green-600 bg-green-100 dark:bg-green-950/40", dot: "bg-green-500", label: "Completed" }
+              : { icon: <Bell size={13} />, card: "border-slate-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/40", wrap: "text-slate-500 bg-slate-100 dark:bg-slate-700", dot: "bg-slate-400", label: "Notice" };
+
+            // Highlight Nepali vehicle plates like "BA 1 KHA 1234"
+            const plateRe = /([A-Z]{1,3}\s*\d{1,2}\s*[A-Z]{1,4}\s*\d{1,4})/gi;
+            const parts = a.message.split(plateRe);
+            const msgNode = parts.map((part, i) =>
+              i % 2 === 1
+                ? <span key={i} className="inline-block font-mono text-[9px] font-bold bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-1.5 py-0.5 rounded-[4px] tracking-widest mx-0.5 align-middle border border-slate-700 dark:border-slate-300 shadow-inner">{part.trim()}</span>
+                : <span key={i}>{part}</span>
+            );
+
+            const ts = a.createdAt
+              ? new Date(a.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })
+              : "";
+
+            return (
+              <div key={a.id}
+                className={`group flex items-start gap-3 rounded-xl border p-3 shadow-sm transition-transform duration-150 hover:scale-[1.005] cursor-default ${cfg.card}`}>
+                <div className={`flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full mt-0.5 ${cfg.wrap}`}>
+                  {cfg.icon}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug font-normal">{msgNode}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-light tracking-wide">{cfg.label}{ts ? ` · ${ts}` : ""}</span>
+                  </div>
+                </div>
                 <button onClick={() => handleDeleteNotice(a.id)}
-                  className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300 text-lg leading-none">×</button>
+                  className="opacity-0 group-hover:opacity-100 shrink-0 rounded-lg p-1 text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-all mt-0.5">
+                  <X size={12} />
+                </button>
               </div>
-            ))}
-            {announcements?.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-3">No notices yet</p>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
       {/* Passengers */}
