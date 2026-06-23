@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import OsmMap, { type RouteStop } from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
@@ -1758,7 +1758,10 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   const queryClient = useQueryClient();
   const { data: routes, refetch } = useListRoutes();
   const { data: allStations } = useListStations();
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingRouteId, setEditingRouteId] = useState<number | null>(null);
+  const editingRoute = editingRouteId != null
+    ? ((routes as RouteRow[] | undefined) ?? []).find((r) => r.id === editingRouteId) ?? null
+    : null;
   const [creating, setCreating] = useState(false);
   const [rName, setRName] = useState("");
   const [rDriver, setRDriver] = useState("");
@@ -2008,49 +2011,144 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
         </div>
       )}
 
-      <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
+      <div className="divide-y divide-border/50">
         {(routes ?? []).length === 0 && !creating && (
-          <p className="px-5 py-6 text-center text-xs text-muted-foreground">No routes yet — create one above</p>
+          <p className="px-5 py-8 text-center text-xs text-muted-foreground">No routes yet — create one above</p>
         )}
         {(routes as RouteRow[] ?? []).map((r) => (
-          <div key={r.id} className="px-5 py-3">
-            <div className="flex items-center gap-3">
-              <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${r.isActive ? "bg-green-500" : "bg-gray-400"}`} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {r.driverName ?? "No driver"} · {r.vehiclePlate ?? "No vehicle"}
-                </p>
+          <div key={r.id} className="px-4 py-3">
+            <div
+              className="rounded-xl border border-border bg-card hover:border-amber-400 transition-all cursor-pointer p-3.5 group"
+              onClick={() => setEditingRouteId(r.id)}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${r.isActive ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"}`} />
+                  <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                  <Lock size={9} className="text-muted-foreground/40 shrink-0" />
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingRouteId(r.id); }}
+                  className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[10px] font-medium text-muted-foreground hover:border-amber-500 hover:text-amber-600 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                >
+                  <Pencil size={9} />Manage
+                </button>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => handleToggleActive(r)}
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-colors ${r.isActive ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800" : "bg-muted text-muted-foreground border-border hover:border-amber-500"}`}>
-                  {r.isActive ? "Active" : "Inactive"}
-                </button>
-                <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                  className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted">
-                  {expandedId === r.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-                <button onClick={() => handleDelete(r.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+              <div className="mt-2 flex items-center gap-4 pointer-events-none">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Bus size={10} className="shrink-0" />
+                  <span className="font-medium">{r.vehiclePlate ?? "—"}</span>
+                </span>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <User size={10} className="shrink-0" />
+                  {r.driverName ?? "No driver"}
+                </span>
+                {r.departureTime && (
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Clock size={10} className="shrink-0" />{r.departureTime}
+                  </span>
+                )}
               </div>
             </div>
-            {expandedId === r.id && (
-              <RouteStationsPanel
-                routeId={r.id}
-                route={r}
-                vehicles={vehicles}
-                drivers={drivers}
-                onClose={() => setExpandedId(null)}
-                onRouteUpdated={() => { refetch(); queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() }); }}
-              />
-            )}
           </div>
         ))}
       </div>
+
+      {editingRoute && (
+        <RouteEditModal
+          route={editingRoute}
+          vehicles={vehicles}
+          drivers={drivers}
+          onClose={() => setEditingRouteId(null)}
+          onRouteUpdated={() => {
+            refetch();
+            queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+          }}
+          onDelete={() => {
+            handleDelete(editingRoute.id);
+            setEditingRouteId(null);
+          }}
+          onToggleActive={() => handleToggleActive(editingRoute)}
+        />
+      )}
     </div>
   );
 }
 
+
+// ── RouteEditModal ────────────────────────────────────────────────────────────
+function RouteEditModal({
+  route, vehicles, drivers, onClose, onRouteUpdated, onDelete, onToggleActive,
+}: {
+  route: RouteRow;
+  vehicles: VehicleRow[] | undefined;
+  drivers: Array<{ id: number; name: string }> | undefined;
+  onClose: () => void;
+  onRouteUpdated: () => void;
+  onDelete: () => void;
+  onToggleActive: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[2000] flex items-start justify-center p-4 pt-[4.5rem] bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl max-h-[82vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border rounded-t-2xl bg-card shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${route.isActive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+            <div className="min-w-0">
+              <p className="font-bold text-sm text-foreground truncate">{route.name}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {route.vehiclePlate ?? "No bus"} · {route.driverName ?? "No driver"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            <button
+              onClick={onToggleActive}
+              className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-colors ${
+                route.isActive
+                  ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                  : "bg-muted text-muted-foreground border-border hover:border-amber-500"
+              }`}
+            >
+              {route.isActive ? "● Active" : "● Inactive"}
+            </button>
+            <button
+              onClick={() => { if (confirm(`Delete "${route.name}"? This cannot be undone.`)) onDelete(); }}
+              className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+            >
+              <Trash2 size={13} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 p-2">
+          <RouteStationsPanel
+            routeId={route.id}
+            route={route}
+            vehicles={vehicles}
+            drivers={drivers}
+            onClose={onClose}
+            onRouteUpdated={onRouteUpdated}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── SmartStationManager ───────────────────────────────────────────────────────
 type StationRow = { id: number; name: string; lat?: number | null; lng?: number | null; radius?: number | null };
