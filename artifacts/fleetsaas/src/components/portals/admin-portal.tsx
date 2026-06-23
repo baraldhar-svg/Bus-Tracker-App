@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
+import FleetMap from "@/components/fleet-map";
+import { useDriverLocation } from "@/hooks/use-driver-location";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -2316,6 +2318,7 @@ function BoardingLogPanel() {
 
 export default function AdminPortal() {
   const { user, login } = useAuth();
+  const driverLoc = useDriverLocation();
   const { data: stations, refetch: refetchStations } = useListStations();
   const { data: announcements, refetch: refetchAnnouncements } = useListAnnouncements();
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
@@ -2797,6 +2800,40 @@ export default function AdminPortal() {
           ))}
         </div>
       </div>
+      {/* Live Fleet Map */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h2 className="font-semibold text-primary">Live Fleet Map</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {onRouteCount} bus{onRouteCount !== 1 ? "es" : ""} on route · all vehicles auto-fit
+            </p>
+          </div>
+          {driverLoc.isLive && (
+            <div className="flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-200 dark:border-green-800 px-2.5 py-1 text-[10px] font-bold text-green-700 dark:text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              GPS LIVE
+            </div>
+          )}
+        </div>
+        <FleetMap
+          buses={FLEET_VEHICLES.map((v) => ({
+            id: v.id,
+            label: v.plate,
+            driverName: v.driver,
+            lat: v.id === 1 && driverLoc.isLive ? driverLoc.lat : v.lat,
+            lng: v.id === 1 && driverLoc.isLive ? driverLoc.lng : v.lng,
+            status: v.status,
+            speed: v.speed,
+          }))}
+          liveLat={driverLoc.lat}
+          liveLng={driverLoc.lng}
+          liveIsLive={driverLoc.isLive}
+          liveBusId={1}
+          height={340}
+        />
+      </div>
+
       {/* Fleet Status */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
