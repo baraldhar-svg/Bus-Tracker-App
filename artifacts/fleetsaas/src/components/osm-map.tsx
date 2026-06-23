@@ -546,13 +546,8 @@ export default function OsmMap({
       polylineRef.current = poly;
     }
 
-    // Auto-fit camera to all stops
-    if (bldStops.length === 1) {
-      (map as LMap).setView([bldStops[0].lat, bldStops[0].lng], 15);
-    } else if (bldStops.length >= 2) {
-      const bounds = L.latLngBounds(bldStops.map((s) => [s.lat, s.lng] as [number, number]));
-      if (bounds.isValid()) (map as LMap).fitBounds(bounds, { padding: [40, 40], maxZoom: 16, animate: true });
-    }
+    // Do NOT auto-fit — let the user stay at their chosen zoom level.
+    // Use the "Fit all" button (top-right) to fit bounds on demand.
   }
 
   // ── Pending pin (build mode — shown while reverse geocoding) ─────────────

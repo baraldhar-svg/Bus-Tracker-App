@@ -134,11 +134,27 @@ router.get("/reverse", async (req, res) => {
       };
     };
     const addr = data.address ?? {};
-    const name =
-      addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? addr.residential ??
-      addr.village ?? addr.road ?? addr.town ?? addr.city ?? addr.county ??
-      (data.display_name ? data.display_name.split(",")[0]?.trim() : null) ??
-      `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const area =
+      addr.suburb ?? addr.neighbourhood ?? addr.quarter ??
+      addr.residential ?? addr.village;
+    const road = addr.road;
+    const city = addr.town ?? addr.city ?? addr.county;
+
+    let name: string;
+    if (road && area) {
+      name = `${road}, ${area}`;
+    } else if (road && city) {
+      name = `${road}, ${city}`;
+    } else if (area) {
+      name = area;
+    } else if (road) {
+      name = road;
+    } else {
+      name =
+        city ??
+        (data.display_name ? data.display_name.split(",")[0]?.trim() : null) ??
+        `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
     return res.json({ name, lat, lng });
   } catch (err) {
     req.log.error({ err }, "Reverse geocode failed");
