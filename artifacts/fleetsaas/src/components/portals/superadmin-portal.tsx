@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useGetDashboardStats, useListTenants } from "@workspace/api-client-react";
-import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2, ChevronDown, ChevronRight, MapPin, Bus, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Shield, Building2, Users, Radio, Banknote, Megaphone, Pencil, X, Check, Upload, Search, Trash2, ChevronDown, ChevronRight, MapPin, Bus, Wifi, WifiOff, RefreshCw, CreditCard, CheckCircle, AlertTriangle, RotateCcw } from "lucide-react";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -1197,6 +1197,271 @@ function TenantAccordion({ tenants, onPlanChange }: {
   );
 }
 
+type PayingUserItem = {
+  id: number;
+  name: string;
+  phone: string | null;
+  routeId: number | null;
+  routeSubscribedAt: string | null;
+  status: string;
+  isPaying: boolean;
+  isExpired: boolean;
+  daysLeft: number | null;
+};
+
+type PayingSchool = {
+  tenantId: number;
+  tenantName: string;
+  passengers: PayingUserItem[];
+};
+
+function PayingUserRow({ user, onRenew }: { user: PayingUserItem; onRenew: (id: number) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [renewing, setRenewing] = useState(false);
+  const [renewed, setRenewed] = useState(false);
+
+  async function handleRenew() {
+    setRenewing(true);
+    try {
+      await onRenew(user.id);
+      setRenewed(true);
+      setTimeout(() => setRenewed(false), 3000);
+    } finally { setRenewing(false); }
+  }
+
+  const statusColor = user.isExpired
+    ? "bg-red-900/40 border-red-700 text-red-300"
+    : (user.daysLeft ?? 30) <= 5
+    ? "bg-orange-900/40 border-orange-600 text-orange-300"
+    : "bg-green-900/40 border-green-700 text-green-300";
+
+  const statusLabel = user.isExpired
+    ? "Expired"
+    : user.isPaying
+    ? `${user.daysLeft}d left`
+    : "No sub";
+
+  return (
+    <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${open ? "bg-slate-700/60" : "bg-slate-800/50 hover:bg-slate-800"}`}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-700 text-amber-400 font-bold text-sm">
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-100 truncate">{user.name}</p>
+          <p className="text-[10px] text-slate-500">{user.phone ?? "No phone"}</p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusColor}`}>
+          {statusLabel}
+        </span>
+        {open ? <ChevronDown size={13} className="text-amber-400 shrink-0" /> : <ChevronRight size={13} className="text-slate-500 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-700 bg-slate-900/60 px-4 py-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="text-slate-500 mb-0.5">Status</p>
+              <p className={`font-semibold ${user.isExpired ? "text-red-400" : "text-green-400"}`}>
+                {user.isExpired ? "Expired" : "Active"}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 mb-0.5">Route ID</p>
+              <p className="text-slate-200 font-semibold">#{user.routeId ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 mb-0.5">Subscribed</p>
+              <p className="text-slate-200">
+                {user.routeSubscribedAt
+                  ? new Date(user.routeSubscribedAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" })
+                  : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 mb-0.5">Days Remaining</p>
+              <p className={`font-bold ${user.isExpired ? "text-red-400" : (user.daysLeft ?? 30) <= 5 ? "text-orange-400" : "text-green-400"}`}>
+                {user.isExpired ? "Expired" : `${user.daysLeft ?? "—"} days`}
+              </p>
+            </div>
+          </div>
+
+          {user.isExpired && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-800/50 bg-red-950/30 px-3 py-2">
+              <AlertTriangle size={12} className="text-red-400 shrink-0" />
+              <p className="text-xs text-red-300">Subscription expired — student cannot see GPS tracking</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRenew}
+              disabled={renewing || renewed}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-60 transition-colors"
+            >
+              {renewing ? (
+                <><RefreshCw size={12} className="animate-spin" /> Renewing…</>
+              ) : renewed ? (
+                <><CheckCircle size={12} /> Renewed!</>
+              ) : (
+                <><RotateCcw size={12} /> Renew 30 Days</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PayingUsersPanel() {
+  const [open, setOpen] = useState(false);
+  const [schools, setSchools] = useState<PayingSchool[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<number | "all">("all");
+  const [filter, setFilter] = useState<"all" | "paying" | "expired">("all");
+  const fetchedRef = useRef(false);
+
+  async function fetchPayingUsers() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/superadmin/paying-users`);
+      const data = await r.json() as PayingSchool[];
+      setSchools(data);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  async function handleRenew(passengerId: number) {
+    await fetch(`${BASE}/api/passengers/${passengerId}/renew`, { method: "POST" });
+    await fetchPayingUsers();
+  }
+
+  function handleToggle() {
+    const opening = !open;
+    setOpen(opening);
+    if (opening && !fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchPayingUsers();
+    }
+  }
+
+  const allPassengers = schools.flatMap((s) => s.passengers.map((p) => ({ ...p, tenantName: s.tenantName, tenantId: s.tenantId })));
+  const filteredByTenant = selectedTenant === "all" ? allPassengers : allPassengers.filter((p) => p.tenantId === selectedTenant);
+  const filtered = filteredByTenant.filter((p) => {
+    if (filter === "paying") return p.isPaying;
+    if (filter === "expired") return p.isExpired;
+    return true;
+  });
+
+  const payingCount = allPassengers.filter((p) => p.isPaying).length;
+  const expiredCount = allPassengers.filter((p) => p.isExpired).length;
+  const totalCount = allPassengers.length;
+
+  const FILTER_TABS: { id: "all" | "paying" | "expired"; label: string; color: string }[] = [
+    { id: "all", label: `All (${totalCount})`, color: "bg-slate-700 text-slate-200" },
+    { id: "paying", label: `Active (${payingCount})`, color: "bg-green-900/60 text-green-300 border-green-700" },
+    { id: "expired", label: `Expired (${expiredCount})`, color: "bg-red-900/60 text-red-300 border-red-700" },
+  ];
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">
+      <button
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 border border-blue-500/30">
+          <CreditCard size={16} className="text-blue-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-slate-100 text-sm">Paying Users</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {open
+              ? `${totalCount} users with routes · ${payingCount} active · ${expiredCount} expired`
+              : "Click to view student subscription status across all schools"}
+          </p>
+        </div>
+        <div className="shrink-0">
+          {open
+            ? <ChevronDown size={16} className="text-blue-400" />
+            : <ChevronRight size={16} className="text-slate-500" />
+          }
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-700">
+          {/* Controls */}
+          <div className="px-4 py-3 space-y-3 border-b border-slate-800">
+            {/* School filter */}
+            <div className="flex items-center gap-2">
+              <Building2 size={12} className="text-slate-500 shrink-0" />
+              <select
+                value={selectedTenant === "all" ? "all" : String(selectedTenant)}
+                onChange={(e) => setSelectedTenant(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-blue-500"
+              >
+                <option value="all">All Schools ({schools.length})</option>
+                {schools.map((s) => (
+                  <option key={s.tenantId} value={s.tenantId}>
+                    {s.tenantName} ({s.passengers.length})
+                  </option>
+                ))}
+              </select>
+              <button onClick={() => { fetchedRef.current = false; fetchPayingUsers(); }}
+                className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700 transition-colors" title="Refresh">
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              </button>
+            </div>
+
+            {/* Status filter tabs */}
+            <div className="flex gap-1.5">
+              {FILTER_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setFilter(t.id)}
+                  className={`flex-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-colors ${
+                    filter === t.id
+                      ? t.color + " border-transparent ring-1 ring-blue-500/50"
+                      : "border-slate-700 bg-slate-800/50 text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* User list */}
+          <div className="p-3 space-y-2 max-h-[480px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700">
+            {loading ? (
+              <p className="py-10 text-center text-sm text-slate-500">Loading…</p>
+            ) : filtered.length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-500">
+                {totalCount === 0 ? "No students have selected a route yet" : "No users match this filter"}
+              </p>
+            ) : (
+              filtered.map((user) => (
+                <PayingUserRow key={user.id} user={user} onRenew={handleRenew} />
+              ))
+            )}
+          </div>
+
+          {filtered.length > 0 && (
+            <div className="border-t border-slate-800 px-5 py-3">
+              <p className="text-xs text-slate-500">{filtered.length} user{filtered.length !== 1 ? "s" : ""} shown</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SuperadminPortal() {
   const { data: stats } = useGetDashboardStats();
   const { data: tenants } = useListTenants();
@@ -1339,6 +1604,9 @@ export default function SuperadminPortal() {
 
       {/* Live Vehicles by School */}
       <LiveVehiclesPanel />
+
+      {/* Paying Users Panel */}
+      <PayingUsersPanel />
 
       {/* Ad Carousel Manager */}
       <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1e293b] border border-slate-700 shadow-2xl overflow-hidden">

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { driversTable, vehiclesTable, tenantsTable, adminRegistrationsTable, stationsTable, usersTable, subscriptionsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { driversTable, vehiclesTable, tenantsTable, adminRegistrationsTable, stationsTable, usersTable, subscriptionsTable, passengersTable } from "@workspace/db";
+import { eq, desc, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -168,6 +168,41 @@ router.post("/pending-registrations/:id/approve", async (req, res) => {
     .returning();
 
   return res.json({ registration: updated, tenant, schoolCode });
+});
+
+// GET /api/superadmin/paying-users — returns passengers with an active route grouped by tenant
+router.get("/paying-users", async (_req, res) => {
+  const tenants = await db.select().from(tenantsTable);
+  const passengers = await db
+    .select({
+      id: passengersTable.id,
+      tenantId: passengersTable.tenantId,
+      name: passengersTable.name,
+      phone: passengersTable.phone,
+      routeId: passengersTable.routeId,
+      routeSubscribedAt: passengersTable.routeSubscribedAt,
+      status: passengersTable.status,
+    })
+    .from(passengersTable)
+    .where(isNotNull(passengersTable.routeId));
+
+  const SUBSCRIPTION_DAYS = 30;
+  const enriched = passengers.map((p) => {
+    const sub = p.routeSubscribedAt;
+    const daysElapsed = sub ? Math.floor((Date.now() - new Date(sub).getTime()) / 86400000) : 0;
+    const isExpired = !!sub && daysElapsed >= SUBSCRIPTION_DAYS;
+    const isPaying = !!sub && !isExpired;
+    const daysLeft = sub ? Math.max(0, SUBSCRIPTION_DAYS - daysElapsed) : null;
+    return { ...p, isPaying, isExpired, daysLeft };
+  });
+
+  const grouped = tenants.map((t) => ({
+    tenantId: t.id,
+    tenantName: t.name,
+    passengers: enriched.filter((p) => p.tenantId === t.id),
+  })).filter((g) => g.passengers.length > 0);
+
+  return res.json(grouped);
 });
 
 // POST /api/superadmin/pending-registrations/:id/reject

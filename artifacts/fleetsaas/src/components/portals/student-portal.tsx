@@ -11,11 +11,13 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import BusMap from "@/components/bus-map";
+import PaymentModal from "@/components/PaymentModal";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Bus, ClipboardList, Map, Clock, MessageSquare, X,
   User, Timer, Home, MapPin, HeartPulse, ThumbsUp, Route, Navigation, CheckCircle, RefreshCw,
+  ShieldAlert, CreditCard, AlertTriangle,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -49,6 +51,7 @@ export default function StudentPortal() {
   const [liveToday, setLiveToday] = useState(false);
   const [onLeave, setOnLeave] = useState(false);
   const [geoAlertDismissed, setGeoAlertDismissed] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
 
   // Transport Config state
@@ -67,6 +70,13 @@ export default function StudentPortal() {
 
   // Find this student's passenger record by phone; fall back to first if not yet linked
   const me = passengers?.find((p) => p.phone === user?.phone) ?? passengers?.[0];
+
+  // Subscription status — server computes isPaying/daysLeft/isExpired, cast from extended response
+  type SubPassenger = typeof me & { isPaying?: boolean; isExpired?: boolean; daysLeft?: number | null; showExpiryBanner?: boolean };
+  const meEx = me as SubPassenger | undefined;
+  const isPaying = meEx?.isPaying ?? false;
+  const daysLeft = meEx?.daysLeft ?? null;
+  const showExpiryBanner = meEx?.showExpiryBanner ?? false;
 
   useEffect(() => {
     if (me?.liveToday === 1) setLiveToday(true);
@@ -155,6 +165,40 @@ export default function StudentPortal() {
 
   return (
     <div className="w-full px-4 pb-8 pt-4 flex flex-col gap-5">
+
+      {/* Payment modal overlay */}
+      {paymentModalOpen && (
+        <PaymentModal
+          passengerId={me?.id ?? 0}
+          onClose={() => setPaymentModalOpen(false)}
+          onSuccess={() => {
+            setPaymentModalOpen(false);
+            queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+          }}
+        />
+      )}
+
+      {/* Subscription expiry warning banner */}
+      {showExpiryBanner && daysLeft !== null && (
+        <div className="flex items-start gap-3 rounded-xl border border-orange-400 bg-orange-50 dark:bg-orange-950/30 px-4 py-3">
+          <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
+              Bus access expires in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-orange-700 dark:text-orange-400 mt-0.5">
+              Renew now to keep tracking your bus without interruption.
+            </p>
+          </div>
+          <button
+            onClick={() => setPaymentModalOpen(true)}
+            className="shrink-0 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-600 transition-colors"
+          >
+            Renew
+          </button>
+        </div>
+      )}
+
       {/* Calendar upcoming events urgent banner */}
       {upcomingEvents.length > 0 && (
         <div className="space-y-2">
@@ -278,8 +322,9 @@ export default function StudentPortal() {
           )}
         </div>
       </div>
-      {/* Live Bus Map */}
-      <div className="space-y-2">
+      {/* GPS / Tracking — paying users only */}
+      {isPaying ? (
+      <><div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Map size={14} /> Live Bus Location</h2>
           <div className="flex items-center gap-2">
@@ -417,7 +462,6 @@ export default function StudentPortal() {
           )}
         </div>
       </div>
-      {/* Quick Message Bar */}
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MessageSquare size={14} /> Quick Message to Driver</p>
@@ -446,7 +490,61 @@ export default function StudentPortal() {
             );
           })}
         </div>
-      </div>
+      </div></>) : (
+        /* Non-paying paywall card */
+        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+          <div className="flex items-center gap-3 px-5 py-4 bg-slate-100 dark:bg-slate-800/70 border-b border-border">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-200 dark:bg-slate-700">
+              <ShieldAlert size={18} className="text-slate-500" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">Bus Tracking Unavailable</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Activate your subscription to track your bus live</p>
+            </div>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="space-y-2">
+              {[
+                "Live GPS map of your school bus",
+                "Real-time arrival alerts at your stop",
+                "Driver communication & tracking timeline",
+              ].map((feat) => (
+                <div key={feat} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                  {feat}
+                </div>
+              ))}
+            </div>
+            <div className="h-32 rounded-xl border border-dashed border-border bg-muted/30 flex items-center justify-center">
+              <div className="text-center">
+                <Map size={28} className="text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">GPS map locked</p>
+              </div>
+            </div>
+            {me?.routeId ? (
+              <button
+                onClick={() => setPaymentModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-slate-900 hover:bg-amber-400 transition-colors"
+              >
+                <CreditCard size={15} />
+                Renew Bus Access — NPR 1,500/mo
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground text-center">First, select your route below to activate tracking</p>
+                <button
+                  onClick={() => { setTransportOpen(true); (document.getElementById("transport-config") as HTMLElement)?.scrollIntoView({ behavior: "smooth" }); }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-500 bg-amber-50 dark:bg-amber-950/30 py-3 text-sm font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                >
+                  <Route size={15} />
+                  Select Your Route Below
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Transport Configuration */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <button

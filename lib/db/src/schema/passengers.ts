@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -22,6 +22,7 @@ export const passengersTable = pgTable("passengers", {
   section: text("section"),
   rollNumber: text("roll_number"),
   faculty: text("faculty"),
+  routeSubscribedAt: timestamp("route_subscribed_at"),
 });
 
 export const insertPassengerSchema = createInsertSchema(passengersTable).omit({ id: true, boardedAt: true });

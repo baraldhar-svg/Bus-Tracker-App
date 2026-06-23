@@ -27,7 +27,24 @@ const PASSENGER_SELECT = {
   tenantId: passengersTable.tenantId,
   liveToday: passengersTable.liveToday,
   quickMessage: passengersTable.quickMessage,
+  routeSubscribedAt: passengersTable.routeSubscribedAt,
 };
+
+const SUBSCRIPTION_DAYS = 30;
+const EXPIRY_WARN_DAYS = 5;
+
+function computeSubStatus(row: { routeId: number | null; routeSubscribedAt: Date | null }) {
+  const hasRoute = row.routeId != null;
+  if (!hasRoute || !row.routeSubscribedAt) {
+    return { isPaying: false, isExpired: false, daysLeft: null, showExpiryBanner: false };
+  }
+  const daysElapsed = Math.floor((Date.now() - new Date(row.routeSubscribedAt).getTime()) / 86400000);
+  const isExpired = daysElapsed >= SUBSCRIPTION_DAYS;
+  const isPaying = !isExpired;
+  const daysLeft = Math.max(0, SUBSCRIPTION_DAYS - daysElapsed);
+  const showExpiryBanner = isPaying && daysLeft <= EXPIRY_WARN_DAYS;
+  return { isPaying, isExpired, daysLeft, showExpiryBanner };
+}
 
 router.get("/", async (req, res) => {
   const rows = await db
@@ -35,7 +52,8 @@ router.get("/", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.tenantId, req.tenantId));
-  return res.json(rows);
+  const enriched = rows.map((r) => ({ ...r, ...computeSubStatus(r) }));
+  return res.json(enriched);
 });
 
 // GET /passengers/boarding-logs — real-time boarding audit log for admin
@@ -87,7 +105,8 @@ router.post("/", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, row.id));
-  return res.status(201).json(withStation);
+  const result = { ...withStation, ...computeSubStatus(withStation) };
+  return res.status(201).json(result);
 });
 
 router.get("/:id", async (req, res) => {
@@ -99,7 +118,7 @@ router.get("/:id", async (req, res) => {
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
   if (!row) return res.status(404).json({ error: "Not found" });
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row) });
 });
 
 router.patch("/:id", async (req, res) => {
@@ -112,7 +131,20 @@ router.patch("/:id", async (req, res) => {
   if ("phone" in bodyParsed.data) updates.phone = bodyParsed.data.phone;
   if (bodyParsed.data.photoUrl) updates.photoUrl = bodyParsed.data.photoUrl;
   if (bodyParsed.data.stationId) updates.stationId = bodyParsed.data.stationId;
-  if ("routeId" in bodyParsed.data) updates.routeId = bodyParsed.data.routeId;
+  if ("routeId" in bodyParsed.data) {
+    updates.routeId = bodyParsed.data.routeId;
+    // Stamp routeSubscribedAt when a route is first assigned
+    if (bodyParsed.data.routeId != null) {
+      const [existing] = await db
+        .select({ routeSubscribedAt: passengersTable.routeSubscribedAt })
+        .from(passengersTable)
+        .where(eq(passengersTable.id, paramsParsed.data.id))
+        .limit(1);
+      if (!existing?.routeSubscribedAt) {
+        updates.routeSubscribedAt = new Date();
+      }
+    }
+  }
   if (bodyParsed.data.liveToday !== undefined) updates.liveToday = bodyParsed.data.liveToday;
   if (bodyParsed.data.quickMessage !== undefined) updates.quickMessage = bodyParsed.data.quickMessage;
   if (Object.keys(updates).length === 0) {
@@ -124,7 +156,7 @@ router.patch("/:id", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, paramsParsed.data.id));
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row) });
 });
 
 router.delete("/:id", async (req, res) => {
@@ -132,6 +164,17 @@ router.delete("/:id", async (req, res) => {
   if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid id" });
   await db.delete(passengersTable).where(eq(passengersTable.id, id));
   return res.status(204).end();
+});
+
+// POST /api/passengers/:id/renew — reset subscription window to now (manual renewal / payment success)
+router.post("/:id/renew", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const renewedAt = new Date();
+  await db.update(passengersTable)
+    .set({ routeSubscribedAt: renewedAt })
+    .where(eq(passengersTable.id, id));
+  return res.json({ ok: true, renewedAt: renewedAt.toISOString() });
 });
 
 router.post("/:id/board", async (req, res) => {
@@ -162,7 +205,7 @@ router.post("/:id/board", async (req, res) => {
     });
   }
   broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "boarded" });
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
 router.post("/:id/absent", async (req, res) => {
@@ -193,7 +236,7 @@ router.post("/:id/absent", async (req, res) => {
     });
   }
   broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "absent" });
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
 router.post("/:id/unboard", async (req, res) => {
@@ -209,7 +252,7 @@ router.post("/:id/unboard", async (req, res) => {
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
   broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "unboarded" });
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
 router.post("/:id/leave", async (req, res) => {
@@ -225,7 +268,7 @@ router.post("/:id/leave", async (req, res) => {
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
   broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "leave" });
-  return res.json(row);
+  return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
 export default router;

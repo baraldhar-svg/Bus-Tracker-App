@@ -1,0 +1,15 @@
+Feature Architecture: Paying vs Non-Paying User Split & Subscription Management
+​1. Dual-User Access Control (Paying vs Non-Paying)
+​The Logic: When a Student/Staff registers and selects a vehicle route, mark them as a Paying User. If they register but do NOT select a bus route, mark them as a Non-Paying User.
+​UI/UX Gatekeeping:
+​Paying Users: Access to full features (Live Google Maps, Bus GPS Streams, Driver Details, ETA Notifications).
+​Non-Paying Users: Completely hide/lock all GPS, Map, and Routing screens. Direct them to an Internal School Profile Dashboard showcasing: School/College Notices, Academic Calendars, Advertisements, and general school modules.
+​2. Super Admin Dashboard: "Paying Users" Core Panel
+​Add a main panel column titled "Paying Users".
+​Hierarchy Structure: Inside this panel, implement a dynamic School-wise Dropdown selector. Selecting a specific school/college will fetch and render a list containing ONLY the active paying users (those who have latched onto a bus route) for that institution.
+​Manual Overrides: Clicking on any user's profile row must expand their full profile details, appending a visible Blue "Renew" Button at the bottom for manual administration overrides.
+​3. Automated 30-Day Expiry Lifecycle & 5-Day Alert Trigger
+​The Lifecycle Rules: A Paying User's access operates on a strictly managed 30-day billing cycle starting from registration/activation.
+​The 5-Day Alert Window: Exactly 5 days prior to database expiration (Day 25), render a fixed, clean, non-intrusive textual banner/alert notification at the top of the user's dashboard app shell.
+​Payment Redirection: Clicking that alert banner must open a dedicated Checkout/Payment modal displaying localized gateway placeholders for eSewa, Khalti, and ConnectIPS APIs. For now, implement this checkout flow as a high-fidelity fully functional interactive demo simulation.
+​Auto-Expiration: If unpaid by Day 30, automatically transition the user status to Expired, dropping their access privilege immediately down to a Non-Paying User profile container.
