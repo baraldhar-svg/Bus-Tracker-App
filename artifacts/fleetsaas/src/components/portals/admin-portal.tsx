@@ -3312,36 +3312,33 @@ export default function AdminPortal() {
       </header>
 
       {/* ── Fleet Management & Operations navigation ─────────────────────────── */}
-      <nav className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <nav className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {/* Dashboard tab */}
           <button
             onClick={() => setAdminTab("dashboard")}
-            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "dashboard" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
-            <Home size={13} />Dashboard
+            className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "dashboard" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Home size={11} />Dashboard
           </button>
-          {/* Separator */}
-          <div className="w-px bg-border my-2.5 shrink-0" />
-          {/* Fleet Management group label */}
-          <div className="flex items-center gap-1 px-3 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap self-center shrink-0">
-            <Settings2 size={11} />Fleet Ops
+          <div className="w-px bg-border my-1.5 shrink-0" />
+          <div className="flex items-center gap-1 px-2 text-[9px] font-bold text-muted-foreground/50 uppercase tracking-wider whitespace-nowrap self-center shrink-0">
+            <Settings2 size={9} />Fleet
           </div>
           <button
             onClick={() => setAdminTab("fleet-fuel")}
-            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-fuel" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
-            <Droplets size={13} />Fuel Logs
+            className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-fuel" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Droplets size={11} />Fuel Logs
           </button>
           <button
             onClick={() => setAdminTab("fleet-maintenance")}
-            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-maintenance" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
-            <Wrench size={13} />Service History
+            className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-maintenance" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Wrench size={11} />Service
           </button>
           <button
             onClick={() => setAdminTab("fleet-documents")}
-            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors relative ${adminTab === "fleet-documents" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
-            <FileText size={13} />Documents
+            className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors relative ${adminTab === "fleet-documents" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <FileText size={11} />Documents
             {docAlertCount > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-pulse shrink-0">
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white animate-pulse shrink-0">
                 {docAlertCount}
               </span>
             )}
