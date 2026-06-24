@@ -116,6 +116,12 @@ const EN = {
   activeTenants: "Active Tenants",
   adCarouselManager: "Ad Carousel Manager",
   announcements: "Announcements",
+  busNearby: "Bus is nearby — get ready!",
+  busAtStation: "Bus at {station} — {dist} km from {stop}. Please get ready!",
+  approachingStop: "Approaching {stop} · head out now",
+  busIsClose: "Bus is close — head to your stop",
+  actionsLocked: "Actions locked — You are safely on board the bus.",
+  locked: "Locked",
 };
 
 type TranslationKey = keyof typeof EN;
@@ -207,6 +213,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "सक्रिय टेनेन्टहरू",
     adCarouselManager: "विज्ञापन क्यारोजेल व्यवस्थापक",
     announcements: "घोषणाहरू",
+    busNearby: "बस नजिकै छ — तयार हुनुस्!",
+    busAtStation: "बस {station} मा — {stop} बाट {dist} किमी। कृपया तयार हुनुस्!",
+    approachingStop: "{stop} नजिकिँदैछ · अहिले निस्कनुस्",
+    busIsClose: "बस नजिक छ — स्टपमा जानुस्",
+    actionsLocked: "कार्यहरू बन्द — तपाईं सुरक्षित रूपमा बसमा हुनुहुन्छ।",
+    locked: "बन्द",
   },
   hi: {
     signOut: "साइन आउट",
@@ -292,6 +304,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "सक्रिय टेनेंट",
     adCarouselManager: "विज्ञापन कैरोसेल प्रबंधक",
     announcements: "घोषणाएं",
+    busNearby: "बस पास है — तैयार हो जाएं!",
+    busAtStation: "बस {station} पर है — {stop} से {dist} किमी। कृपया तैयार हों!",
+    approachingStop: "{stop} की ओर बढ़ रहे हैं · अभी निकलें",
+    busIsClose: "बस पास है — स्टॉप पर जाएं",
+    actionsLocked: "क्रियाएं बंद — आप सुरक्षित रूप से बस में हैं।",
+    locked: "बंद",
   },
   bn: {
     signOut: "সাইন আউট",
@@ -377,6 +395,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "সক্রিয় ভাড়াটে",
     adCarouselManager: "বিজ্ঞাপন ক্যারোসেল ম্যানেজার",
     announcements: "ঘোষণা",
+    busNearby: "বাস কাছে — প্রস্তুত হন!",
+    busAtStation: "বাস {station} এ — {stop} থেকে {dist} কিমি। অনুগ্রহ করে প্রস্তুত হন!",
+    approachingStop: "{stop} এ আসছে · এখন বের হন",
+    busIsClose: "বাস কাছে — স্টপে যান",
+    actionsLocked: "ক্রিয়া লক — আপনি নিরাপদে বাসে আছেন।",
+    locked: "লক",
   },
   zh: {
     signOut: "退出登录",
@@ -462,6 +486,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "活跃租户",
     adCarouselManager: "广告轮播管理",
     announcements: "公告",
+    busNearby: "公交车快到了 — 请准备!",
+    busAtStation: "公交车在{station} — 距{stop} {dist}公里。请准备!",
+    approachingStop: "正在接近{stop} · 现在出发",
+    busIsClose: "公交车很近 — 前往站台",
+    actionsLocked: "操作已锁定 — 您已安全上车。",
+    locked: "已锁定",
   },
   ja: {
     signOut: "サインアウト",
@@ -547,6 +577,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "アクティブテナント",
     adCarouselManager: "広告カルーセル管理",
     announcements: "お知らせ",
+    busNearby: "バスが近づいています — 準備してください!",
+    busAtStation: "バスは{station}にいます — {stop}まで{dist}km。ご準備ください!",
+    approachingStop: "{stop}に接近中 · 今すぐ出発を",
+    busIsClose: "バスが近くにいます — 停留所へ向かってください",
+    actionsLocked: "操作がロックされています — バスに安全に乗車しています。",
+    locked: "ロック済み",
   },
   ko: {
     signOut: "로그아웃",
@@ -632,6 +668,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "활성 테넌트",
     adCarouselManager: "광고 캐러셀 관리",
     announcements: "공지사항",
+    busNearby: "버스가 근처에 있습니다 — 준비하세요!",
+    busAtStation: "버스가 {station}에 있습니다 — {stop}까지 {dist}km. 준비하세요!",
+    approachingStop: "{stop} 접근 중 · 지금 출발하세요",
+    busIsClose: "버스가 가깝습니다 — 정류장으로 가세요",
+    actionsLocked: "작업 잠김 — 버스에 안전하게 탑승했습니다.",
+    locked: "잠김",
   },
   ar: {
     signOut: "تسجيل الخروج",
@@ -717,6 +759,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "المستأجرون النشطون",
     adCarouselManager: "مدير شريط الإعلانات",
     announcements: "إعلانات",
+    busNearby: "الحافلة قريبة — استعد!",
+    busAtStation: "الحافلة في {station} — {dist} كم من {stop}. استعد!",
+    approachingStop: "تقترب من {stop} · اخرج الآن",
+    busIsClose: "الحافلة قريبة — توجه إلى المحطة",
+    actionsLocked: "الإجراءات مقفلة — أنت في أمان على متن الحافلة.",
+    locked: "مقفل",
   },
   es: {
     signOut: "Cerrar sesión",
@@ -802,6 +850,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Inquilinos activos",
     adCarouselManager: "Gestor de carrusel de anuncios",
     announcements: "Anuncios",
+    busNearby: "El autobús está cerca — ¡prepárate!",
+    busAtStation: "Autobús en {station} — {dist} km de {stop}. ¡Prepárate!",
+    approachingStop: "Acercándose a {stop} · sal ahora",
+    busIsClose: "El autobús está cerca — dirígete a tu parada",
+    actionsLocked: "Acciones bloqueadas — Estás a salvo en el autobús.",
+    locked: "Bloqueado",
   },
   fr: {
     signOut: "Déconnexion",
@@ -887,6 +941,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Locataires actifs",
     adCarouselManager: "Gestionnaire de carrousel publicitaire",
     announcements: "Annonces",
+    busNearby: "Le bus est proche — préparez-vous!",
+    busAtStation: "Bus à {station} — {dist} km de {stop}. Préparez-vous!",
+    approachingStop: "Approche de {stop} · partez maintenant",
+    busIsClose: "Le bus est proche — allez à votre arrêt",
+    actionsLocked: "Actions verrouillées — Vous êtes en sécurité dans le bus.",
+    locked: "Verrouillé",
   },
   de: {
     signOut: "Abmelden",
@@ -972,6 +1032,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Aktive Mieter",
     adCarouselManager: "Anzeigenkarussell-Manager",
     announcements: "Ankündigungen",
+    busNearby: "Bus ist in der Nähe — mach dich bereit!",
+    busAtStation: "Bus an {station} — {dist} km von {stop}. Mach dich bereit!",
+    approachingStop: "Nähert sich {stop} · jetzt losgehen",
+    busIsClose: "Bus ist nah — geh zur Haltestelle",
+    actionsLocked: "Aktionen gesperrt — Du bist sicher im Bus.",
+    locked: "Gesperrt",
   },
   pt: {
     signOut: "Sair",
@@ -1057,6 +1123,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Inquilinos ativos",
     adCarouselManager: "Gerenciador de carrossel de anúncios",
     announcements: "Anúncios",
+    busNearby: "O ônibus está perto — prepare-se!",
+    busAtStation: "Ônibus em {station} — {dist} km de {stop}. Prepare-se!",
+    approachingStop: "Aproximando de {stop} · saia agora",
+    busIsClose: "O ônibus está perto — vá para a parada",
+    actionsLocked: "Ações bloqueadas — Você está seguro no ônibus.",
+    locked: "Bloqueado",
   },
   ru: {
     signOut: "Выйти",
@@ -1142,6 +1214,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Активные арендаторы",
     adCarouselManager: "Менеджер рекламной карусели",
     announcements: "Объявления",
+    busNearby: "Автобус рядом — приготовьтесь!",
+    busAtStation: "Автобус на {station} — {dist} км от {stop}. Приготовьтесь!",
+    approachingStop: "Приближается к {stop} · выходите сейчас",
+    busIsClose: "Автобус близко — идите на остановку",
+    actionsLocked: "Действия заблокированы — Вы безопасно в автобусе.",
+    locked: "Заблокировано",
   },
   ur: {
     signOut: "سائن آؤٹ",
@@ -1227,6 +1305,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "فعال کرایہ دار",
     adCarouselManager: "اشتہار کیروسل مینیجر",
     announcements: "اعلانات",
+    busNearby: "بس قریب ہے — تیار ہو جائیں!",
+    busAtStation: "بس {station} پر ہے — {stop} سے {dist} کلومیٹر۔ تیار ہو جائیں!",
+    approachingStop: "{stop} کی طرف آ رہی ہے · ابھی نکلیں",
+    busIsClose: "بس قریب ہے — اسٹاپ پر جائیں",
+    actionsLocked: "کارروائیاں بند ہیں — آپ محفوظ طریقے سے بس میں ہیں۔",
+    locked: "بند",
   },
   id: {
     signOut: "Keluar",
@@ -1312,6 +1396,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Penyewa Aktif",
     adCarouselManager: "Manajer Carousel Iklan",
     announcements: "Pengumuman",
+    busNearby: "Bus sudah dekat — bersiaplah!",
+    busAtStation: "Bus di {station} — {dist} km dari {stop}. Bersiaplah!",
+    approachingStop: "Mendekati {stop} · keluarlah sekarang",
+    busIsClose: "Bus sudah dekat — pergi ke halte",
+    actionsLocked: "Tindakan dikunci — Anda aman di dalam bus.",
+    locked: "Dikunci",
   },
   ms: {
     signOut: "Log Keluar",
@@ -1397,6 +1487,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Penyewa Aktif",
     adCarouselManager: "Pengurus Karusel Iklan",
     announcements: "Pengumuman",
+    busNearby: "Bas hampir tiba — bersedia!",
+    busAtStation: "Bas di {station} — {dist} km dari {stop}. Bersedia!",
+    approachingStop: "Menghampiri {stop} · keluar sekarang",
+    busIsClose: "Bas hampir — pergi ke perhentian",
+    actionsLocked: "Tindakan dikunci — Anda selamat di dalam bas.",
+    locked: "Dikunci",
   },
   th: {
     signOut: "ออกจากระบบ",
@@ -1482,6 +1578,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "ผู้เช่าที่ใช้งาน",
     adCarouselManager: "ผู้จัดการโฆษณาแบบหมุน",
     announcements: "ประกาศ",
+    busNearby: "รถบัสใกล้แล้ว — เตรียมตัว!",
+    busAtStation: "รถบัสอยู่ที่ {station} — {dist} กม. จาก {stop} กรุณาเตรียมตัว!",
+    approachingStop: "กำลังเข้าใกล้ {stop} · ออกได้เลย",
+    busIsClose: "รถบัสใกล้มาก — ไปที่ป้าย",
+    actionsLocked: "การดำเนินการถูกล็อก — คุณโดยสารรถบัสอย่างปลอดภัย",
+    locked: "ล็อก",
   },
   vi: {
     signOut: "Đăng xuất",
@@ -1567,6 +1669,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Khách thuê đang hoạt động",
     adCarouselManager: "Trình quản lý băng chuyền quảng cáo",
     announcements: "Thông báo",
+    busNearby: "Xe buýt đã gần — hãy chuẩn bị!",
+    busAtStation: "Xe buýt ở {station} — cách {stop} {dist} km. Hãy chuẩn bị!",
+    approachingStop: "Đang đến gần {stop} · hãy ra ngoài",
+    busIsClose: "Xe buýt gần rồi — đến điểm dừng",
+    actionsLocked: "Các thao tác bị khóa — Bạn đang an toàn trên xe buýt.",
+    locked: "Đã khóa",
   },
   tr: {
     signOut: "Çıkış Yap",
@@ -1652,6 +1760,12 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Aktif Kiracılar",
     adCarouselManager: "Reklam Döngüsü Yöneticisi",
     announcements: "Duyurular",
+    busNearby: "Otobüs yaklaşıyor — hazırlanın!",
+    busAtStation: "Otobüs {station}'da — {stop}'tan {dist} km. Hazırlanın!",
+    approachingStop: "{stop}'a yaklaşıyor · hemen çıkın",
+    busIsClose: "Otobüs yakın — durağa gidin",
+    actionsLocked: "İşlemler kilitlendi — Otobüste güvende duruyorsunuz.",
+    locked: "Kilitli",
   },
   it: {
     signOut: "Esci",
@@ -1737,10 +1851,39 @@ const T: Record<LangCode, Translations> = {
     activeTenants: "Tenant attivi",
     adCarouselManager: "Gestore carosello pubblicitario",
     announcements: "Annunci",
+    busNearby: "L'autobus è vicino — preparati!",
+    busAtStation: "Bus a {station} — {dist} km da {stop}. Preparati!",
+    approachingStop: "In avvicinamento a {stop} · esci ora",
+    busIsClose: "L'autobus è vicino — vai alla fermata",
+    actionsLocked: "Azioni bloccate — Sei al sicuro sull'autobus.",
+    locked: "Bloccato",
   },
 };
 
 const LANG_STORAGE_KEY = "orbittrack_lang";
+
+/**
+ * Detect the user's preferred language from their device timezone.
+ * Used only on first visit when no stored preference exists.
+ * Nepal → Nepali, India → Hindi, Bangladesh → Bengali, rest → English.
+ */
+function detectLangFromTimezone(): LangCode {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz === "Asia/Kathmandu") return "ne";
+    if (tz === "Asia/Kolkata" || tz === "Asia/Calcutta") return "hi";
+    if (tz === "Asia/Dhaka") return "bn";
+  } catch { /* ignore */ }
+  return "en";
+}
+
+/**
+ * Interpolate a translation template string.
+ * Usage: tpl(t.busAtStation, { station: "Kalanki", dist: "1.2", stop: "Koteshwor" })
+ */
+export function tpl(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
+}
 
 type LangCtx = { lang: LangCode; setLang: (l: LangCode) => void };
 const LangContext = createContext<LangCtx>({ lang: "en", setLang: () => {} });
@@ -1748,7 +1891,7 @@ const LangContext = createContext<LangCtx>({ lang: "en", setLang: () => {} });
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LangCode>(() => {
     const stored = localStorage.getItem(LANG_STORAGE_KEY) as LangCode | null;
-    return stored && T[stored] ? stored : "en";
+    return stored && T[stored] ? stored : detectLangFromTimezone();
   });
 
   function setLang(l: LangCode) {

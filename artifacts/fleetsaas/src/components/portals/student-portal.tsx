@@ -12,7 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import OsmMap from "@/components/osm-map";
 import PaymentModal from "@/components/PaymentModal";
-import { useT } from "@/lib/i18n";
+import { useT, tpl } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Bus, ClipboardList, Map, Clock, MessageSquare, X,
@@ -271,13 +271,17 @@ export default function StudentPortal() {
             <div className="flex items-center gap-3">
               <Bus size={36} className="text-white drop-shadow shrink-0" />
               <div className="min-w-0">
-                <p className="font-bold text-sm">Bus is nearby — get ready!</p>
+                <p className="font-bold text-sm">{t.busNearby}</p>
                 <p className="text-xs text-amber-100 mt-0.5 leading-snug">
                   {nearestDriverStation
-                    ? `Bus at ${nearestDriverStation.rs.stationName ?? "a nearby stop"}${distToMyStopKm != null ? ` — ${distToMyStopKm.toFixed(1)} km from ${myStop?.stationName ?? "your stop"}` : ""}. Please get ready!`
+                    ? tpl(t.busAtStation, {
+                        station: nearestDriverStation.rs.stationName ?? "a nearby stop",
+                        dist: distToMyStopKm != null ? distToMyStopKm.toFixed(1) : "?",
+                        stop: myStop?.stationName ?? "your stop",
+                      })
                     : myStop?.stationName
-                      ? `Approaching ${myStop.stationName} · head out now`
-                      : "Bus is close — head to your stop"}
+                      ? tpl(t.approachingStop, { stop: myStop.stationName })
+                      : t.busIsClose}
                 </p>
               </div>
             </div>
@@ -344,7 +348,7 @@ export default function StudentPortal() {
             }`}
           >
             {isBoarded ? (
-              <span className="flex items-center justify-center gap-1"><Lock size={12} /> Locked</span>
+              <span className="flex items-center justify-center gap-1"><Lock size={12} /> {t.locked}</span>
             ) : onLeave ? (
               <span className="flex items-center justify-center gap-1"><X size={12} /> {t.onLeave}</span>
             ) : t.takeLeave}
@@ -353,7 +357,7 @@ export default function StudentPortal() {
         {isBoarded ? (
           <div className="flex items-center gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
             <Lock size={12} className="shrink-0 text-green-600 dark:text-green-400" />
-            <p className="text-xs text-green-700 dark:text-green-400 font-medium">Actions locked — You are safely on board the bus.</p>
+            <p className="text-xs text-green-700 dark:text-green-400 font-medium">{t.actionsLocked}</p>
           </div>
         ) : sentMsg ? (
           <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 bg-background text-xs font-extrabold text-[#000]">
@@ -572,7 +576,7 @@ export default function StudentPortal() {
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MessageSquare size={14} /> Quick Message to Driver</p>
           {isBoarded ? (
-            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium"><Lock size={10} /> Locked</span>
+            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium"><Lock size={10} /> {t.locked}</span>
           ) : sentMsg ? (
             <span className="text-xs text-green-600 font-medium">✓ Sent</span>
           ) : null}
