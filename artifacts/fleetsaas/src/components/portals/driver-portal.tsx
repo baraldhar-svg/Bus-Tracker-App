@@ -5,7 +5,7 @@ import { sendDriverMessage } from "@/lib/driver-messages";
 import {
   Navigation, Flag, WifiOff, BellOff, CheckCircle, Home,
   MessageSquare, Send, Megaphone, AlertTriangle, Users, Building2,
-  Wrench, Clock, Bus, CloudRain, Gauge, MapPin,
+  Wrench, Clock, Bus, CloudRain, Gauge, MapPin, Bell,
 } from "lucide-react";
 
 const DRIVER_NAME = "Ram Bahadur";
@@ -157,6 +157,9 @@ export default function DriverPortal() {
     } finally { setUnboardingId(null); }
   };
 
+  const [notifyingId, setNotifyingId] = useState<number | null>(null);
+  const [notifiedIds, setNotifiedIds] = useState<Set<number>>(new Set());
+
   const [absentId, setAbsentId] = useState<number | null>(null);
   const handleAbsent = async (id: number) => {
     setAbsentId(id);
@@ -169,6 +172,19 @@ export default function DriverPortal() {
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetch();
     } finally { setAbsentId(null); }
+  };
+
+  const handleDriverNotify = async (passengerId: number) => {
+    setNotifyingId(passengerId);
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+    try {
+      await fetch(`${BASE}/api/passengers/${passengerId}/driver-notify`, { method: "POST", headers, body: JSON.stringify({}) });
+      setNotifiedIds((prev) => new Set([...prev, passengerId]));
+    } catch { /* non-blocking */ }
+    finally { setNotifyingId(null); }
   };
 
   // Auto-refresh passengers every 8s so boarding changes from admin show up
@@ -388,6 +404,78 @@ export default function DriverPortal() {
             </div>
           )}
         </div>
+
+        {/* Upcoming Station — students at current stop */}
+        {currentStation && (
+          <div className="rounded-2xl bg-slate-800/80 border border-amber-500/20 p-3">
+            <div className="flex items-center gap-2 mb-2.5">
+              <MapPin size={13} className="shrink-0 text-amber-400" />
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Upcoming Station</p>
+              <span className="ml-auto text-[10px] text-slate-500">Stop {stationIdx + 1}/{stations?.length ?? 0}</span>
+            </div>
+            <p className="font-bold text-slate-100 text-sm mb-2.5">{currentStation.name}</p>
+            {(() => {
+              const stationPassengers = passengers?.filter((p) => p.stationId === currentStation.id) ?? [];
+              if (stationPassengers.length === 0) return (
+                <p className="text-xs text-slate-500 italic">No students assigned to this station</p>
+              );
+              return (
+                <div className="space-y-1.5">
+                  {stationPassengers.map((p) => {
+                    const isBoarded = p.status === "boarded";
+                    const isAbsent = p.status === "absent";
+                    const isOnLeave = p.quickMessage === "Staying home today" || p.status === "leave";
+                    const isLive = p.liveToday === 1;
+                    const hasCustomMsg = !!p.quickMessage && p.quickMessage !== "Staying home today";
+                    const alreadyNotified = notifiedIds.has(p.id);
+                    const canNotify = !isBoarded && !isAbsent && !isOnLeave && isLive && !alreadyNotified;
+                    return (
+                      <div key={p.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                        isBoarded ? "border-green-700/40 bg-green-900/20" :
+                        isAbsent || isOnLeave ? "border-red-800/30 bg-red-900/10" :
+                        "border-slate-700 bg-slate-800/60"
+                      }`}>
+                        <Avatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-200 truncate">{p.name}</p>
+                          {hasCustomMsg && (
+                            <p className="text-[10px] text-amber-400/80 truncate">"{p.quickMessage}"</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isBoarded ? (
+                            <span className="text-[10px] font-bold text-green-400">✓ On bus</span>
+                          ) : isAbsent ? (
+                            <span className="text-[10px] font-bold text-red-400">Absent</span>
+                          ) : isOnLeave ? (
+                            <span className="text-[10px] font-bold text-slate-400">On leave</span>
+                          ) : isLive ? (
+                            <span className="text-[10px] font-bold text-amber-400">Coming</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">?</span>
+                          )}
+                          {canNotify && (
+                            <button
+                              onClick={() => handleDriverNotify(p.id)}
+                              disabled={notifyingId === p.id}
+                              className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-400 hover:bg-amber-500/25 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <Bell size={10} />
+                              {notifyingId === p.id ? "…" : "Notify"}
+                            </button>
+                          )}
+                          {alreadyNotified && (
+                            <span className="text-[10px] text-green-500 flex items-center gap-0.5"><Bell size={9} /> Sent ✓</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Safety Scorecard */}
         <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 p-4">

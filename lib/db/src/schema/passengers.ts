@@ -44,3 +44,20 @@ export const boardingLogsTable = pgTable("boarding_logs", {
 });
 
 export type BoardingLog = typeof boardingLogsTable.$inferSelect;
+
+// Driver "waiting" notifications — driver pings a student at the upcoming station
+export const driverNotificationsTable = pgTable("driver_notifications", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  passengerId: integer("passenger_id").notNull(),
+  passengerName: text("passenger_name").notNull(),
+  stationId: integer("station_id").notNull(),
+  stationName: text("station_name").notNull(),
+  driverId: integer("driver_id"),
+  driverName: text("driver_name"),
+  message: text("message").notNull().default("Driver is waiting for you. Please come to the station."),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  tripDate: text("trip_date").notNull(), // YYYY-MM-DD, used for per-day dedup
+});
+
+export type DriverNotification = typeof driverNotificationsTable.$inferSelect;

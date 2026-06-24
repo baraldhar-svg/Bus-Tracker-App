@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { passengersTable, stationsTable, usersTable, tenantsTable, boardingLogsTable, driversTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { passengersTable, stationsTable, usersTable, tenantsTable, boardingLogsTable, driversTable, driverNotificationsTable } from "@workspace/db";
+import { eq, desc, and, isNotNull } from "drizzle-orm";
 import { broadcast } from "../lib/sse";
 import {
   CreatePassengerBody,
@@ -66,6 +66,72 @@ router.get("/boarding-logs", async (req, res) => {
     .orderBy(desc(boardingLogsTable.actionAt))
     .limit(limit);
   return res.json(rows);
+});
+
+// GET /passengers/communications — merged communications log for admin
+// (boarding events + driver notifications + student messages)
+router.get("/communications", async (req, res) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 100), 200);
+
+  const [boardingLogs, driverNotifs, studentMsgs] = await Promise.all([
+    db.select().from(boardingLogsTable)
+      .where(eq(boardingLogsTable.tenantId, req.tenantId))
+      .orderBy(desc(boardingLogsTable.actionAt))
+      .limit(limit),
+    db.select().from(driverNotificationsTable)
+      .where(eq(driverNotificationsTable.tenantId, req.tenantId))
+      .orderBy(desc(driverNotificationsTable.sentAt))
+      .limit(limit),
+    db.select({
+      id: passengersTable.id,
+      name: passengersTable.name,
+      stationName: stationsTable.name,
+      quickMessage: passengersTable.quickMessage,
+    })
+      .from(passengersTable)
+      .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+      .where(and(
+        eq(passengersTable.tenantId, req.tenantId),
+        isNotNull(passengersTable.quickMessage),
+      )),
+  ]);
+
+  const merged = [
+    ...boardingLogs.map((l) => ({
+      id: `boarding-${l.id}`,
+      type: "boarding" as const,
+      passengerName: l.passengerName,
+      stationName: l.stationName,
+      content: l.action,
+      timestamp: l.actionAt,
+      driverName: l.driverName,
+    })),
+    ...driverNotifs.map((n) => ({
+      id: `notify-${n.id}`,
+      type: "driver_notification" as const,
+      passengerName: n.passengerName,
+      stationName: n.stationName,
+      content: n.message,
+      timestamp: n.sentAt,
+      driverName: n.driverName,
+    })),
+    ...studentMsgs.filter((p) => p.quickMessage).map((p) => ({
+      id: `msg-${p.id}`,
+      type: "student_message" as const,
+      passengerName: p.name,
+      stationName: p.stationName ?? null,
+      content: p.quickMessage!,
+      timestamp: null as Date | null,
+      driverName: null as string | null,
+    })),
+  ].sort((a, b) => {
+    if (!a.timestamp && !b.timestamp) return 0;
+    if (!a.timestamp) return 1;
+    if (!b.timestamp) return -1;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  }).slice(0, limit);
+
+  return res.json(merged);
 });
 
 router.post("/", async (req, res) => {
@@ -269,6 +335,59 @@ router.post("/:id/leave", async (req, res) => {
     .where(eq(passengersTable.id, parsed.data.id));
   broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "leave" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
+});
+
+// POST /api/passengers/:id/driver-notify — driver sends "waiting" ping to a student
+// Deduplicated: one notification per passenger per station per calendar day
+router.post("/:id/driver-notify", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const [passenger] = await db
+    .select(PASSENGER_SELECT)
+    .from(passengersTable)
+    .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
+    .where(eq(passengersTable.id, id));
+  if (!passenger) return res.status(404).json({ error: "Not found" });
+
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const [existing] = await db
+    .select()
+    .from(driverNotificationsTable)
+    .where(and(
+      eq(driverNotificationsTable.passengerId, id),
+      eq(driverNotificationsTable.stationId, passenger.stationId ?? 0),
+      eq(driverNotificationsTable.tripDate, today),
+    ))
+    .limit(1);
+
+  if (existing) {
+    return res.json({ ok: false, alreadySent: true, sentAt: existing.sentAt });
+  }
+
+  const [activeDriver] = await db
+    .select()
+    .from(driversTable)
+    .where(eq(driversTable.tenantId, req.tenantId))
+    .limit(1);
+
+  const [notification] = await db
+    .insert(driverNotificationsTable)
+    .values({
+      tenantId: req.tenantId,
+      passengerId: id,
+      passengerName: passenger.name,
+      stationId: passenger.stationId ?? 0,
+      stationName: passenger.stationName ?? "Unknown",
+      driverId: activeDriver?.id ?? null,
+      driverName: activeDriver?.name ?? null,
+      message: "Driver is waiting for you. Please come to the station.",
+      tripDate: today,
+    })
+    .returning();
+
+  broadcast("driver_notification", { tenantId: req.tenantId, passengerId: id, message: notification.message });
+  return res.json({ ok: true, alreadySent: false, notification });
 });
 
 export default router;

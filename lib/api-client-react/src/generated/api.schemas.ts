@@ -246,6 +246,7 @@ export type PassengerStatus = typeof PassengerStatus[keyof typeof PassengerStatu
 export const PassengerStatus = {
   pending: 'pending',
   boarded: 'boarded',
+  absent: 'absent',
   leave: 'leave',
 } as const;
 

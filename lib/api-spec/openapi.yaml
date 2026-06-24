@@ -1216,7 +1216,7 @@ components:
           enum: [student, staff]
         status:
           type: string
-          enum: [pending, boarded, leave]
+          enum: [pending, boarded, absent, leave]
         stationId:
           type: integer
         routeId:

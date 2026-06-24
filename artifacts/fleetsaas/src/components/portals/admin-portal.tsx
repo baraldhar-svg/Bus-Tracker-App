@@ -2487,6 +2487,100 @@ function BoardingLogPanel() {
   );
 }
 
+type CommEntry = {
+  id: string;
+  type: "boarding" | "driver_notification" | "student_message";
+  passengerName: string;
+  stationName: string | null;
+  content: string;
+  timestamp: string | null;
+  driverName: string | null;
+};
+
+function DriverCommunicationsPanel() {
+  const { data: entries, isFetching } = useQuery<CommEntry[]>({
+    queryKey: ["communications"],
+    queryFn: async () => {
+      const tenantId = getTenantId();
+      const headers: Record<string, string> = {};
+      if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+      const r = await fetch(`${BASE}/api/passengers/communications`, { headers });
+      if (!r.ok) throw new Error("Failed to load communications");
+      return r.json() as Promise<CommEntry[]>;
+    },
+    refetchInterval: 12000,
+  });
+
+  function formatTime(iso: string | null) {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }); }
+    catch { return ""; }
+  }
+
+  const typeLabel: Record<CommEntry["type"], string> = {
+    boarding: "Boarding",
+    driver_notification: "Driver Ping",
+    student_message: "Student Msg",
+  };
+
+  const typeBadge: Record<CommEntry["type"], string> = {
+    boarding: "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400",
+    driver_notification: "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400",
+    student_message: "bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400",
+  };
+
+  const typeIcon: Record<CommEntry["type"], string> = {
+    boarding: "✓",
+    driver_notification: "🔔",
+    student_message: "💬",
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="font-semibold text-primary flex items-center gap-2">
+            <MessageSquare size={15} />Communications Log
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Boarding events, driver pings & student messages · auto-refreshes</p>
+        </div>
+        {isFetching && <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" title="Refreshing…" />}
+      </div>
+      {(!entries || entries.length === 0) ? (
+        <p className="px-5 py-6 text-center text-xs text-muted-foreground">
+          No communications yet — driver pings and boarding events will appear here
+        </p>
+      ) : (
+        <div className="divide-y divide-border max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
+          {entries.map((entry) => (
+            <div key={entry.id} className="flex items-center gap-3 px-5 py-3">
+              <span className={`shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${typeBadge[entry.type]}`}>
+                {typeIcon[entry.type]}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{entry.passengerName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {entry.content}
+                  {entry.stationName ? ` · ${entry.stationName}` : ""}
+                  {entry.driverName ? ` · ${entry.driverName}` : ""}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${typeBadge[entry.type]}`}>
+                  {typeLabel[entry.type]}
+                </span>
+                {entry.timestamp && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatTime(entry.timestamp)}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user, login } = useAuth();
   const driverLoc = useDriverLocation();
@@ -2694,6 +2788,8 @@ export default function AdminPortal() {
       </div>
       {/* Live Boarding Log */}
       <BoardingLogPanel />
+      {/* Communications Log */}
+      <DriverCommunicationsPanel />
       {/* School Settings */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
