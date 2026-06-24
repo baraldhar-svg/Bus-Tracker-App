@@ -22,6 +22,16 @@ const QUICK_MESSAGES = [
   { Icon: CloudRain,      text: "Bad weather conditions" },
 ];
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const SAFETY_SCORE = 91;
 const SPEED_KMH = 38;
 const DISTANCE_KM = 12.4;
@@ -72,7 +82,8 @@ export default function DriverPortal() {
   const [journeyCompleted, setJourneyCompleted] = useState(false);
   const [completedTime, setCompletedTime] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(true); // starts offline — driver must press "Go Live"
+  const [driverPos, setDriverPos] = useState<{ lat: number; lng: number } | null>(null);
   const [quickMsgOpen, setQuickMsgOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -94,6 +105,7 @@ export default function DriverPortal() {
         setGpsActive(true);
         setGpsError(null);
         const { latitude: lat, longitude: lng, accuracy } = position.coords;
+        setDriverPos({ lat, lng });
         const tenantId = getTenantId();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
@@ -138,6 +150,14 @@ export default function DriverPortal() {
 
   // Bus is "near school" when driver reaches the last station (≤ 200 m perimeter)
   const nearSchool = stations != null && stationIdx === stations.length - 1;
+
+  // 500 m geo-fence: use live GPS if available, otherwise fall back to station index
+  const lastStation = stations?.[stations.length - 1] as ({ lat?: number; lng?: number } & { id: number; name: string }) | undefined;
+  const distToSchoolKm =
+    driverPos != null && lastStation?.lat != null && lastStation?.lng != null
+      ? haversineKm(driverPos.lat, driverPos.lng, lastStation.lat, lastStation.lng)
+      : null;
+  const nearSchool500m = distToSchoolKm != null ? distToSchoolKm <= 0.5 : nearSchool;
 
   const handleBoard = async (id: number) => {
     setBoardingId(id);
@@ -230,6 +250,7 @@ export default function DriverPortal() {
   async function handleJourneyComplete() {
     if (journeyCompleted) return;
     setJourneyCompleted(true);
+    setIsOffline(true); // release the Live button lock — driver back to offline for next shift
     setCountdown(60);
     // Stop GPS — no more location updates
     stopGpsTracking();
@@ -266,15 +287,27 @@ export default function DriverPortal() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleToggleOffline}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors border ${
-                isOffline
-                  ? "bg-slate-700/60 border-slate-600 text-slate-400 hover:bg-slate-700"
-                  : "bg-green-500/15 border-green-500/30 text-green-400 hover:bg-green-500/25"
+              onClick={journeyStarted && !journeyCompleted ? undefined : handleToggleOffline}
+              disabled={journeyStarted && !journeyCompleted}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                journeyStarted && !journeyCompleted
+                  ? "pointer-events-none cursor-not-allowed bg-red-50 border-red-200 text-red-600 opacity-80"
+                  : isOffline
+                    ? "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700"
+                    : "bg-red-50 border-red-200 text-red-600 hover:bg-red-100/80"
               }`}
-              title={isOffline ? "Go online" : "Go offline"}
             >
-              {isOffline ? "⬤ OFFLINE" : "● LIVE"}
+              {isOffline ? (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  Go Live
+                </>
+              ) : (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                  Live Tracking Active
+                </>
+              )}
             </button>
             <div className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-200">
               {boardedCount}/{totalCount}
@@ -312,11 +345,16 @@ export default function DriverPortal() {
         <div>
           {!journeyStarted ? (
             <button
-              onClick={handleStartJourney}
-              className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
+              onClick={isOffline ? undefined : handleStartJourney}
+              disabled={isOffline}
+              className={`w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
+                isOffline
+                  ? "bg-slate-700 shadow-none opacity-50 cursor-not-allowed"
+                  : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-900/40"
+              }`}
             >
               <Navigation size={20} className="inline mr-2" />
-              Start Journey
+              {isOffline ? "Go Live first to Start Journey" : "Start Journey"}
             </button>
           ) : journeyCompleted && countdown === null ? (
             /* Countdown done — show fresh Start Journey only */
@@ -327,11 +365,17 @@ export default function DriverPortal() {
                 setJourneyTime(null);
                 setCompletedTime(null);
                 setStationIdx(0);
+                setDriverPos(null);
               }}
-              className="w-full rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 py-4 text-center font-bold text-white shadow-lg shadow-green-900/40 transition-all active:scale-[0.98]"
+              disabled={isOffline}
+              className={`w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
+                isOffline
+                  ? "bg-slate-700 shadow-none opacity-50 cursor-not-allowed"
+                  : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-900/40"
+              }`}
             >
               <Navigation size={20} className="inline mr-2" />
-              Start Journey
+              {isOffline ? "Go Live first to Start Journey" : "Start Journey"}
             </button>
           ) : journeyCompleted ? (
             /* Countdown in progress — completion card only */
@@ -395,11 +439,20 @@ export default function DriverPortal() {
                 </div>
               </div>
               <button
-                onClick={handleJourneyComplete}
-                className="w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg shadow-red-900/40 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all active:scale-[0.98]"
+                onClick={nearSchool500m ? handleJourneyComplete : undefined}
+                disabled={!nearSchool500m}
+                className={`w-full rounded-2xl py-4 text-center font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
+                  nearSchool500m
+                    ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-900/40"
+                    : "bg-slate-700 shadow-none opacity-50 cursor-not-allowed"
+                }`}
               >
                 <Flag size={20} className="inline mr-2" />
-                Journey Completed
+                {nearSchool500m
+                  ? "Journey Completed"
+                  : distToSchoolKm != null
+                    ? `Journey Completed · ${distToSchoolKm.toFixed(1)} km to school`
+                    : "Journey Completed — Reach School First"}
               </button>
             </div>
           )}
@@ -624,14 +677,14 @@ export default function DriverPortal() {
                       <div className="shrink-0 flex gap-1.5">
                         <button
                           onClick={() => handleBoard(p.id)}
-                          disabled={boardingId === p.id || absentId === p.id}
+                          disabled={boardingId === p.id || absentId === p.id || isOffline}
                           className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
                         >
                           {boardingId === p.id ? "…" : "Board ✓"}
                         </button>
                         <button
                           onClick={() => handleAbsent(p.id)}
-                          disabled={boardingId === p.id || absentId === p.id}
+                          disabled={boardingId === p.id || absentId === p.id || isOffline}
                           className="rounded-xl bg-slate-700 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-slate-600 disabled:opacity-50 transition-colors border border-red-700/30"
                         >
                           {absentId === p.id ? "…" : "Absent"}
@@ -673,7 +726,7 @@ export default function DriverPortal() {
                   <div className="shrink-0 flex flex-col items-center gap-1">
                     <button
                       onClick={() => handleUnboard(p.id)}
-                      disabled={unboardingId === p.id}
+                      disabled={unboardingId === p.id || isOffline}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         unboardingId === p.id ? "bg-slate-600 opacity-50" : "bg-emerald-500"
                       }`}
@@ -688,7 +741,7 @@ export default function DriverPortal() {
                 ) : p.quickMessage === "Staying home today" ? (
                   <span className="shrink-0 rounded-xl bg-slate-700 px-3 py-1.5 text-xs text-slate-400">On Leave</span>
                 ) : (
-                  <button onClick={() => handleBoard(p.id)} disabled={boardingId === p.id}
+                  <button onClick={() => handleBoard(p.id)} disabled={boardingId === p.id || isOffline}
                     className="shrink-0 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 active:bg-amber-700 disabled:opacity-50 transition-colors">
                     {boardingId === p.id ? "…" : "Board ✓"}
                   </button>
