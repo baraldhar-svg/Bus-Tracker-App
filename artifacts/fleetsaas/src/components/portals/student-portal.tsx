@@ -63,6 +63,7 @@ export default function StudentPortal() {
   const [onLeave, setOnLeave] = useState(false);
   const [geoAlertDismissed, setGeoAlertDismissed] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [tripCompleted, setTripCompleted] = useState(false);
 
 
   // Transport Config state
@@ -195,6 +196,8 @@ export default function StudentPortal() {
     });
     es.addEventListener("trip_completed", () => {
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+      setTripCompleted(true);
+      setTimeout(() => setTripCompleted(false), 30_000);
     });
     return () => es.close();
   }, [queryClient]);
@@ -264,34 +267,94 @@ export default function StudentPortal() {
           })}
         </div>
       )}
-      {/* Geofencing Alert — fires when live GPS puts the bus within 800m of student's stop */}
-      {nearbyAlert && (
-        <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
-          <div className="flex items-start justify-between gap-3">
+      {/* ── Bus Status Banner — always visible, three lifecycle states ── */}
+      {(() => {
+        // State 2: After Boarding — actions locked, student is on the bus
+        if (isBoarded) {
+          return (
+            <div className="rounded-xl border border-green-400 bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white shadow-lg">
+              <div className="flex items-center gap-3">
+                <Bus size={36} className="text-white drop-shadow shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm">{t.actionsLocked}</p>
+                  <p className="text-xs text-green-100 mt-0.5 leading-snug">
+                    🔒 Dashboard actions are locked until the journey ends.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        // State 3: Journey Completed — driver ended the trip
+        if (tripCompleted) {
+          return (
+            <div className="rounded-xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg">
+              <div className="flex items-center gap-3">
+                <CheckCircle size={36} className="text-white drop-shadow shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm">Journey Completed!</p>
+                  <p className="text-xs text-sky-100 mt-0.5 leading-snug">
+                    Your bus has reached the destination. All actions restored.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        // State 1a: Before Boarding — bus is broadcasting live GPS
+        if (driverLoc.isLive) {
+          return (
+            <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
+              {nearbyAlert && (
+                <span className="absolute -top-2 -right-2 animate-bounce rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                  NEAR!
+                </span>
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Bus size={36} className={`text-white drop-shadow shrink-0 ${nearbyAlert ? "animate-pulse" : ""}`} />
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm">{t.busNearby}</p>
+                    <p className="text-xs text-amber-100 mt-0.5 leading-snug">
+                      {nearestDriverStation
+                        ? tpl(t.busAtStation, {
+                            station: nearestDriverStation.rs.stationName ?? "a nearby stop",
+                            dist: distToMyStopKm != null ? distToMyStopKm.toFixed(1) : "?",
+                            stop: myStop?.stationName ?? "your stop",
+                          })
+                        : myStop?.stationName
+                          ? tpl(t.approachingStop, { stop: myStop.stationName })
+                          : t.busIsClose}
+                    </p>
+                  </div>
+                </div>
+                {!geoAlertDismissed && (
+                  <button
+                    onClick={() => setGeoAlertDismissed(true)}
+                    className="shrink-0 rounded-full p-1 hover:bg-white/20 text-white text-xs"
+                  >✕</button>
+                )}
+              </div>
+            </div>
+          );
+        }
+        // State 1b: Before Boarding — waiting for bus to start
+        return (
+          <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-sm opacity-75">
             <div className="flex items-center gap-3">
-              <Bus size={36} className="text-white drop-shadow shrink-0" />
+              <Bus size={36} className="text-white/80 drop-shadow shrink-0" />
               <div className="min-w-0">
-                <p className="font-bold text-sm">{t.busNearby}</p>
+                <p className="font-bold text-sm">Waiting for bus service…</p>
                 <p className="text-xs text-amber-100 mt-0.5 leading-snug">
-                  {nearestDriverStation
-                    ? tpl(t.busAtStation, {
-                        station: nearestDriverStation.rs.stationName ?? "a nearby stop",
-                        dist: distToMyStopKm != null ? distToMyStopKm.toFixed(1) : "?",
-                        stop: myStop?.stationName ?? "your stop",
-                      })
-                    : myStop?.stationName
-                      ? tpl(t.approachingStop, { stop: myStop.stationName })
-                      : t.busIsClose}
+                  {myStop?.stationName
+                    ? `Your stop: ${myStop.stationName} · Bus hasn't started yet`
+                    : "Your bus hasn't started the route yet"}
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setGeoAlertDismissed(true)}
-              className="shrink-0 rounded-full p-1 hover:bg-white/20 text-white text-xs"
-            >✕</button>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {/* Welcome bar */}
       {user && (
         <div className="border border-border rounded-xl bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-2.5 flex items-center gap-2">
