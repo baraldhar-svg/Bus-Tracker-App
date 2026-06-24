@@ -269,11 +269,15 @@ export const ListPassengersResponse = zod.array(ListPassengersResponseItem)
  */
 export const CreatePassengerBody = zod.object({
   "name": zod.string(),
-  "phone": zod.string().optional(),
+  "phone": zod.string().optional().describe('Contact \/ parent phone number (used for OTP login)'),
   "photoUrl": zod.string().optional(),
   "role": zod.enum(['student', 'staff']),
   "stationId": zod.number(),
-  "routeId": zod.number().optional()
+  "routeId": zod.number().optional(),
+  "className": zod.string().optional().describe('Class\/grade the student is enrolled in (e.g. Class 10, Grade 8)'),
+  "section": zod.string().optional().describe('Section within the class (e.g. A, B, Science)'),
+  "rollNumber": zod.string().optional().describe('School roll \/ admission number'),
+  "faculty": zod.string().optional().describe('Faculty or stream, if applicable (e.g. Science, Management, Humanities)')
 })
 
 

@@ -139,10 +139,23 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
-  const { name, phone, photoUrl, role, stationId, routeId } = parsed.data;
+  const { name, phone, photoUrl, role, stationId, routeId, className, section, rollNumber, faculty } = parsed.data;
   const [row] = await db
     .insert(passengersTable)
-    .values({ tenantId: req.tenantId, name, phone: phone ?? null, photoUrl: photoUrl ?? null, role: role ?? "student", stationId, routeId: routeId ?? null, status: "pending" })
+    .values({
+      tenantId: req.tenantId,
+      name,
+      phone: phone ?? null,
+      photoUrl: photoUrl ?? null,
+      role: role ?? "student",
+      stationId,
+      routeId: routeId ?? null,
+      status: "pending",
+      className: className ?? null,
+      section: section ?? null,
+      rollNumber: rollNumber ?? null,
+      faculty: faculty ?? null,
+    })
     .returning();
 
   // Auto-create a users record so this person can log in with their phone number.

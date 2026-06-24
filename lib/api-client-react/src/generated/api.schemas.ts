@@ -285,11 +285,20 @@ export const PassengerInputRole = {
 
 export interface PassengerInput {
   name: string;
+  /** Contact / parent phone number (used for OTP login) */
   phone?: string;
   photoUrl?: string;
   role: PassengerInputRole;
   stationId: number;
   routeId?: number;
+  /** Class/grade the student is enrolled in (e.g. Class 10, Grade 8) */
+  className?: string;
+  /** Section within the class (e.g. A, B, Science) */
+  section?: string;
+  /** School roll / admission number */
+  rollNumber?: string;
+  /** Faculty or stream, if applicable (e.g. Science, Management, Humanities) */
+  faculty?: string;
 }
 
 export interface PassengerUpdate {

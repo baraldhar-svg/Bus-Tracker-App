@@ -2632,6 +2632,10 @@ export default function AdminPortal() {
   const [pPhoto, setPPhoto] = useState("");
   const [pPhoneFound, setPPhoneFound] = useState<"idle" | "checking" | "found" | "new">("idle");
   const [pSchoolCode, setPSchoolCode] = useState("");
+  const [pClass, setPClass] = useState("");
+  const [pSection, setPSection] = useState("");
+  const [pRollNo, setPRollNo] = useState("");
+  const [pFaculty, setPFaculty] = useState("");
 
   const [dName, setDName] = useState("");
   const [dPhone, setDPhone] = useState("");
@@ -2734,14 +2738,27 @@ export default function AdminPortal() {
       }
     }
     try {
-      await apiPost("/passengers", { name: pName, role: pRole, stationId: Number(pStation), phone: pPhone.trim() || undefined, routeId: pRouteId ? Number(pRouteId) : undefined, photoUrl: pPhoto || undefined });
+      await apiPost("/passengers", {
+        name: pName,
+        role: pRole,
+        stationId: Number(pStation),
+        phone: pPhone.trim() || undefined,
+        routeId: pRouteId ? Number(pRouteId) : undefined,
+        photoUrl: pPhoto || undefined,
+        className: pClass.trim() || undefined,
+        section: pSection.trim() || undefined,
+        rollNumber: pRollNo.trim() || undefined,
+        faculty: pFaculty.trim() || undefined,
+      });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetchPassengers();
-      setModal(null); setPName(""); setPRole("student"); setPPhone(""); setPRouteId(""); setPPhoto("");
+      setModal(null);
+      setPName(""); setPRole("student"); setPPhone(""); setPRouteId(""); setPPhoto("");
       setPPhoneFound("idle"); setPSchoolCode("");
+      setPClass(""); setPSection(""); setPRollNo(""); setPFaculty("");
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
-  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, pPhoneFound, pSchoolCode, tenant, queryClient, refetchPassengers]);
+  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, pPhoneFound, pSchoolCode, pClass, pSection, pRollNo, pFaculty, tenant, queryClient, refetchPassengers]);
 
   const handleAddDriver = useCallback(async () => {
     setErr(""); setLoading(true);
@@ -3376,6 +3393,56 @@ export default function AdminPortal() {
                     </select>
                   </div>
                 </div>
+
+                {/* ── Academic Details ── */}
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Academic Details</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">Class / Grade</label>
+                      <select value={pClass} onChange={(e) => setPClass(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        <option value="">— Select —</option>
+                        {["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">Section</label>
+                      <input value={pSection} onChange={(e) => setPSection(e.target.value)} placeholder="A, B, Science…"
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">Roll No.</label>
+                      <input value={pRollNo} onChange={(e) => setPRollNo(e.target.value)} placeholder="e.g. 042"
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">Faculty / Stream</label>
+                      <select value={pFaculty} onChange={(e) => setPFaculty(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        <option value="">N/A</option>
+                        <option value="Science">Science</option>
+                        <option value="Management">Management</option>
+                        <option value="Humanities">Humanities</option>
+                        <option value="Law">Law</option>
+                        <option value="Education">Education</option>
+                        <option value="Hotel Management">Hotel Management</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted-foreground">School Code</label>
+                    <input value={pSchoolCode} onChange={(e) => setPSchoolCode(e.target.value.toUpperCase())}
+                      placeholder="Auto-filled from your school — confirm to link"
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
+                    <p className="mt-1 text-[11px] text-muted-foreground">Matches the school code visible in your Admin settings</p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-muted-foreground">
                     Assigned Bus Route <span className="text-muted-foreground/60">(connects student to bus)</span>

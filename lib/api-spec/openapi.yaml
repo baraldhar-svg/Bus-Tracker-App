@@ -1241,6 +1241,7 @@ components:
           type: string
         phone:
           type: string
+          description: Contact / parent phone number (used for OTP login)
         photoUrl:
           type: string
         role:
@@ -1250,6 +1251,18 @@ components:
           type: integer
         routeId:
           type: integer
+        className:
+          type: string
+          description: "Class/grade the student is enrolled in (e.g. Class 10, Grade 8)"
+        section:
+          type: string
+          description: "Section within the class (e.g. A, B, Science)"
+        rollNumber:
+          type: string
+          description: School roll / admission number
+        faculty:
+          type: string
+          description: "Faculty or stream, if applicable (e.g. Science, Management, Humanities)"
 
     PassengerUpdate:
       type: object
