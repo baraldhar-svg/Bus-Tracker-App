@@ -3872,10 +3872,13 @@ export default function AdminPortal() {
 
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-3"
           onClick={(e) => { if (e.target === e.currentTarget) { setModal(null); setPPhone(""); setPPhoneFound("idle"); setPSchoolCode(""); } }}>
-          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-primary">Add Student / Staff</h3>
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh]">
+            <div className="px-4 pt-4 pb-2 border-b border-border shrink-0">
+              <h3 className="text-sm font-bold text-primary">Add Student / Staff</h3>
+            </div>
+            <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
 
             {/* Phone field — always shown first */}
             <div>
@@ -3887,7 +3890,7 @@ export default function AdminPortal() {
                 <div className="relative flex-1">
                   <input value={pPhone} onChange={(e) => { setPPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setPPhoneFound("idle"); }}
                     placeholder="98XXXXXXXX" type="tel" inputMode="numeric"
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 pr-8" />
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500 pr-8" />
                   {pPhoneFound === "checking" && (
                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
                   )}
@@ -3900,7 +3903,7 @@ export default function AdminPortal() {
             {/* ── EXISTING USER found — simplified form ── */}
             {pPhoneFound === "found" && (
               <>
-                <div className="flex items-center gap-2.5 rounded-xl border border-green-700/40 bg-green-950/20 px-3.5 py-3">
+                <div className="flex items-center gap-2 rounded-xl border border-green-700/40 bg-green-950/20 px-3 py-2">
                   <span className="text-green-400 text-base">✅</span>
                   <div>
                     <p className="text-xs font-semibold text-green-300">Existing OrbitTrack user found</p>
@@ -3911,23 +3914,23 @@ export default function AdminPortal() {
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
                   <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Full name"
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500" />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-muted-foreground">School Code</label>
                   <input value={pSchoolCode} onChange={(e) => setPSchoolCode(e.target.value.toUpperCase())}
                     placeholder="Enter your school code to confirm"
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
                   <p className="mt-1 text-[11px] text-muted-foreground">Confirm with your school code before linking</p>
                 </div>
 
                 {err && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded-xl px-3 py-2">{err}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => { setModal(null); setPPhone(""); setPPhoneFound("idle"); setPSchoolCode(""); }}
-                    className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                    className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
                   <button onClick={handleAddPassenger} disabled={!pName.trim() || !pSchoolCode.trim() || loading}
-                    className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-500 disabled:opacity-50">
+                    className="flex-1 rounded-xl bg-green-600 py-2 text-sm font-bold text-white hover:bg-green-500 disabled:opacity-50">
                     {loading ? "Linking…" : "Link Member ✓"}
                   </button>
                 </div>
@@ -3937,7 +3940,7 @@ export default function AdminPortal() {
             {/* ── NEW USER — full form ── */}
             {pPhoneFound === "new" && (
               <>
-                <div className="flex items-center gap-2.5 rounded-xl border border-blue-700/40 bg-blue-950/20 px-3.5 py-3">
+                <div className="flex items-center gap-2 rounded-xl border border-blue-700/40 bg-blue-950/20 px-3 py-2">
                   <span className="text-blue-400 text-base">🆕</span>
                   <div>
                     <p className="text-xs font-semibold text-blue-300">New user — fill in their details</p>
@@ -3948,13 +3951,13 @@ export default function AdminPortal() {
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-muted-foreground">Full Name</label>
                   <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Priya Maharjan"
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-muted-foreground">Role</label>
                     <select value={pRole} onChange={(e) => setPRole(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                       <option value="student">Student</option>
                       <option value="staff">Staff</option>
                     </select>
@@ -3962,7 +3965,7 @@ export default function AdminPortal() {
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-muted-foreground">Station</label>
                     <select value={pStation} onChange={(e) => setPStation(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                       {stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
@@ -3975,7 +3978,7 @@ export default function AdminPortal() {
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-muted-foreground">Designation</label>
                       <select value={pDesignation} onChange={(e) => { setPDesignation(e.target.value); if (e.target.value !== "Other") setPDesignationCustom(""); }}
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                         <option value="">— Select —</option>
                         <option value="Teacher">Teacher</option>
                         <option value="Principal">Principal</option>
@@ -3993,7 +3996,7 @@ export default function AdminPortal() {
                       <div>
                         <label className="mb-1 block text-xs font-semibold text-muted-foreground">Custom Designation</label>
                         <input value={pDesignationCustom} onChange={(e) => setPDesignationCustom(e.target.value)} placeholder="e.g. Sports Coach, Counsellor…"
-                          className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                          className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
                       </div>
                     )}
                   </div>
@@ -4006,7 +4009,7 @@ export default function AdminPortal() {
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-muted-foreground">Class / Grade</label>
                       <select value={pClass} onChange={(e) => setPClass(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                         <option value="">— Select —</option>
                         {["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"].map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -4016,19 +4019,19 @@ export default function AdminPortal() {
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-muted-foreground">Section</label>
                       <input value={pSection} onChange={(e) => setPSection(e.target.value)} placeholder="A, B, Science…"
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-muted-foreground">Roll No.</label>
                       <input value={pRollNo} onChange={(e) => setPRollNo(e.target.value)} placeholder="e.g. 042"
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-muted-foreground">Faculty / Stream</label>
                       <select value={pFaculty} onChange={(e) => setPFaculty(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                         <option value="">N/A</option>
                         <option value="Science">Science</option>
                         <option value="Management">Management</option>
@@ -4043,7 +4046,7 @@ export default function AdminPortal() {
                     <label className="mb-1 block text-xs font-semibold text-muted-foreground">School Code</label>
                     <input value={pSchoolCode} onChange={(e) => setPSchoolCode(e.target.value.toUpperCase())}
                       placeholder="Auto-filled from your school — confirm to link"
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
+                      className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
                     <p className="mt-1 text-[11px] text-muted-foreground">Matches the school code visible in your Admin settings</p>
                   </div>
                 </div>}
@@ -4053,7 +4056,7 @@ export default function AdminPortal() {
                     Assigned Bus Route <span className="text-muted-foreground/60">(connects student to bus)</span>
                   </label>
                   <select value={pRouteId} onChange={(e) => setPRouteId(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
                     <option value="">No route assigned</option>
                     {(adminRoutes as RouteRow[] ?? []).map((r) => (
                       <option key={r.id} value={r.id}>{r.name}{r.vehiclePlate ? ` · ${r.vehiclePlate}` : ""}</option>
@@ -4069,9 +4072,9 @@ export default function AdminPortal() {
                 {err && <p className="text-xs text-red-500">{err}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => { setModal(null); setPPhone(""); setPPhoneFound("idle"); }}
-                    className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
+                    className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
                   <button onClick={handleAddPassenger} disabled={!pName || loading}
-                    className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                    className="flex-1 rounded-xl bg-amber-500 py-2 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
                     {loading ? "Adding…" : "Add Member"}
                   </button>
                 </div>
@@ -4080,10 +4083,11 @@ export default function AdminPortal() {
 
             {/* ── WAITING for phone — prompt ── */}
             {pPhoneFound === "idle" && (
-              <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-center justify-center">
-                <span className="text-muted-foreground text-sm">Enter a 10-digit number to continue</span>
+              <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-center justify-center">
+                <span className="text-muted-foreground text-xs">Enter a 10-digit number to continue</span>
               </div>
             )}
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}
