@@ -299,6 +299,8 @@ export interface PassengerInput {
   rollNumber?: string;
   /** Faculty or stream, if applicable (e.g. Science, Management, Humanities) */
   faculty?: string;
+  /** Staff designation (e.g. Teacher, Accountant, School Staff, or a custom value) */
+  designation?: string;
 }
 
 export interface PassengerUpdate {

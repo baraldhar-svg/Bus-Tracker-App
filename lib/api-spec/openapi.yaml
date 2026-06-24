@@ -1263,6 +1263,9 @@ components:
         faculty:
           type: string
           description: "Faculty or stream, if applicable (e.g. Science, Management, Humanities)"
+        designation:
+          type: string
+          description: "Staff designation (e.g. Teacher, Accountant, School Staff, or a custom value)"
 
     PassengerUpdate:
       type: object

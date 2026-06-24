@@ -22,6 +22,7 @@ export const passengersTable = pgTable("passengers", {
   section: text("section"),
   rollNumber: text("roll_number"),
   faculty: text("faculty"),
+  designation: text("designation"),
   routeSubscribedAt: timestamp("route_subscribed_at"),
 });
 

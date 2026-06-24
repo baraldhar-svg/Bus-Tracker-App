@@ -139,7 +139,7 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
-  const { name, phone, photoUrl, role, stationId, routeId, className, section, rollNumber, faculty } = parsed.data;
+  const { name, phone, photoUrl, role, stationId, routeId, className, section, rollNumber, faculty, designation } = parsed.data;
   const [row] = await db
     .insert(passengersTable)
     .values({
@@ -155,6 +155,7 @@ router.post("/", async (req, res) => {
       section: section ?? null,
       rollNumber: rollNumber ?? null,
       faculty: faculty ?? null,
+      designation: designation ?? null,
     })
     .returning();
 

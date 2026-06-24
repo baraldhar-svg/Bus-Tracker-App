@@ -2636,6 +2636,8 @@ export default function AdminPortal() {
   const [pSection, setPSection] = useState("");
   const [pRollNo, setPRollNo] = useState("");
   const [pFaculty, setPFaculty] = useState("");
+  const [pDesignation, setPDesignation] = useState("");
+  const [pDesignationCustom, setPDesignationCustom] = useState("");
 
   const [dName, setDName] = useState("");
   const [dPhone, setDPhone] = useState("");
@@ -2749,6 +2751,7 @@ export default function AdminPortal() {
         section: pSection.trim() || undefined,
         rollNumber: pRollNo.trim() || undefined,
         faculty: pFaculty.trim() || undefined,
+        designation: pDesignation === "Other" ? pDesignationCustom.trim() || undefined : pDesignation.trim() || undefined,
       });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetchPassengers();
@@ -2756,9 +2759,10 @@ export default function AdminPortal() {
       setPName(""); setPRole("student"); setPPhone(""); setPRouteId(""); setPPhoto("");
       setPPhoneFound("idle"); setPSchoolCode("");
       setPClass(""); setPSection(""); setPRollNo(""); setPFaculty("");
+      setPDesignation(""); setPDesignationCustom("");
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
-  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, pPhoneFound, pSchoolCode, pClass, pSection, pRollNo, pFaculty, tenant, queryClient, refetchPassengers]);
+  }, [pName, pRole, pStation, pPhone, pRouteId, pPhoto, pPhoneFound, pSchoolCode, pClass, pSection, pRollNo, pFaculty, pDesignation, pDesignationCustom, tenant, queryClient, refetchPassengers]);
 
   const handleAddDriver = useCallback(async () => {
     setErr(""); setLoading(true);
@@ -3393,6 +3397,37 @@ export default function AdminPortal() {
                     </select>
                   </div>
                 </div>
+
+                {/* ── Designation — staff only ── */}
+                {pRole === "staff" && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Staff Details</p>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted-foreground">Designation</label>
+                      <select value={pDesignation} onChange={(e) => { setPDesignation(e.target.value); if (e.target.value !== "Other") setPDesignationCustom(""); }}
+                        className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                        <option value="">— Select —</option>
+                        <option value="Teacher">Teacher</option>
+                        <option value="Principal">Principal</option>
+                        <option value="Vice Principal">Vice Principal</option>
+                        <option value="Accountant">Accountant</option>
+                        <option value="School Staff">School Staff</option>
+                        <option value="Librarian">Librarian</option>
+                        <option value="Lab Assistant">Lab Assistant</option>
+                        <option value="Security Guard">Security Guard</option>
+                        <option value="Peon / Helper">Peon / Helper</option>
+                        <option value="Other">Other (custom)</option>
+                      </select>
+                    </div>
+                    {pDesignation === "Other" && (
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Custom Designation</label>
+                        <input value={pDesignationCustom} onChange={(e) => setPDesignationCustom(e.target.value)} placeholder="e.g. Sports Coach, Counsellor…"
+                          className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── Academic Details — students only ── */}
                 {pRole === "student" && <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
