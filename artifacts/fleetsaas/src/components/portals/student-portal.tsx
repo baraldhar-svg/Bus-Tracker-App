@@ -417,20 +417,58 @@ export default function StudentPortal() {
         )}
       </div>
 
-      {/* My Stop */}
-      {(() => {
-        const myStop = routeStations.find(rs => String(rs.stationId) === selectedStationId);
-        if (!myStop) return null;
-        return (
-          <div className="flex items-center gap-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 px-4 py-2.5 overflow-x-auto">
-            <MapPin size={14} className="shrink-0 text-amber-500" />
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">
-              {myStop.stationName ?? `Stop #${myStop.stationId}`}
-            </p>
-            <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Your stop</span>
+      {/* Route Stops — tap to change your stop */}
+      {routeStations.length > 0 && (
+        <div className="space-y-1.5">
+          <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="divide-y divide-border max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
+              {routeStations.map((rs, idx) => {
+                const isMyStop = String(rs.stationId) === selectedStationId;
+                return (
+                  <button
+                    key={rs.id}
+                    onClick={async () => {
+                      if (isMyStop) return;
+                      setSelectedStationId(String(rs.stationId));
+                      setTransportSaving(true);
+                      try {
+                        await updatePassenger.mutateAsync({
+                          id: me?.id ?? 1,
+                          data: { routeId: selectedRouteId ? Number(selectedRouteId) : undefined, stationId: rs.stationId },
+                        });
+                        queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+                        setTransportSaved(true);
+                        setTimeout(() => setTransportSaved(false), 2500);
+                      } catch { /* ignore */ }
+                      finally { setTransportSaving(false); }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isMyStop ? "bg-amber-50 dark:bg-amber-950/20" : "hover:bg-muted/40"}`}
+                  >
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <div className={`h-3 w-3 rounded-full border-2 ${isMyStop ? "border-amber-500 bg-amber-500" : "border-border bg-transparent"}`} />
+                      {idx < routeStations.length - 1 && <div className="w-0.5 h-3 bg-border" />}
+                    </div>
+                    <p className={`flex-1 text-xs ${isMyStop ? "font-bold text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                      {rs.stationName ?? `Stop ${idx + 1}`}
+                    </p>
+                    {isMyStop ? (
+                      <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Your stop</span>
+                    ) : (
+                      <span className="shrink-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">tap to select</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        );
-      })()}
+          {transportSaved && (
+            <p className="text-xs text-green-600 font-medium flex items-center gap-1 px-1">
+              <CheckCircle size={11} /> Stop updated
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Tracking Timeline */}
       <div className="space-y-2">
