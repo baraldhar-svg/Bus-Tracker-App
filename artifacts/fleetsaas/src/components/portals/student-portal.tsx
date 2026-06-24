@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Bus, ClipboardList, Map, Clock, MessageSquare, X,
   User, Timer, Home, MapPin, HeartPulse, ThumbsUp, Route, Navigation, CheckCircle, RefreshCw,
-  ShieldAlert, CreditCard, AlertTriangle,
+  ShieldAlert, CreditCard, AlertTriangle, Lock,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -33,6 +33,17 @@ const QUICK_MESSAGES = [
 
 // Student's home stop ETA alert threshold
 const GEO_ALERT_THRESHOLD_METERS = 800;
+
+// Haversine great-circle distance in km
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 type RouteStationItem = { id: number; stationId: number; stationName: string | null; position: number; radius: number | null; lat?: number | null; lng?: number | null };
 
@@ -115,6 +126,9 @@ export default function StudentPortal() {
     finally { setTransportSaving(false); }
   }, [selectedRouteId, selectedStationId, updatePassenger, queryClient]);
 
+  // Boarded lockdown — freeze all action buttons while student is on the bus
+  const isBoarded = me?.status === "boarded";
+
   // Geofencing: alert when driver is within threshold of student's stop
   const myStop = routeStations.find((rs) => String(rs.stationId) === selectedStationId);
   const nearbyAlert = (() => {
@@ -122,6 +136,24 @@ export default function StudentPortal() {
     const dLat = (driverLoc.lat - myStop.lat) * 111000;
     const dLng = (driverLoc.lng - myStop.lng) * 111000 * Math.cos(myStop.lat * (Math.PI / 180));
     return Math.sqrt(dLat * dLat + dLng * dLng) < GEO_ALERT_THRESHOLD_METERS;
+  })();
+
+  // Nearest route station to driver — infer which stop the bus is currently at
+  const nearestDriverStation = (() => {
+    if (!driverLoc.isLive || routeStations.length === 0) return null;
+    let best: { rs: RouteStationItem; dist: number } | null = null;
+    for (const rs of routeStations) {
+      if (!rs.lat || !rs.lng) continue;
+      const d = haversineKm(driverLoc.lat, driverLoc.lng, rs.lat, rs.lng);
+      if (!best || d < best.dist) best = { rs, dist: d };
+    }
+    return best;
+  })();
+
+  // Straight-line km from driver's GPS to this student's registered stop
+  const distToMyStopKm = (() => {
+    if (!driverLoc.isLive || !myStop?.lat || !myStop?.lng) return null;
+    return haversineKm(driverLoc.lat, driverLoc.lng, myStop.lat, myStop.lng);
   })();
 
   const handleLiveToday = useCallback(async () => {
@@ -154,6 +186,18 @@ export default function StudentPortal() {
   }, [handleLeave]);
 
   const [activeQuickMsg, setActiveQuickMsg] = useState<string | null>(null);
+
+  // SSE: instantly reflect boarding status changes and trip completions without a page refresh
+  useEffect(() => {
+    const es = new EventSource(`${BASE}/api/events`);
+    es.addEventListener("passengers_updated", () => {
+      queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+    });
+    es.addEventListener("trip_completed", () => {
+      queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+    });
+    return () => es.close();
+  }, [queryClient]);
 
   const handleQuickMessage = useCallback(async (msg: string) => {
     setActiveQuickMsg(msg);
@@ -225,11 +269,15 @@ export default function StudentPortal() {
         <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Bus size={36} className="text-white drop-shadow" />
-              <div>
+              <Bus size={36} className="text-white drop-shadow shrink-0" />
+              <div className="min-w-0">
                 <p className="font-bold text-sm">Bus is nearby — get ready!</p>
-                <p className="text-xs text-amber-100 mt-0.5">
-                  {myStop?.lat ? `Approaching ${myStop.stationName ?? "your stop"} · head out now` : "Bus is close — head to your stop"}
+                <p className="text-xs text-amber-100 mt-0.5 leading-snug">
+                  {nearestDriverStation
+                    ? `Bus at ${nearestDriverStation.rs.stationName ?? "a nearby stop"}${distToMyStopKm != null ? ` — ${distToMyStopKm.toFixed(1)} km from ${myStop?.stationName ?? "your stop"}` : ""}. Please get ready!`
+                    : myStop?.stationName
+                      ? `Approaching ${myStop.stationName} · head out now`
+                      : "Bus is close — head to your stop"}
                 </p>
               </div>
             </div>
@@ -273,33 +321,45 @@ export default function StudentPortal() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleLiveToday}
-            disabled={onLeave}
+            disabled={isBoarded || onLeave}
             className={`rounded-xl py-3 text-sm font-semibold transition-all ${
-              liveToday && !onLeave
-                ? "bg-green-600 text-white shadow-md"
-                : "bg-muted text-muted-foreground border border-border disabled:opacity-50"
+              isBoarded
+                ? "bg-muted text-muted-foreground border border-border opacity-50 cursor-not-allowed"
+                : liveToday && !onLeave
+                  ? "bg-green-600 text-white shadow-md"
+                  : "bg-muted text-muted-foreground border border-border disabled:opacity-50"
             }`}
           >
-            {liveToday && !onLeave ? t.ridingToday : t.markLive}
+            {liveToday && !onLeave && !isBoarded ? t.ridingToday : t.markLive}
           </button>
           <button
             onClick={handleLeaveClick}
+            disabled={isBoarded}
             className={`rounded-xl py-3 text-sm font-semibold transition-all select-none ${
-              onLeave
-                ? "bg-red-600 text-white shadow-md"
-                : "bg-muted text-muted-foreground border border-border"
+              isBoarded
+                ? "bg-muted text-muted-foreground border border-border opacity-50 cursor-not-allowed"
+                : onLeave
+                  ? "bg-red-600 text-white shadow-md"
+                  : "bg-muted text-muted-foreground border border-border"
             }`}
           >
-            {onLeave ? (
+            {isBoarded ? (
+              <span className="flex items-center justify-center gap-1"><Lock size={12} /> Locked</span>
+            ) : onLeave ? (
               <span className="flex items-center justify-center gap-1"><X size={12} /> {t.onLeave}</span>
             ) : t.takeLeave}
           </button>
         </div>
-        {sentMsg && (
+        {isBoarded ? (
+          <div className="flex items-center gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
+            <Lock size={12} className="shrink-0 text-green-600 dark:text-green-400" />
+            <p className="text-xs text-green-700 dark:text-green-400 font-medium">Actions locked — You are safely on board the bus.</p>
+          </div>
+        ) : sentMsg ? (
           <div className="rounded-lg dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 bg-background text-xs font-extrabold text-[#000]">
             Driver notified: <span className="font-semibold text-[#007500]">{onLeave ? "Not Riding Today" : "Coming to School Today"}</span>
           </div>
-        )}
+        ) : null}
       </div>
       {/* Notice Board */}
       <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 overflow-hidden shadow-sm">
@@ -511,17 +571,20 @@ export default function StudentPortal() {
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MessageSquare size={14} /> Quick Message to Driver</p>
-          {sentMsg && (
+          {isBoarded ? (
+            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium"><Lock size={10} /> Locked</span>
+          ) : sentMsg ? (
             <span className="text-xs text-green-600 font-medium">✓ Sent</span>
-          )}
+          ) : null}
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid grid-cols-2 gap-2 ${isBoarded ? "opacity-50 pointer-events-none select-none" : ""}`}>
           {QUICK_MESSAGES.map((msg) => {
             const isActive = activeQuickMsg === msg.value;
             return (
               <button
                 key={msg.value}
                 onClick={() => handleQuickMessage(msg.value)}
+                disabled={isBoarded}
                 className={`rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition-all active:scale-[0.97] ${
                   isActive
                     ? "border-[#ffee47] bg-[#ffee47] text-slate-900 shadow-md scale-[0.98]"
