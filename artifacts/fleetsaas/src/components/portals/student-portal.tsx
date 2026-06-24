@@ -417,55 +417,64 @@ export default function StudentPortal() {
         )}
       </div>
 
-      {/* Route Stops — tap to change your stop */}
-      {routeStations.length > 0 && (
-        <div className="space-y-1.5">
-          <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-2 gap-px bg-border max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
-              {routeStations.map((rs) => {
-                const isMyStop = String(rs.stationId) === selectedStationId;
-                return (
-                  <button
-                    key={rs.id}
-                    onClick={async () => {
-                      if (isMyStop) return;
-                      setSelectedStationId(String(rs.stationId));
-                      setTransportSaving(true);
-                      try {
-                        await updatePassenger.mutateAsync({
-                          id: me?.id ?? 1,
-                          data: { routeId: selectedRouteId ? Number(selectedRouteId) : undefined, stationId: rs.stationId },
-                        });
-                        queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
-                        setTransportSaved(true);
-                        setTimeout(() => setTransportSaved(false), 2500);
-                      } catch { /* ignore */ }
-                      finally { setTransportSaving(false); }
-                    }}
-                    className={`flex items-start gap-2 px-3 py-2.5 text-left transition-colors ${isMyStop ? "bg-amber-50 dark:bg-amber-950/20" : "bg-card hover:bg-muted/40"}`}
-                  >
-                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full border ${isMyStop ? "border-amber-500 bg-amber-500" : "border-border bg-transparent"}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs leading-snug truncate ${isMyStop ? "font-bold text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+      {/* Route Stops — my stop pinned, rest scrollable */}
+      {routeStations.length > 0 && (() => {
+        const myStop = routeStations.find(rs => String(rs.stationId) === selectedStationId);
+        const otherStops = routeStations.filter(rs => String(rs.stationId) !== selectedStationId);
+        const saveStop = async (rs: RouteStationItem) => {
+          setSelectedStationId(String(rs.stationId));
+          setTransportSaving(true);
+          try {
+            await updatePassenger.mutateAsync({
+              id: me?.id ?? 1,
+              data: { routeId: selectedRouteId ? Number(selectedRouteId) : undefined, stationId: rs.stationId },
+            });
+            queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+            setTransportSaved(true);
+            setTimeout(() => setTransportSaved(false), 2500);
+          } catch { /* ignore */ }
+          finally { setTransportSaving(false); }
+        };
+        return (
+          <div className="space-y-1.5">
+            <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              {/* Pinned: user's current stop */}
+              {myStop && (
+                <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800/40">
+                  <MapPin size={13} className="shrink-0 text-amber-500" />
+                  <p className="flex-1 text-sm font-bold text-amber-700 dark:text-amber-400 truncate">
+                    {myStop.stationName ?? `Stop ${myStop.stationId}`}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Your stop</span>
+                </div>
+              )}
+              {/* Scrollable: all other stops */}
+              {otherStops.length > 0 && (
+                <div className="divide-y divide-border max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
+                  {otherStops.map((rs) => (
+                    <button
+                      key={rs.id}
+                      onClick={() => saveStop(rs)}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="h-2 w-2 shrink-0 rounded-full border border-border bg-transparent" />
+                      <p className="flex-1 text-xs text-foreground truncate">
                         {rs.stationName ?? `Stop ${rs.stationId}`}
                       </p>
-                      {isMyStop && (
-                        <p className="text-[9px] font-semibold text-amber-500 mt-0.5">Your stop</p>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+            {transportSaved && (
+              <p className="text-xs text-green-600 font-medium flex items-center gap-1 px-1">
+                <CheckCircle size={11} /> Stop updated
+              </p>
+            )}
           </div>
-          {transportSaved && (
-            <p className="text-xs text-green-600 font-medium flex items-center gap-1 px-1">
-              <CheckCircle size={11} /> Stop updated
-            </p>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tracking Timeline */}
       <div className="space-y-2">
