@@ -3394,8 +3394,8 @@ export default function AdminPortal() {
                   </div>
                 </div>
 
-                {/* ── Academic Details ── */}
-                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                {/* ── Academic Details — students only ── */}
+                {pRole === "student" && <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Academic Details</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -3441,7 +3441,7 @@ export default function AdminPortal() {
                       className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground font-mono tracking-wider outline-none focus:border-amber-500 placeholder:font-sans placeholder:tracking-normal" />
                     <p className="mt-1 text-[11px] text-muted-foreground">Matches the school code visible in your Admin settings</p>
                   </div>
-                </div>
+                </div>}
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-muted-foreground">
