@@ -422,8 +422,8 @@ export default function StudentPortal() {
         <div className="space-y-1.5">
           <h2 className="font-semibold text-primary text-sm flex items-center gap-1.5"><Navigation size={14} /> Your Route Stops</h2>
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="divide-y divide-border max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
-              {routeStations.map((rs, idx) => {
+            <div className="grid grid-cols-2 gap-px bg-border max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-400">
+              {routeStations.map((rs) => {
                 const isMyStop = String(rs.stationId) === selectedStationId;
                 return (
                   <button
@@ -443,20 +443,17 @@ export default function StudentPortal() {
                       } catch { /* ignore */ }
                       finally { setTransportSaving(false); }
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isMyStop ? "bg-amber-50 dark:bg-amber-950/20" : "hover:bg-muted/40"}`}
+                    className={`flex items-start gap-2 px-3 py-2.5 text-left transition-colors ${isMyStop ? "bg-amber-50 dark:bg-amber-950/20" : "bg-card hover:bg-muted/40"}`}
                   >
-                    <div className="flex flex-col items-center gap-0.5 shrink-0">
-                      <div className={`h-3 w-3 rounded-full border-2 ${isMyStop ? "border-amber-500 bg-amber-500" : "border-border bg-transparent"}`} />
-                      {idx < routeStations.length - 1 && <div className="w-0.5 h-3 bg-border" />}
+                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full border ${isMyStop ? "border-amber-500 bg-amber-500" : "border-border bg-transparent"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs leading-snug truncate ${isMyStop ? "font-bold text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                        {rs.stationName ?? `Stop ${rs.stationId}`}
+                      </p>
+                      {isMyStop && (
+                        <p className="text-[9px] font-semibold text-amber-500 mt-0.5">Your stop</p>
+                      )}
                     </div>
-                    <p className={`flex-1 text-xs ${isMyStop ? "font-bold text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
-                      {rs.stationName ?? `Stop ${idx + 1}`}
-                    </p>
-                    {isMyStop ? (
-                      <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">Your stop</span>
-                    ) : (
-                      <span className="shrink-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">tap to select</span>
-                    )}
                   </button>
                 );
               })}
