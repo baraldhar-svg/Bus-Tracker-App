@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useListStations, useListAnnouncements, useListPassengers, useListDrivers, useListRoutes, useListVehicles, getListPassengersQueryKey, getListDriversQueryKey, getListRoutesQueryKey, getListStationsQueryKey, getListVehiclesQueryKey, getListAnnouncementsQueryKey, useListCalendarEvents, getListCalendarEventsQueryKey, getTenantId } from "@workspace/api-client-react";
-import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User, Bell } from "lucide-react";
+import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User, Bell, Droplets, FileText, BarChart3, Gauge, AlertCircle, Settings2 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import OsmMap, { type RouteStop } from "@/components/osm-map";
 import { useDriverLocation } from "@/hooks/use-driver-location";
@@ -2581,6 +2581,508 @@ function DriverCommunicationsPanel() {
   );
 }
 
+// ── Types for fleet ops ────────────────────────────────────────────────────────
+type FuelLogRow = { id: number; vehicleId: number | null; vehiclePlate: string | null; date: string; liters: number; amountNpr: number; odometerKm: number; receiptUrl: string | null; notes: string | null; createdAt: string };
+type MaintenanceRow = { id: number; vehicleId: number | null; vehiclePlate: string | null; partType: string; description: string | null; costNpr: number; odometerKm: number; serviceDate: string; vendor: string | null; createdAt: string };
+type VehicleDocRow = { id: number; vehicleId: number; vehiclePlate: string | null; vehicleModel: string | null; bluebookExpiry: string | null; insuranceExpiry: string | null; pollutionExpiry: string | null; daysUntilBluebook: number | null; daysUntilInsurance: number | null; daysUntilPollution: number | null; isCritical: boolean };
+type VehicleItem = { id: number; plateNumber: string; model: string };
+
+// ── FleetFuelPanel ─────────────────────────────────────────────────────────────
+function FleetFuelPanel({ vehicles }: { vehicles: VehicleItem[] }) {
+  const [logs, setLogs] = useState<FuelLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [fVehicleId, setFVehicleId] = useState("");
+  const [fDate, setFDate] = useState(today);
+  const [fLiters, setFLiters] = useState("");
+  const [fAmount, setFAmount] = useState("");
+  const [fOdometer, setFOdometer] = useState("");
+  const [fNotes, setFNotes] = useState("");
+
+  async function fetchLogs() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/fuel-logs`, { headers: tenantHeaders() });
+      setLogs(await r.json());
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void fetchLogs(); }, []);
+
+  async function handleSave() {
+    if (!fDate || !fLiters || !fAmount || !fOdometer) { setErr("Date, liters, amount and odometer are required"); return; }
+    setSaving(true); setErr("");
+    try {
+      const body: Record<string, unknown> = { date: fDate, liters: Number(fLiters), amountNpr: Number(fAmount), odometerKm: Number(fOdometer) };
+      if (fVehicleId) body.vehicleId = Number(fVehicleId);
+      if (fNotes.trim()) body.notes = fNotes.trim();
+      const r = await fetch(`${BASE}/api/fuel-logs`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "Failed"); }
+      setFDate(today); setFLiters(""); setFAmount(""); setFOdometer(""); setFNotes(""); setFVehicleId("");
+      setShowForm(false);
+      await fetchLogs();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: number) {
+    await fetch(`${BASE}/api/fuel-logs/${id}`, { method: "DELETE", headers: tenantHeaders() });
+    await fetchLogs();
+  }
+
+  // Analytics
+  const analytics = useMemo(() => {
+    if (logs.length === 0) return null;
+    const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+    const byMonth: Record<string, number> = {};
+    for (const l of sorted) {
+      const m = l.date.slice(0, 7);
+      byMonth[m] = (byMonth[m] ?? 0) + l.liters;
+    }
+    const months = Object.values(byMonth);
+    const avgMonthly = months.reduce((s, v) => s + v, 0) / months.length;
+    let totalKm = 0; let totalL = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      const kmDelta = sorted[i].odometerKm - sorted[i - 1].odometerKm;
+      if (kmDelta > 0) { totalKm += kmDelta; totalL += sorted[i].liters; }
+    }
+    const kmPerL = totalL > 0 ? totalKm / totalL : null;
+    return { avgMonthly: avgMonthly.toFixed(1), kmPerL: kmPerL ? kmPerL.toFixed(2) : "—" };
+  }, [logs]);
+
+  return (
+    <div className="space-y-5">
+      {/* Analytics */}
+      {analytics && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1"><BarChart3 size={14} className="text-amber-500" /><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Avg Monthly</span></div>
+            <p className="text-2xl font-bold text-primary">{analytics.avgMonthly}<span className="text-sm font-normal text-muted-foreground ml-1">L</span></p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Fuel consumed per month</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1"><Gauge size={14} className="text-green-500" /><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Mileage</span></div>
+            <p className="text-2xl font-bold text-green-600">{analytics.kmPerL}<span className="text-sm font-normal text-muted-foreground ml-1">KM/L</span></p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Real-time efficiency</p>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div><h2 className="font-semibold text-primary flex items-center gap-2"><Droplets size={15} className="text-amber-500" />Fuel Logs</h2><p className="text-xs text-muted-foreground mt-0.5">{logs.length} entries logged</p></div>
+          <button onClick={() => { setShowForm(!showForm); setErr(""); }}
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400">
+            <Plus size={13} />{showForm ? "Cancel" : "Log Fuel"}
+          </button>
+        </div>
+
+        {/* Form */}
+        {showForm && (
+          <div className="px-5 py-4 border-b border-border bg-muted/20 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Date</label>
+                <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle</label>
+                <select value={fVehicleId} onChange={(e) => setFVehicleId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                  <option value="">— Any —</option>
+                  {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Liters</label>
+                <input type="number" value={fLiters} onChange={(e) => setFLiters(e.target.value)} placeholder="e.g. 45"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Amount (NPR)</label>
+                <input type="number" value={fAmount} onChange={(e) => setFAmount(e.target.value)} placeholder="e.g. 6750"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Odometer (KM)</label>
+                <input type="number" value={fOdometer} onChange={(e) => setFOdometer(e.target.value)} placeholder="e.g. 12450"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Notes <span className="text-muted-foreground/60">(optional)</span></label>
+              <input value={fNotes} onChange={(e) => setFNotes(e.target.value)} placeholder="e.g. Receipt #42, Petrol pump — Koteshwor"
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+            </div>
+            {err && <p className="text-xs text-red-500">{err}</p>}
+            <button onClick={handleSave} disabled={saving}
+              className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+              {saving ? "Saving…" : "Save Fuel Entry"}
+            </button>
+          </div>
+        )}
+
+        {/* Log table */}
+        <div className="divide-y divide-border max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+          {loading && <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>}
+          {!loading && logs.length === 0 && (
+            <div className="py-10 text-center">
+              <Droplets size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">No fuel logs yet — click Log Fuel to add the first entry</p>
+            </div>
+          )}
+          {logs.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
+              <div className="h-9 w-9 rounded-xl bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center shrink-0">
+                <Droplets size={15} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground">{l.vehiclePlate ?? "Any vehicle"} · <span className="text-muted-foreground font-normal">{l.date}</span></p>
+                <p className="text-xs text-muted-foreground">{l.liters}L · NPR {l.amountNpr.toLocaleString()} · {l.odometerKm.toLocaleString()} km</p>
+                {l.notes && <p className="text-[10px] text-muted-foreground/70 italic truncate">{l.notes}</p>}
+              </div>
+              <button onClick={() => handleDelete(l.id)}
+                className="opacity-0 group-hover:opacity-100 rounded-lg p-1 text-muted-foreground hover:text-red-500 transition-all">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FleetMaintenancePanel ──────────────────────────────────────────────────────
+const PART_TYPES = ["Tires", "Battery", "Mobil Oil", "Brakes", "Air Filter", "Clutch", "Spark Plug", "Wiper Blade", "Coolant", "Other"];
+
+function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleItem[] }) {
+  const [records, setRecords] = useState<MaintenanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [mVehicleId, setMVehicleId] = useState("");
+  const [mPartType, setMPartType] = useState(PART_TYPES[0]);
+  const [mDescription, setMDescription] = useState("");
+  const [mCost, setMCost] = useState("");
+  const [mOdometer, setMOdometer] = useState("");
+  const [mDate, setMDate] = useState(today);
+  const [mVendor, setMVendor] = useState("");
+
+  async function fetchRecords() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/maintenance-records`, { headers: tenantHeaders() });
+      setRecords(await r.json());
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void fetchRecords(); }, []);
+
+  async function handleSave() {
+    if (!mPartType || !mDate || !mOdometer) { setErr("Part type, date and odometer are required"); return; }
+    setSaving(true); setErr("");
+    try {
+      const body: Record<string, unknown> = { partType: mPartType, serviceDate: mDate, odometerKm: Number(mOdometer), costNpr: mCost ? Number(mCost) : 0 };
+      if (mVehicleId) body.vehicleId = Number(mVehicleId);
+      if (mDescription.trim()) body.description = mDescription.trim();
+      if (mVendor.trim()) body.vendor = mVendor.trim();
+      const r = await fetch(`${BASE}/api/maintenance-records`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "Failed"); }
+      setMDescription(""); setMCost(""); setMOdometer(""); setMVendor(""); setMVehicleId(""); setMDate(today); setMPartType(PART_TYPES[0]);
+      setShowForm(false);
+      await fetchRecords();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: number) {
+    await fetch(`${BASE}/api/maintenance-records/${id}`, { method: "DELETE", headers: tenantHeaders() });
+    await fetchRecords();
+  }
+
+  // Expense matrix: group by vehicle
+  const expenseMatrix = useMemo(() => {
+    const byVehicle: Record<string, { plate: string; total: number; byPart: Record<string, number> }> = {};
+    for (const r of records) {
+      const key = r.vehiclePlate ?? "Unassigned";
+      if (!byVehicle[key]) byVehicle[key] = { plate: key, total: 0, byPart: {} };
+      byVehicle[key].total += r.costNpr;
+      byVehicle[key].byPart[r.partType] = (byVehicle[key].byPart[r.partType] ?? 0) + r.costNpr;
+    }
+    return Object.values(byVehicle).sort((a, b) => b.total - a.total);
+  }, [records]);
+
+  return (
+    <div className="space-y-5">
+      {/* Expense Matrix */}
+      {expenseMatrix.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+            <BarChart3 size={14} className="text-amber-500" />
+            <h3 className="text-sm font-semibold text-primary">Expense Summary by Vehicle</h3>
+          </div>
+          <div className="p-4 space-y-3">
+            {expenseMatrix.map((v) => (
+              <div key={v.plate} className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-foreground">{v.plate}</span>
+                  <span className="text-sm font-bold text-amber-600">NPR {v.total.toLocaleString()}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(v.byPart).map(([part, cost]) => (
+                    <span key={part} className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                      {part}: NPR {cost.toLocaleString()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Header + Form */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div><h2 className="font-semibold text-primary flex items-center gap-2"><Wrench size={15} className="text-slate-500" />Service History</h2><p className="text-xs text-muted-foreground mt-0.5">{records.length} records</p></div>
+          <button onClick={() => { setShowForm(!showForm); setErr(""); }}
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
+            <Plus size={13} />{showForm ? "Cancel" : "Add Record"}
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="px-5 py-4 border-b border-border bg-muted/20 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Part Type</label>
+                <select value={mPartType} onChange={(e) => setMPartType(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                  {PART_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vehicle</label>
+                <select value={mVehicleId} onChange={(e) => setMVehicleId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500">
+                  <option value="">— Any —</option>
+                  {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Service Date</label>
+                <input type="date" value={mDate} onChange={(e) => setMDate(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Cost (NPR)</label>
+                <input type="number" value={mCost} onChange={(e) => setMCost(e.target.value)} placeholder="e.g. 3500"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Odometer (KM)</label>
+                <input type="number" value={mOdometer} onChange={(e) => setMOdometer(e.target.value)} placeholder="e.g. 15200"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Description <span className="text-muted-foreground/60">(optional)</span></label>
+                <input value={mDescription} onChange={(e) => setMDescription(e.target.value)} placeholder="e.g. Front two tires replaced"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Vendor <span className="text-muted-foreground/60">(optional)</span></label>
+                <input value={mVendor} onChange={(e) => setMVendor(e.target.value)} placeholder="e.g. Nepal Oil, Tyre House"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            {err && <p className="text-xs text-red-500">{err}</p>}
+            <button onClick={handleSave} disabled={saving}
+              className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+              {saving ? "Saving…" : "Save Service Record"}
+            </button>
+          </div>
+        )}
+
+        <div className="divide-y divide-border max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+          {loading && <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>}
+          {!loading && records.length === 0 && (
+            <div className="py-10 text-center">
+              <Wrench size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">No service records yet</p>
+            </div>
+          )}
+          {records.map((r) => {
+            const partColors: Record<string, string> = {
+              Tires: "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+              Battery: "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
+              "Mobil Oil": "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+            };
+            const partColor = partColors[r.partType] ?? "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800";
+            return (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
+                <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Wrench size={15} className="text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${partColor}`}>{r.partType}</span>
+                    <span className="text-sm font-medium text-foreground">{r.vehiclePlate ?? "—"}</span>
+                    <span className="text-xs text-muted-foreground">{r.serviceDate}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{r.odometerKm.toLocaleString()} km · NPR {r.costNpr.toLocaleString()}{r.vendor ? ` · ${r.vendor}` : ""}</p>
+                  {r.description && <p className="text-[10px] text-muted-foreground/70 italic truncate">{r.description}</p>}
+                </div>
+                <button onClick={() => handleDelete(r.id)}
+                  className="opacity-0 group-hover:opacity-100 rounded-lg p-1 text-muted-foreground hover:text-red-500 transition-all">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FleetDocumentsPanel ────────────────────────────────────────────────────────
+function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleItem[] }) {
+  const [docs, setDocs] = useState<VehicleDocRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [editState, setEditState] = useState<Record<number, { bluebook: string; insurance: string; pollution: string }>>({});
+
+  async function fetchDocs() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/vehicle-documents`, { headers: tenantHeaders() });
+      const data: VehicleDocRow[] = await r.json();
+      setDocs(data);
+      const init: Record<number, { bluebook: string; insurance: string; pollution: string }> = {};
+      for (const d of data) init[d.vehicleId] = { bluebook: d.bluebookExpiry ?? "", insurance: d.insuranceExpiry ?? "", pollution: d.pollutionExpiry ?? "" };
+      setEditState(init);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void fetchDocs(); }, []);
+
+  function getOrInit(vehicleId: number) {
+    return editState[vehicleId] ?? { bluebook: "", insurance: "", pollution: "" };
+  }
+  function setField(vehicleId: number, field: "bluebook" | "insurance" | "pollution", val: string) {
+    setEditState((prev) => ({ ...prev, [vehicleId]: { ...getOrInit(vehicleId), [field]: val } }));
+  }
+
+  async function handleSave(vehicleId: number) {
+    setSavingId(vehicleId);
+    const state = getOrInit(vehicleId);
+    try {
+      const body: Record<string, string | undefined> = {};
+      if (state.bluebook) body.bluebookExpiry = state.bluebook;
+      if (state.insurance) body.insuranceExpiry = state.insurance;
+      if (state.pollution) body.pollutionExpiry = state.pollution;
+      await fetch(`${BASE}/api/vehicle-documents/${vehicleId}`, { method: "PUT", headers: tenantHeaders(), body: JSON.stringify(body) });
+      await fetchDocs();
+    } catch { /* ignore */ }
+    finally { setSavingId(null); }
+  }
+
+  function docStatus(days: number | null): { label: string; cls: string; critical: boolean } {
+    if (days === null) return { label: "Not set", cls: "text-muted-foreground", critical: false };
+    if (days < 0) return { label: `Expired ${Math.abs(days)}d ago`, cls: "text-red-600 dark:text-red-400 font-bold animate-pulse", critical: true };
+    if (days <= 15) return { label: `${days}d left`, cls: "text-red-600 dark:text-red-400 font-bold animate-pulse", critical: true };
+    if (days <= 30) return { label: `${days}d left`, cls: "text-amber-600 dark:text-amber-400 font-semibold", critical: false };
+    return { label: `${days}d left`, cls: "text-green-600 dark:text-green-400 font-semibold", critical: false };
+  }
+
+  // Merge vehicles list with docs so every vehicle appears
+  const allVehicles = useMemo(() => {
+    const docMap = new Map(docs.map((d) => [d.vehicleId, d]));
+    return vehicles.map((v) => ({ vehicle: v, doc: docMap.get(v.id) ?? null }));
+  }, [vehicles, docs]);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+        <FileText size={15} className="text-amber-500" />
+        <div><h2 className="font-semibold text-primary">Statutory Document Tracker</h2><p className="text-xs text-muted-foreground mt-0.5">Bluebook · Insurance · Pollution Check — per vehicle</p></div>
+      </div>
+
+      {loading && <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>}
+      {!loading && vehicles.length === 0 && (
+        <div className="py-10 text-center">
+          <Bus size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+          <p className="text-sm text-muted-foreground">No vehicles registered yet</p>
+        </div>
+      )}
+
+      <div className="divide-y divide-border">
+        {allVehicles.map(({ vehicle, doc }) => {
+          const state = getOrInit(vehicle.id);
+          const bbStatus = docStatus(doc?.daysUntilBluebook ?? null);
+          const insStatus = docStatus(doc?.daysUntilInsurance ?? null);
+          const polStatus = docStatus(doc?.daysUntilPollution ?? null);
+          const isCritical = bbStatus.critical || insStatus.critical || polStatus.critical;
+
+          return (
+            <div key={vehicle.id} className={`p-4 space-y-3 ${isCritical ? "bg-red-50/50 dark:bg-red-950/10" : ""}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {isCritical && <span className="flex h-2.5 w-2.5 relative shrink-0"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" /></span>}
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{vehicle.plateNumber}</p>
+                    <p className="text-[10px] text-muted-foreground">{vehicle.model}</p>
+                  </div>
+                </div>
+                {isCritical && <span className="rounded-full bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-700 px-2.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-400 animate-pulse">⚠ Critical</span>}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Bluebook Expiry", field: "bluebook" as const, val: state.bluebook, status: bbStatus },
+                  { label: "Insurance Renewal", field: "insurance" as const, val: state.insurance, status: insStatus },
+                  { label: "Pollution Check", field: "pollution" as const, val: state.pollution, status: polStatus },
+                ].map(({ label, field, val, status }) => (
+                  <div key={field}>
+                    <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{label}</label>
+                    <input type="date" value={val} onChange={(e) => setField(vehicle.id, field, e.target.value)}
+                      className={`w-full rounded-xl border px-2.5 py-2 text-xs text-foreground outline-none focus:border-amber-500 transition-colors ${status.critical ? "border-red-400 bg-red-50 dark:bg-red-950/20" : "border-border bg-muted"}`} />
+                    <p className={`mt-0.5 text-[10px] ${status.cls}`}>{status.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={() => handleSave(vehicle.id)} disabled={savingId === vehicle.id}
+                className="w-full rounded-xl border border-border bg-muted py-2 text-xs font-semibold text-foreground hover:bg-muted/60 hover:border-amber-500 disabled:opacity-50 transition-colors">
+                {savingId === vehicle.id ? "Saving…" : "Save Document Dates"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user, login } = useAuth();
   const driverLoc = useDriverLocation();
@@ -2593,6 +3095,8 @@ export default function AdminPortal() {
   const queryClient = useQueryClient();
 
   const [modal, setModal] = useState<Modal>(null);
+  const [adminTab, setAdminTab] = useState<"dashboard" | "fleet-fuel" | "fleet-maintenance" | "fleet-documents">("dashboard");
+  const [docAlertCount, setDocAlertCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
@@ -2654,6 +3158,21 @@ export default function AdminPortal() {
         .catch(() => {});
     }
   }, [tenantId, tenant]);
+
+  // Poll vehicle document expiry alerts every 5 minutes
+  useEffect(() => {
+    async function fetchDocAlerts() {
+      try {
+        const r = await fetch(`${BASE}/api/vehicle-documents`, { headers: tenantHeaders() });
+        if (!r.ok) return;
+        const data: VehicleDocRow[] = await r.json();
+        setDocAlertCount(data.filter((d) => d.isCritical).length);
+      } catch { /* ignore */ }
+    }
+    void fetchDocAlerts();
+    const interval = setInterval(() => void fetchDocAlerts(), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [tenantId]);
 
   // Debounced phone lookup for Add Passenger modal
   useEffect(() => {
@@ -2791,6 +3310,47 @@ export default function AdminPortal() {
           Gold Plan
         </span>
       </header>
+
+      {/* ── Fleet Management & Operations navigation ─────────────────────────── */}
+      <nav className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {/* Dashboard tab */}
+          <button
+            onClick={() => setAdminTab("dashboard")}
+            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "dashboard" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Home size={13} />Dashboard
+          </button>
+          {/* Separator */}
+          <div className="w-px bg-border my-2.5 shrink-0" />
+          {/* Fleet Management group label */}
+          <div className="flex items-center gap-1 px-3 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap self-center shrink-0">
+            <Settings2 size={11} />Fleet Ops
+          </div>
+          <button
+            onClick={() => setAdminTab("fleet-fuel")}
+            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-fuel" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Droplets size={13} />Fuel Logs
+          </button>
+          <button
+            onClick={() => setAdminTab("fleet-maintenance")}
+            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${adminTab === "fleet-maintenance" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <Wrench size={13} />Service History
+          </button>
+          <button
+            onClick={() => setAdminTab("fleet-documents")}
+            className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors relative ${adminTab === "fleet-documents" ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+            <FileText size={13} />Documents
+            {docAlertCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-pulse shrink-0">
+                {docAlertCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* ── Dashboard tab content ──────────────────────────────────────────────── */}
+      {adminTab === "dashboard" && (<>
       {/* Key Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -3300,6 +3860,19 @@ export default function AdminPortal() {
       {selectedVehicle && (
         <BusDetailPanel vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} />
       )}
+      </>)}
+
+      {/* ── Fleet Ops tab content ──────────────────────────────────────────────── */}
+      {adminTab === "fleet-fuel" && (
+        <FleetFuelPanel vehicles={(vehicles ?? []).map((v) => ({ id: v.id, plateNumber: v.plateNumber, model: v.model }))} />
+      )}
+      {adminTab === "fleet-maintenance" && (
+        <FleetMaintenancePanel vehicles={(vehicles ?? []).map((v) => ({ id: v.id, plateNumber: v.plateNumber, model: v.model }))} />
+      )}
+      {adminTab === "fleet-documents" && (
+        <FleetDocumentsPanel vehicles={(vehicles ?? []).map((v) => ({ id: v.id, plateNumber: v.plateNumber, model: v.model }))} />
+      )}
+
       {/* MODAL: Add Passenger */}
       {modal === "add-passenger" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"

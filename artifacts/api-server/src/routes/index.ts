@@ -20,6 +20,9 @@ import usersRouter from "./users";
 import whatsappRouter from "./whatsapp";
 import eventsRouter from "./events";
 import superadminRouter from "./superadmin";
+import fuelLogsRouter from "./fuel-logs";
+import maintenanceRouter from "./maintenance-records";
+import vehicleDocumentsRouter from "./vehicle-documents";
 
 const router: IRouter = Router();
 
@@ -44,5 +47,8 @@ router.use("/users", usersRouter);
 router.use("/whatsapp", whatsappRouter);
 router.use("/events", eventsRouter);
 router.use("/superadmin", superadminRouter);
+router.use("/fuel-logs", fuelLogsRouter);
+router.use("/maintenance-records", maintenanceRouter);
+router.use("/vehicle-documents", vehicleDocumentsRouter);
 
 export default router;
