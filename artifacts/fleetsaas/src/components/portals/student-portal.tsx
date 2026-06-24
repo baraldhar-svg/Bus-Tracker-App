@@ -269,16 +269,26 @@ export default function StudentPortal() {
       )}
       {/* ── Bus Status Banner — always visible, three lifecycle states ── */}
       {(() => {
-        // State 2: After Boarding — actions locked, student is on the bus
+        // State 2: After Boarding — live school distance + current station
         if (isBoarded) {
+          const schoolStation = routeStations.length > 0 ? routeStations[routeStations.length - 1] : null;
+          const distToSchoolKm =
+            driverLoc.isLive && schoolStation?.lat && schoolStation?.lng
+              ? haversineKm(driverLoc.lat, driverLoc.lng, schoolStation.lat, schoolStation.lng)
+              : null;
+          const passingStation = nearestDriverStation?.rs.stationName ?? null;
           return (
             <div className="rounded-xl border border-green-400 bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white shadow-lg">
               <div className="flex items-center gap-3">
-                <Bus size={36} className="text-white drop-shadow shrink-0" />
+                <Bus size={36} className="text-white drop-shadow shrink-0 animate-pulse" />
                 <div className="min-w-0">
-                  <p className="font-bold text-sm">{t.actionsLocked}</p>
+                  <p className="font-bold text-sm">You are safely on board! 🎒</p>
                   <p className="text-xs text-green-100 mt-0.5 leading-snug">
-                    🔒 Dashboard actions are locked until the journey ends.
+                    {distToSchoolKm != null
+                      ? `School is ${distToSchoolKm.toFixed(1)} km away${passingStation ? ` — currently passing ${passingStation}` : ""}`
+                      : passingStation
+                        ? `Currently passing ${passingStation} · 🔒 Actions locked`
+                        : "🔒 Dashboard actions are locked until the journey ends."}
                   </p>
                 </div>
               </div>
