@@ -3229,9 +3229,12 @@ export default function AdminPortal() {
 
   const [pName, setPName] = useState("");
   const [pRole, setPRole] = useState("student");
-  const [pStation, setPStation] = useState("1");
+  const [pStation, setPStation] = useState("");
   const [pPhone, setPPhone] = useState("");
   const [pRouteId, setPRouteId] = useState("");
+  // Stations scoped to the selected route — populated when pRouteId changes
+  type PassengerRouteStation = { id: number; stationId: number; stationName: string | null; stopLabel: string | null };
+  const [pRouteStations, setPRouteStations] = useState<PassengerRouteStation[]>([]);
   const [pPhoto, setPPhoto] = useState("");
   const [pPhoneFound, setPPhoneFound] = useState<"idle" | "checking" | "found" | "new">("idle");
   const [pSchoolCode, setPSchoolCode] = useState("");
@@ -3272,6 +3275,24 @@ export default function AdminPortal() {
     const interval = setInterval(() => void fetchDocAlerts(), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [tenantId]);
+
+  // When admin picks a route for the new passenger, fetch that route's stations and
+  // pre-select the first stop so the Station dropdown is never out of sync with the route.
+  useEffect(() => {
+    if (!pRouteId) {
+      setPRouteStations([]);
+      setPStation("");
+      return;
+    }
+    fetch(`${BASE}/api/routes/${pRouteId}/stations`, { headers: tenantHeaders() })
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        const list = Array.isArray(data) ? (data as PassengerRouteStation[]) : [];
+        setPRouteStations(list);
+        setPStation(list.length > 0 ? String(list[0].stationId) : "");
+      })
+      .catch(() => { setPRouteStations([]); setPStation(""); });
+  }, [pRouteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced phone lookup for Add Passenger modal
   useEffect(() => {
@@ -4136,7 +4157,16 @@ export default function AdminPortal() {
                     <label className="mb-1 block text-xs font-semibold text-muted-foreground">Station</label>
                     <select value={pStation} onChange={(e) => setPStation(e.target.value)}
                       className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500">
-                      {stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {pRouteId
+                        ? pRouteStations.length > 0
+                          ? pRouteStations.map((rs) => (
+                              <option key={rs.stationId} value={rs.stationId}>
+                                {rs.stopLabel || rs.stationName || `Stop ${rs.id}`}
+                              </option>
+                            ))
+                          : <option value="" disabled>No stops on this route yet</option>
+                        : stations?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)
+                      }
                     </select>
                   </div>
                 </div>
