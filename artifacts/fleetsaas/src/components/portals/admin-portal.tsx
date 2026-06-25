@@ -993,6 +993,26 @@ function PassengerDetailPanel({
   const [editPhone, setEditPhone] = useState(passenger.phone ?? "");
   const [editStationId, setEditStationId] = useState(String(passenger.stationId));
   const [editRouteId, setEditRouteId] = useState(String(passenger.routeId ?? ""));
+
+  // Route-scoped stations for the Pickup Stop dropdown — fetched whenever the
+  // selected route changes so ONLY stops on that route are rendered as options.
+  type EditRouteStation = { id: number; stationId: number; stationName: string | null; stopLabel: string | null };
+  const [editRouteStations, setEditRouteStations] = useState<EditRouteStation[]>([]);
+  useEffect(() => {
+    if (!editRouteId) { setEditRouteStations([]); return; }
+    fetch(`${BASE}/api/routes/${editRouteId}/stations`, { headers: tenantHeaders() })
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        const list = Array.isArray(data) ? (data as EditRouteStation[]) : [];
+        setEditRouteStations(list);
+        // Auto-move the station selection to the first stop on the new route if the
+        // current selection is not present on this route.
+        const stillValid = list.some((rs) => String(rs.stationId) === editStationId);
+        if (!stillValid && list.length > 0) setEditStationId(String(list[0].stationId));
+      })
+      .catch(() => setEditRouteStations([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRouteId]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -1081,9 +1101,19 @@ function PassengerDetailPanel({
                 onChange={(e) => setEditStationId(e.target.value)}
                 className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground outline-none focus:border-amber-500 transition-colors"
               >
-                {(stations ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
+                {/* Only stations explicitly on this passenger's route — no cross-route bleed */}
+                {editRouteId
+                  ? editRouteStations.length > 0
+                    ? editRouteStations.map((rs) => (
+                        <option key={rs.stationId} value={rs.stationId}>
+                          {rs.stopLabel || rs.stationName || `Stop #${rs.stationId}`}
+                        </option>
+                      ))
+                    : <option value="" disabled>No stops on this route yet</option>
+                  : (stations ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))
+                }
               </select>
             </div>
             <div>
