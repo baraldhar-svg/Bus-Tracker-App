@@ -1309,6 +1309,12 @@ function RouteStationsPanel({
   const [alertLoading, setAlertLoading] = useState(false);
   const [alertSent, setAlertSent] = useState(false);
 
+  // Map-click state for in-place visual stop editing
+  const [mapClickPending, setMapClickPending] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [pendingMapName, setPendingMapName] = useState("");
+  const [pendingMapRadius, setPendingMapRadius] = useState(100);
+  const [pendingMapSaving, setPendingMapSaving] = useState(false);
+
   useEffect(() => {
     setEditVehicle(String(route.vehicleId ?? ""));
     setEditDriver(String(route.driverId ?? ""));
@@ -1420,11 +1426,121 @@ function RouteStationsPanel({
     ? <span className="rounded-full bg-blue-100 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 text-[8px] font-bold text-blue-700 dark:text-blue-400 shrink-0">↩ Return</span>
     : <span className="rounded-full bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-700 px-1.5 py-0.5 text-[8px] font-bold text-green-700 dark:text-green-400 shrink-0">→ Forward</span>;
 
+  // Existing route stations converted to OsmMap stop shape for hydrating the map canvas.
+  // Only stations with known coordinates are shown; others appear in the text list only.
+  const mapStops: RouteStop[] = routeStations
+    .filter((rs) => rs.lat != null && rs.lng != null)
+    .map((rs) => ({
+      id: rs.stationId,
+      name: rs.stationName ?? `Stop ${rs.position}`,
+      stopOrder: rs.position,
+      lat: rs.lat as number,
+      lng: rs.lng as number,
+    }));
+
+  function handleMapClick(lat: number, lng: number, name?: string) {
+    const resolved = name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    setMapClickPending({ lat, lng, name: resolved });
+    setPendingMapName(resolved);
+    setPendingMapRadius(100);
+  }
+
+  // Creates a global station record then immediately appends it to this route.
+  // POST /stations  →  POST /routes/:id/stations (forward direction, auto-labeled).
+  async function handleAddFromMap() {
+    if (!mapClickPending) return;
+    const name = pendingMapName.trim() || mapClickPending.name;
+    setPendingMapSaving(true);
+    try {
+      const created = await apiPost("/stations", {
+        name,
+        lat: mapClickPending.lat,
+        lng: mapClickPending.lng,
+        radius: pendingMapRadius,
+      }) as { id: number };
+      await apiPost(`/routes/${routeId}/stations`, {
+        stationId: created.id,
+        direction: "forward",
+        stopLabel: name,
+      });
+      setMapClickPending(null);
+      setPendingMapName("");
+      setPendingMapRadius(100);
+      await load();
+      queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
+    } catch { /* silently ignore — user sees no change if POST fails */ }
+    finally { setPendingMapSaving(false); }
+  }
+
   return (
     <div className="bg-muted/30 border border-border rounded-xl p-4 mt-2 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-muted-foreground">Stops on this route ({routeStations.length})</p>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+      </div>
+
+      {/* ── Visual map editor ─────────────────────────────────────────────────── */}
+      {/* routeId is used as key so each route gets its own fresh Leaflet instance  */}
+      {/* Existing stops are pre-loaded as numbered pins; click map to append more  */}
+      <div className="rounded-xl border border-border overflow-hidden -mx-1">
+        <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-muted/40">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <MapPin size={9} />Map Editor — click to append stops
+          </p>
+          <span className="text-[10px] text-muted-foreground">
+            {mapStops.length}/{routeStations.length} stops plotted
+          </span>
+        </div>
+        <OsmMap
+          key={routeId}
+          mode="build"
+          height={260}
+          stops={mapStops}
+          onMapClick={handleMapClick}
+        />
+        {/* Confirm tray — slides in when the admin clicks the map */}
+        {mapClickPending && (
+          <div className="px-3 py-2.5 bg-amber-50 dark:bg-amber-950/20 border-t border-amber-200 dark:border-amber-800 space-y-2">
+            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+              <MapPin size={9} />New stop — {mapClickPending.lat.toFixed(4)}, {mapClickPending.lng.toFixed(4)}
+            </p>
+            <input
+              value={pendingMapName}
+              onChange={(e) => setPendingMapName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && pendingMapName.trim() && !pendingMapSaving) { void handleAddFromMap(); } }}
+              onFocus={(e) => e.target.select()}
+              placeholder="Stop name…"
+              autoFocus
+              className="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs outline-none focus:border-amber-500"
+            />
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-semibold text-muted-foreground whitespace-nowrap">
+                Radius: {pendingMapRadius}m
+              </label>
+              <input
+                type="range" min={50} max={500} step={10}
+                value={pendingMapRadius}
+                onChange={(e) => setPendingMapRadius(Number(e.target.value))}
+                className="flex-1 accent-amber-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { void handleAddFromMap(); }}
+                disabled={pendingMapSaving || !pendingMapName.trim()}
+                className="flex-1 rounded-lg bg-amber-500 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50"
+              >
+                {pendingMapSaving ? "Adding…" : `✓ Append Stop ${routeStations.length + 1}`}
+              </button>
+              <button
+                onClick={() => setMapClickPending(null)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+              >
+                <X size={11} className="inline" /> Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ETA Engine Settings */}
@@ -1803,6 +1919,11 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  // mapKey: incrementing this forces the OsmMap to fully remount (fresh Leaflet canvas).
+  // Must be incremented whenever the creation form opens for a new route so no markers/
+  // polylines from the previous Route A session bleed into Route B.
+  const [mapKey, setMapKey] = useState(0);
+
   // Staged stations for new route (includes lat/lng so map can render them)
   const [stagedStations, setStagedStations] = useState<{ stationId: number; name: string; lat: number; lng: number }[]>([]);
 
@@ -1847,7 +1968,12 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
       for (const s of stagedStations) {
         await apiPost(`/routes/${route.id}/stations`, { stationId: s.stationId });
       }
-      setRName(""); setRDriver(""); setRVehicle(""); setStagedStations([]); setMapClickPending(null); setCreating(false);
+      // Full state purge — increment mapKey so next session has a fresh Leaflet canvas
+      // with no residual markers/polylines from this route bleeding into the next one.
+      setMapKey((k) => k + 1);
+      setRName(""); setRDriver(""); setRVehicle(""); setStagedStations([]);
+      setMapClickPending(null); setPendingName(""); setPendingRadius(100);
+      setCreating(false);
       refetch();
       queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
@@ -1876,7 +2002,21 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
           <h2 className="font-semibold text-primary flex items-center gap-2"><Route size={15} />Route Management</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{(routes ?? []).length} route{(routes ?? []).length !== 1 ? "s" : ""} configured</p>
         </div>
-        <button onClick={() => setCreating((v) => !v)}
+        <button
+          onClick={() => {
+            if (creating) {
+              // Closing — wipe everything
+              setCreating(false);
+            } else {
+              // Opening — always start with a completely clean slate so Route B
+              // never inherits stations, map pins, or form values from Route A.
+              setMapKey((k) => k + 1);
+              setRName(""); setRDriver(""); setRVehicle(""); setErr("");
+              setStagedStations([]); setMapClickPending(null);
+              setPendingName(""); setPendingRadius(100);
+              setCreating(true);
+            }
+          }}
           className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400 transition-colors">
           <Plus size={12} />New Route
         </button>
@@ -1925,6 +2065,7 @@ function RouteManager({ drivers, vehicles }: { drivers: Array<{ id: number; name
               )}
             </div>
             <OsmMap
+              key={mapKey}
               mode="build"
               height={300}
               stops={stagedStops}
