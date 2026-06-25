@@ -64,6 +64,10 @@ export default function StudentPortal() {
   const [geoAlertDismissed, setGeoAlertDismissed] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [tripCompleted, setTripCompleted] = useState(false);
+  // Live station state pushed via `station_changed` SSE when driver taps Next/Prev
+  const [liveStation, setLiveStation] = useState<{ idx: number; name: string | null } | null>(null);
+  // True from `trip_started` until `trip_completed` — lets us show "en route" even without GPS
+  const [tripActive, setTripActive] = useState(false);
 
 
   // Transport Config state
@@ -188,19 +192,67 @@ export default function StudentPortal() {
 
   const [activeQuickMsg, setActiveQuickMsg] = useState<string | null>(null);
 
-  // SSE: instantly reflect boarding status changes and trip completions without a page refresh
+  // SSE: board changes, trip lifecycle, and live station advances
   useEffect(() => {
     const es = new EventSource(`${BASE}/api/events`);
+
     es.addEventListener("passengers_updated", () => {
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
     });
+
+    // Driver tapped Next/Prev — update the displayed stop name immediately
+    es.addEventListener("station_changed", (e) => {
+      try {
+        const d = JSON.parse((e as MessageEvent).data) as {
+          stationIdx?: number; stationName?: string | null;
+        };
+        if (typeof d.stationIdx === "number") {
+          setLiveStation({ idx: d.stationIdx, name: d.stationName ?? null });
+        }
+      } catch { /* malformed event */ }
+    });
+
+    // Driver started journey — switch from "Waiting" to "En Route" banner
+    es.addEventListener("trip_started", () => {
+      setTripActive(true);
+      setTripCompleted(false);
+      setLiveStation(null); // reset to stop 0 for the new run
+    });
+
     es.addEventListener("trip_completed", () => {
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+      setTripActive(false);
+      setLiveStation(null);
       setTripCompleted(true);
       setTimeout(() => setTripCompleted(false), 30_000);
     });
+
     return () => es.close();
   }, [queryClient]);
+
+  // Hydrate tripActive + liveStation on page load (mid-journey recovery via 10 s poll)
+  useEffect(() => {
+    async function syncFromPoll() {
+      try {
+        const r = await fetch(`${BASE}/api/trips/active`);
+        if (!r.ok) return;
+        const d = await r.json() as {
+          isJourneyActive?: boolean;
+          stationIdx?: number | null;
+          stationName?: string | null;
+        };
+        if (d.isJourneyActive) {
+          setTripActive(true);
+          if (typeof d.stationIdx === "number") {
+            setLiveStation({ idx: d.stationIdx, name: d.stationName ?? null });
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    void syncFromPoll();
+    const interval = setInterval(syncFromPoll, 10_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleQuickMessage = useCallback(async (msg: string) => {
     setActiveQuickMsg(msg);
@@ -313,6 +365,8 @@ export default function StudentPortal() {
         }
         // State 1a: Before Boarding — bus is broadcasting live GPS
         if (driverLoc.isLive) {
+          // Use the exact stop from driver SSE if available, fall back to GPS-nearest
+          const displayStation = liveStation?.name ?? nearestDriverStation?.rs.stationName ?? null;
           return (
             <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
               {nearbyAlert && (
@@ -326,9 +380,9 @@ export default function StudentPortal() {
                   <div className="min-w-0">
                     <p className="font-bold text-sm">{t.busNearby}</p>
                     <p className="text-xs text-amber-100 mt-0.5 leading-snug">
-                      {nearestDriverStation
+                      {displayStation
                         ? tpl(t.busAtStation, {
-                            station: nearestDriverStation.rs.stationName ?? "a nearby stop",
+                            station: displayStation,
                             dist: distToMyStopKm != null ? distToMyStopKm.toFixed(1) : "?",
                             stop: myStop?.stationName ?? "your stop",
                           })
@@ -344,6 +398,44 @@ export default function StudentPortal() {
                     className="shrink-0 rounded-full p-1 hover:bg-white/20 text-white text-xs"
                   >✕</button>
                 )}
+              </div>
+            </div>
+          );
+        }
+        // State 1b-active: Journey started, driver advancing stops but no GPS yet
+        if (tripActive && liveStation != null) {
+          return (
+            <div className="relative rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Bus size={36} className="text-white drop-shadow shrink-0 animate-pulse" />
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm">🚌 Bus En Route</p>
+                    <p className="text-xs text-amber-100 mt-0.5 leading-snug">
+                      Now at stop {liveStation.idx + 1}
+                      {liveStation.name ? `: ${liveStation.name}` : ""}
+                      {myStop?.stationName ? ` · Your stop: ${myStop.stationName}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        // State 1b-waiting: Journey active but no station data yet
+        if (tripActive) {
+          return (
+            <div className="rounded-xl border border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-lg">
+              <div className="flex items-center gap-3">
+                <Bus size={36} className="text-white drop-shadow shrink-0 animate-pulse" />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm">🚌 Bus En Route</p>
+                  <p className="text-xs text-amber-100 mt-0.5 leading-snug">
+                    {myStop?.stationName
+                      ? `Heading to your stop: ${myStop.stationName}`
+                      : "Your bus is on its way"}
+                  </p>
+                </div>
               </div>
             </div>
           );

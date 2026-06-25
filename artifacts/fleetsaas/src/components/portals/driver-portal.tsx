@@ -226,6 +226,31 @@ export default function DriverPortal() {
     startGpsTracking();
   }, [myDriver?.id, journeyStarted, journeyCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Effect D: broadcast station index to backend on every Next/Prev tap ─────
+  // Fires when stationIdx changes during an active journey. The backend persists
+  // it in-memory and broadcasts `station_changed` SSE so student portals update
+  // to the exact stop name without needing GPS telemetry.
+  const lastBroadcastIdx = useRef<number | null>(null);
+  useEffect(() => {
+    if (!journeyStarted || journeyCompleted || !myDriver?.id) return;
+    if (lastBroadcastIdx.current === stationIdx) return;
+    lastBroadcastIdx.current = stationIdx;
+    const station = driverStations[stationIdx];
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+    fetch(`${BASE_GPS}/api/trips/station`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        driverId: myDriver.id,
+        stationIdx,
+        stationName: station?.stopLabel || station?.stationName || null,
+      }),
+    }).catch(() => { /* fire-and-forget — UI is already updated locally */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationIdx, journeyStarted, journeyCompleted, myDriver?.id]);
+
   // ── Effect C: fetch THIS driver's route stations ────────────────────────────
   // Fires when myRoute.id resolves or changes. Resets stationIdx to 0 so the
   // navigator always starts at stop 1 for the newly loaded route — no spillover

@@ -7,6 +7,16 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
+// ── In-memory station index per driver ───────────────────────────────────────
+// Stores the driver's current route stop index (from "Next →" clicks) so the
+// student portal can receive the exact stop without needing GPS telemetry.
+// Key = driverId; value is reset on trip start/complete.
+const driverStationState = new Map<number, {
+  stationIdx: number;
+  stationName: string | null;
+  updatedAt: string;
+}>();
+
 // GET /api/trips/active — returns the active driver's location.
 // Optional ?driverId=N query param scopes the response to a specific driver.
 router.get("/active", async (req, res) => {
@@ -43,12 +53,19 @@ router.get("/active", async (req, res) => {
   const locationUpdatedAt = driver?.locationUpdatedAt ?? null;
   const isLive = driver?.isOnline === true && driver?.currentLat != null;
 
+  // Include station index from the in-memory map so polling clients stay in sync
+  const stationState = driver?.id != null ? driverStationState.get(driver.id) : undefined;
+
   res.json({
     tripId: driver?.id ?? 1,
     currentLat,
     currentLng,
     locationUpdatedAt,
     isLive,
+    // Journey is active when the driver is online, regardless of whether GPS has been posted
+    isJourneyActive: driver?.isOnline === true,
+    stationIdx: stationState?.stationIdx ?? null,
+    stationName: stationState?.stationName ?? null,
     etaMinutes: 7,
     nextStationName: nextStation?.name ?? "Koteshwor Chowk",
     routeName: "Route #4B - Koteshwor",
@@ -94,6 +111,45 @@ router.get("/timeline", async (_req, res) => {
     { id: 2, time: "07:05 AM", description: "Vehicle crossed Balkhu intersection point.", status: "completed" },
     { id: 3, time: "07:15 AM (Expected)", description: "Scheduled arrival at your designated Baneshwor stop.", status: "upcoming" },
   ]);
+});
+
+// PATCH /api/trips/station — called by the driver portal whenever the driver taps Next/Prev.
+// Persists the current stop index in-memory and broadcasts a `station_changed` SSE event so
+// the student portal can display the exact stop name without requiring live GPS.
+router.patch("/station", async (req, res) => {
+  const { driverId, stationIdx, stationName } = req.body as {
+    driverId?: number; stationIdx?: number; stationName?: string | null;
+  };
+  if (typeof stationIdx !== "number") {
+    return res.status(400).json({ error: "stationIdx (number) is required" });
+  }
+
+  const now = new Date().toISOString();
+  const driverCondition = driverId
+    ? and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.id, driverId))
+    : and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true));
+
+  const [resolved] = await db
+    .select({ id: driversTable.id })
+    .from(driversTable)
+    .where(driverCondition)
+    .limit(1);
+
+  const resolvedId = resolved?.id ?? driverId ?? null;
+  if (resolvedId != null) {
+    driverStationState.set(resolvedId, { stationIdx, stationName: stationName ?? null, updatedAt: now });
+  }
+
+  broadcast(req.tenantId, "station_changed", {
+    tenantId: req.tenantId,
+    driverId: resolvedId,
+    stationIdx,
+    stationName: stationName ?? null,
+    updatedAt: now,
+  });
+
+  req.log.info({ driverId: resolvedId, stationIdx, stationName }, "station advanced");
+  return res.json({ ok: true });
 });
 
 // POST /api/trips/location — called by the driver's mobile every ~3 s via navigator.geolocation.watchPosition.
@@ -157,6 +213,9 @@ router.post("/start", async (req, res) => {
 
   await db.update(driversTable).set({ isOnline: true }).where(driverCondition);
 
+  // Reset in-memory station index so students don't see a stale stop from the previous run
+  if (activeDriver?.id != null) driverStationState.delete(activeDriver.id);
+
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
     message: `🚌 ${busLabel} journey started at ${timeStr}. The driver is on the way — students will be picked up at their stops shortly.`,
@@ -193,6 +252,9 @@ router.post("/complete", async (req, res) => {
   const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
 
   await db.update(driversTable).set({ isOnline: false }).where(driverCondition);
+
+  // Clear in-memory station index on trip end
+  if (activeDriver?.id != null) driverStationState.delete(activeDriver.id);
 
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
