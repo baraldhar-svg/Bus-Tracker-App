@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
+import { useListRoutes, useListPassengers, useBoardPassenger, useUnboardPassenger, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { sendDriverMessage } from "@/lib/driver-messages";
@@ -74,7 +74,8 @@ const mkJourneyKey = (phone: string) => `orbittrack_journey_${phone}`;
 
 export default function DriverPortal() {
   const { user } = useAuth();
-  const { data: stations } = useListStations();
+  // Route list used to find THIS driver's assigned route → scope the station navigator
+  const { data: routes } = useListRoutes();
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
   const unboardPassenger = useUnboardPassenger();
@@ -90,6 +91,20 @@ export default function DriverPortal() {
   );
   // drivers loaded but no phone match — show a clear error rather than wrong driver data
   const driverNotLinked = drivers !== undefined && myDriver === undefined;
+
+  // Derive this driver's assigned route from the routes list
+  const myRoute = myDriver
+    ? ((routes ?? []) as Array<{ id: number; driverId?: number | null }>).find((r) => r.driverId === myDriver.id) ?? null
+    : null;
+
+  // Route-specific station list — populated by fetching /routes/:id/stations so the
+  // Route Navigator only shows stops on THIS driver's assigned route, never all-tenant stops.
+  type DriverRouteStation = {
+    id: number; stationId: number; position: number; direction: string;
+    stopLabel: string | null; stationName: string | null;
+    lat: number | null; lng: number | null; radius: number | null;
+  };
+  const [driverStations, setDriverStations] = useState<DriverRouteStation[]>([]);
 
   const [stationIdx, setStationIdx] = useState(0);
   const [boardingId, setBoardingId] = useState<number | null>(null);
@@ -211,7 +226,30 @@ export default function DriverPortal() {
     startGpsTracking();
   }, [myDriver?.id, journeyStarted, journeyCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const currentStation = stations?.[stationIdx];
+  // ── Effect C: fetch THIS driver's route stations ────────────────────────────
+  // Fires when myRoute.id resolves or changes. Resets stationIdx to 0 so the
+  // navigator always starts at stop 1 for the newly loaded route — no spillover
+  // from a previous route loaded in the same browser session.
+  useEffect(() => {
+    if (!myRoute?.id) {
+      setDriverStations([]);
+      setStationIdx(0);
+      return;
+    }
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = {};
+    if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+    fetch(`${BASE_GPS}/api/routes/${myRoute.id}/stations`, { headers })
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        setDriverStations(Array.isArray(data) ? (data as DriverRouteStation[]) : []);
+        setStationIdx(0);
+      })
+      .catch(() => setDriverStations([]));
+  }, [myRoute?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // currentStation is scoped to THIS route — uses route_station row, not global station
+  const currentStation = driverStations[stationIdx] ?? null;
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
   const totalCount = passengers?.length ?? 0;
   const liveTodayPassengers = passengers?.filter((p) => p.liveToday === 1) ?? [];
@@ -219,10 +257,10 @@ export default function DriverPortal() {
   const onLeavePassengers = passengers?.filter((p) => p.quickMessage === "Staying home today") ?? [];
 
   // Bus is "near school" when driver reaches the last station (≤ 200 m perimeter)
-  const nearSchool = stations != null && stationIdx === stations.length - 1;
+  const nearSchool = driverStations.length > 0 && stationIdx === driverStations.length - 1;
 
   // 500 m geo-fence: use live GPS if available, otherwise fall back to station index
-  const lastStation = stations?.[stations.length - 1] as ({ lat?: number; lng?: number } & { id: number; name: string }) | undefined;
+  const lastStation = driverStations.length > 0 ? driverStations[driverStations.length - 1] : undefined;
   const distToSchoolKm =
     driverPos != null && lastStation?.lat != null && lastStation?.lng != null
       ? haversineKm(driverPos.lat, driverPos.lng, lastStation.lat, lastStation.lng)
@@ -601,11 +639,11 @@ export default function DriverPortal() {
             <div className="flex items-center gap-2 mb-2.5">
               <MapPin size={13} className="shrink-0 text-amber-400" />
               <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Upcoming Station</p>
-              <span className="ml-auto text-[10px] text-slate-500">Stop {stationIdx + 1}/{stations?.length ?? 0}</span>
+              <span className="ml-auto text-[10px] text-slate-500">Stop {stationIdx + 1}/{driverStations.length}</span>
             </div>
-            <p className="font-bold text-slate-100 text-sm mb-2.5">{currentStation.name}</p>
+            <p className="font-bold text-slate-100 text-sm mb-2.5">{currentStation.stopLabel || currentStation.stationName || "—"}</p>
             {(() => {
-              const stationPassengers = passengers?.filter((p) => p.stationId === currentStation.id) ?? [];
+              const stationPassengers = passengers?.filter((p) => p.stationId === currentStation.stationId) ?? [];
               if (stationPassengers.length === 0) return (
                 <p className="text-xs text-slate-500 italic">No students assigned to this station</p>
               );
@@ -704,30 +742,40 @@ export default function DriverPortal() {
         <div className="rounded-2xl bg-slate-800 border border-slate-700 p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Route Navigator</p>
-            <span className="text-xs text-amber-400 font-medium">Stop {stationIdx + 1}/{stations?.length ?? 0}</span>
+            <span className="text-xs text-amber-400 font-medium">Stop {driverStations.length > 0 ? `${stationIdx + 1}/${driverStations.length}` : "— / —"}</span>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <button onClick={() => setStationIdx((i) => Math.max(0, i - 1))} disabled={stationIdx === 0}
-              className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-600 disabled:opacity-30 transition-colors">
-              ← Prev
-            </button>
-            <div className="text-center flex-1">
-              <p className="font-bold text-amber-400 text-base">{currentStation?.name || "—"}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Tap Next when departing</p>
-            </div>
-            <button onClick={() => setStationIdx((i) => Math.min((stations?.length ?? 1) - 1, i + 1))}
-              disabled={stationIdx === (stations?.length ?? 1) - 1}
-              className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-600 disabled:opacity-30 transition-colors">
-              Next →
-            </button>
-          </div>
-          <div className="mt-3 flex items-center justify-center gap-1.5">
-            {stations?.map((_, i) => (
-              <div key={i} className={`h-1.5 rounded-full transition-all ${
-                i < stationIdx ? "w-4 bg-green-500" : i === stationIdx ? "w-6 bg-amber-500" : "w-1.5 bg-slate-600"
-              }`} />
-            ))}
-          </div>
+          {driverStations.length === 0 ? (
+            <p className="text-center text-xs text-slate-500 py-2">
+              {myRoute ? "Loading stops…" : "No route assigned yet"}
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <button onClick={() => setStationIdx((i) => Math.max(0, i - 1))} disabled={stationIdx === 0}
+                  className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-600 disabled:opacity-30 transition-colors">
+                  ← Prev
+                </button>
+                <div className="text-center flex-1">
+                  <p className="font-bold text-amber-400 text-base">
+                    {currentStation?.stopLabel || currentStation?.stationName || "—"}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Tap Next when departing</p>
+                </div>
+                <button onClick={() => setStationIdx((i) => Math.min(driverStations.length - 1, i + 1))}
+                  disabled={stationIdx === driverStations.length - 1}
+                  className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-600 disabled:opacity-30 transition-colors">
+                  Next →
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-1.5">
+                {driverStations.map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${
+                    i < stationIdx ? "w-4 bg-green-500" : i === stationIdx ? "w-6 bg-amber-500" : "w-1.5 bg-slate-600"
+                  }`} />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* DND */}
@@ -795,7 +843,7 @@ export default function DriverPortal() {
                   <p className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     <MapPin size={12} /> At This Stop
                   </p>
-                  <p className="text-[10px] text-amber-600 mt-0.5">{currentStation.name} · {waiting.length} waiting</p>
+                  <p className="text-[10px] text-amber-600 mt-0.5">{currentStation.stopLabel || currentStation.stationName || "—"} · {waiting.length} waiting</p>
                 </div>
                 {waiting.length === 0 && (
                   <span className="text-[10px] text-slate-500 italic">All accounted for</span>

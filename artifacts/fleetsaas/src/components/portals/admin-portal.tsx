@@ -1322,11 +1322,26 @@ function RouteStationsPanel({
     setSpeedKmh(String(route.avgSpeedKmh ?? 25));
   }, [route.vehicleId, route.driverId, route.departureTime, route.avgSpeedKmh]);
 
+  // Reset add-station form whenever the panel switches to a different route so no
+  // station selection from Route A is still active when Route B opens.
+  useEffect(() => {
+    setAddingId("");
+    setAddingLabel("");
+    setAddingErr("");
+    setAddingDir("forward");
+    setMapClickPending(null);
+    setPendingMapName("");
+    setPendingMapRadius(100);
+  }, [routeId]);
+
   // Persistent lock: re-enable (amber) when the user changes inputs after a save
   useEffect(() => { setAssignSaved(false); }, [editVehicle, editDriver]);
   useEffect(() => { setEtaSaved(false); }, [depTime, speedKmh]);
 
   const load = useCallback(async () => {
+    // Flush stale data immediately so the previous route's stops never appear
+    // while the new route's fetch is in flight (prevents cross-route blending).
+    setRouteStations([]);
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/routes/${routeId}/stations`);
@@ -1699,7 +1714,14 @@ function RouteStationsPanel({
           <select value={addingId} onChange={(e) => setAddingId(e.target.value)}
             className="flex-1 rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
             <option value="">Select station…</option>
-            {(stations ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {(stations ?? []).map((s) => {
+              const alreadyOn = routeStations.some((rs) => rs.stationId === s.id);
+              return (
+                <option key={s.id} value={s.id}>
+                  {alreadyOn ? `↩ ${s.name} (already on route)` : s.name}
+                </option>
+              );
+            })}
           </select>
           <select value={addingDir} onChange={(e) => setAddingDir(e.target.value as "forward" | "return")}
             className="rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
