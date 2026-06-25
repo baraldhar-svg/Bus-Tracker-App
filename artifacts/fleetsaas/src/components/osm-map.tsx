@@ -444,6 +444,28 @@ export default function OsmMap({
     });
   }, [liveLat, liveLng, liveIsLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 3b. Fleet: sync all bus marker positions + icons when buses prop updates ─
+  // This fires whenever the parent passes fresh GPS data (e.g. from a poll or SSE event),
+  // ensuring every vehicle's marker moves to its latest coordinates automatically.
+  useEffect(() => {
+    if (mode !== "fleet" || !leafletRef.current) return;
+    import("leaflet").then((L) => {
+      buses.forEach((bus) => {
+        const marker = fleetMarkersRef.current.get(bus.id);
+        if (!marker) return;
+        (marker as any).setLatLng([bus.lat, bus.lng]);
+        const isLiveBus = bus.id === liveBusId && liveIsLive;
+        const icon = L.divIcon({
+          html: busMarkerHtml(bus.status, !!isLiveBus, bus.label),
+          className: "",
+          iconSize: isLiveBus ? [54, 60] : [42, 48],
+          iconAnchor: isLiveBus ? [27, 20] : [21, 16],
+        });
+        (marker as any).setIcon(icon);
+      });
+    });
+  }, [buses]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── 4. Build: sync stops → markers + polyline + bounds ───────────────────
   useEffect(() => {
     if (mode !== "build" || !leafletRef.current) return;

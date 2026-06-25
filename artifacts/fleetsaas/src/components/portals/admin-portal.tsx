@@ -3,7 +3,7 @@ import { useListStations, useListAnnouncements, useListPassengers, useListDriver
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User, Bell, Droplets, FileText, BarChart3, Gauge, AlertCircle, Settings2 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import OsmMap, { type RouteStop } from "@/components/osm-map";
-import { useDriverLocation } from "@/hooks/use-driver-location";
+import { useLiveLocations } from "@/hooks/use-live-locations";
 import { adToBs, bsToAd, getDaysInBsMonth, getFirstWeekdayOfBsMonth, todayBs, bsDateToAd, BS_MONTH_NAMES_NE, AD_MONTH_NAMES } from "@/lib/bs-calendar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,17 +43,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-const FLEET_VEHICLES = [
-  { id: 1, plate: "BA 1 KHA 1234", driver: "Ram Bahadur", speed: 38, route: "B4 - Koteshwor", status: "on-route", fuel: 72, nextService: 3200, lat: 27.6939, lng: 85.3440 },
-  { id: 2, plate: "BA 2 CHA 5678", driver: "Hari Prasad", speed: 0, route: "B2 - Kalanki Depot", status: "depot", fuel: 45, nextService: 800, lat: 27.7054, lng: 85.2814 },
-  { id: 3, plate: "BA 3 JA 9012", driver: "Sita Rai", speed: 29, route: "B7 - Patan", status: "on-route", fuel: 88, nextService: 5100, lat: 27.6755, lng: 85.3216 },
-];
-
-const DRIVER_SCORES = [
-  { name: "Ram Bahadur", score: 91, trips: 14, harsh: 0 },
-  { name: "Hari Prasad", score: 74, trips: 11, harsh: 3 },
-  { name: "Sita Rai", score: 97, trips: 16, harsh: 0 },
-];
+// Live fleet vehicles are derived from real driver DB records + GPS data — no hardcoded arrays.
 
 const STATUS_STYLES: Record<string, string> = {
   boarded: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
@@ -501,7 +491,15 @@ function PhotoPicker({ value, onChange }: { value: string; onChange: (v: string)
 type Modal = "add-passenger" | "add-driver" | null;
 type StatsFilter = "boarded" | "live" | "leave" | "buses" | null;
 type Tenant = { id: number; name: string; address?: string | null; contactPhone?: string | null; bannerUrl?: string | null; schoolCode?: string | null; };
-type FleetVehicle = typeof FLEET_VEHICLES[number];
+type LiveFleetVehicle = {
+  id: number;
+  plate: string;
+  driver: string;
+  lat: number;
+  lng: number;
+  status: "on-route" | "depot";
+  isLive: boolean;
+};
 
 type Passenger = {
   id: number; name: string; phone?: string | null; role: string; status: string;
@@ -578,10 +576,12 @@ function PassengerDetailCard({ p, onClose }: { p: Passenger; onClose: () => void
 }
 
 function StatsDetailPanel({
-  filter, passengers, onClose,
+  filter, passengers, fleetVehicles, onRouteCount, onClose,
 }: {
   filter: StatsFilter;
   passengers: Passenger[];
+  fleetVehicles: LiveFleetVehicle[];
+  onRouteCount: number;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<Passenger | null>(null);
@@ -617,7 +617,7 @@ function StatsDetailPanel({
               </h2>
               <p className="text-xs text-muted-foreground">
                 {isBuses
-                  ? `${FLEET_VEHICLES.filter((v) => v.status === "on-route").length} of ${FLEET_VEHICLES.length} on route`
+                  ? `${onRouteCount} buses on route`
                   : `${filtered.length} ${filtered.length === 1 ? "person" : "people"}`}
               </p>
             </div>
@@ -629,18 +629,18 @@ function StatsDetailPanel({
 
           <div className="overflow-y-auto flex-1 divide-y divide-border [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
             {isBuses ? (
-              FLEET_VEHICLES.filter((v) => v.status === "on-route").map((v) => (
+              fleetVehicles.filter((v) => v.status === "on-route").map((v) => (
                 <div key={v.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="h-9 w-9 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 flex items-center justify-center shrink-0"><Bus size={18} className="text-green-600 dark:text-green-400" /></div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{v.plate}</p>
-                    <p className="text-xs text-muted-foreground truncate">{v.driver} · {v.route}</p>
+                    <p className="text-xs text-muted-foreground truncate">{v.driver}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="rounded-full bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2 py-0.5 text-[10px] font-bold">
                       ● On Route
                     </span>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{v.speed} km/h · {v.fuel}% fuel</p>
+                    {v.isLive && <p className="text-[10px] text-green-500 mt-0.5">● GPS active</p>}
                   </div>
                 </div>
               ))
@@ -961,37 +961,10 @@ function DriverDetailPanel({
           </div>
 
           {/* Passenger Ratings */}
-          {(() => {
-            const ds = DRIVER_SCORES.find((d) => d.name === driver.name);
-            const stars = ds ? Math.round(ds.score / 20) : null;
-            return (
-              <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Star size={11} className="text-amber-400" />Passenger Ratings</p>
-                {ds && stars !== null ? (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-0.5">
-                        {[1,2,3,4,5].map((s) => (
-                          <Star key={s} size={18} className={s <= stars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"} />
-                        ))}
-                      </div>
-                      <span className="text-sm font-bold text-foreground">{stars}/5</span>
-                      <span className="text-xs text-muted-foreground">({ds.score}/100 safety)</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{ds.trips} trips this month</span>
-                      {ds.harsh > 0
-                        ? <span className="text-red-500 font-semibold flex items-center gap-0.5"><AlertTriangle size={10} />{ds.harsh} harsh events</span>
-                        : <span className="text-green-500 font-semibold">✓ Clean driving</span>
-                      }
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">No ratings yet from passengers</p>
-                )}
-              </div>
-            );
-          })()}
+          <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Star size={11} className="text-amber-400" />Passenger Ratings</p>
+            <p className="text-xs text-muted-foreground italic">No ratings yet from passengers</p>
+          </div>
 
           {/* Delete */}
           <button onClick={handleDelete}
@@ -1148,9 +1121,8 @@ function PassengerDetailPanel({
   );
 }
 
-function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: () => void }) {
+function BusDetailPanel({ vehicle, onClose }: { vehicle: LiveFleetVehicle; onClose: () => void }) {
   const messages = useDriverMessages(vehicle.plate);
-  const score = DRIVER_SCORES.find((d) => d.name === vehicle.driver);
   const avatarSrc = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vehicle.driver)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`;
   const [zoomLevel, setZoomLevel] = useState(0);
   const bboxFactor = Math.pow(1.6, -zoomLevel);
@@ -1169,11 +1141,11 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
-            <div className={`h-3 w-3 rounded-full shrink-0 ${vehicle.status === "on-route" ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
+            <div className={`h-3 w-3 rounded-full shrink-0 ${vehicle.isLive ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
             <div>
               <h2 className="text-base font-bold text-foreground">{vehicle.plate}</h2>
-              <span className={`text-[10px] font-semibold ${vehicle.status === "on-route" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
-                {vehicle.status === "on-route" ? "● On Route" : "● At Depot"}
+              <span className={`text-[10px] font-semibold ${vehicle.isLive ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                {vehicle.isLive ? "● GPS Live" : "● GPS Offline"}
               </span>
             </div>
           </div>
@@ -1189,47 +1161,26 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
             <img src={avatarSrc} alt={vehicle.driver} className="h-14 w-14 rounded-full border-2 border-amber-500 object-cover shrink-0" />
             <div className="flex-1">
               <p className="font-bold text-foreground">{vehicle.driver}</p>
-              <p className="text-xs text-muted-foreground">{vehicle.route}</p>
-              {score && (
-                <div className="flex items-center gap-2 mt-1">
-                  <ScoreBadge score={score.score} />
-                  <span className="text-[10px] text-muted-foreground">{score.trips} trips · {score.harsh > 0 ? `${score.harsh} harsh events` : "✓ Clean"}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Live stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border bg-card p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-0.5">Speed</p>
-              <p className={`text-lg font-bold ${vehicle.speed > 50 ? "text-red-500" : "text-foreground"}`}>{vehicle.speed}</p>
-              <p className="text-[9px] text-muted-foreground">km/h</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-0.5">Fuel</p>
-              <p className={`text-lg font-bold ${vehicle.fuel < 30 ? "text-red-500" : vehicle.fuel < 60 ? "text-[#FFF078]" : "text-green-600"}`}>{vehicle.fuel}%</p>
-              <p className="text-[9px] text-muted-foreground">level</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-0.5">Service</p>
-              <p className={`text-lg font-bold ${vehicle.nextService < 1000 ? "text-red-500" : "text-foreground"}`}>{(vehicle.nextService / 1000).toFixed(1)}k</p>
-              <p className="text-[9px] text-muted-foreground">km away</p>
+              <p className="text-xs text-muted-foreground">{vehicle.plate}</p>
+              <span className={`inline-flex items-center gap-1 mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                vehicle.isLive
+                  ? "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}>
+                {vehicle.isLive ? "● GPS Live" : "○ GPS Offline"}
+              </span>
             </div>
           </div>
 
           {/* Live Map Location */}
           <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
-            {/* Map header */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border">
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-[#FFF078] shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-foreground">{vehicle.route}</p>
+                  <p className="text-xs font-semibold text-foreground">{vehicle.driver}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {vehicle.status === "on-route"
-                      ? `Moving · ${vehicle.speed} km/h · GPS live`
-                      : "Stationary · At depot"}
+                    {vehicle.status === "on-route" ? "Moving · GPS live" : "Stationary · At depot"}
                   </p>
                 </div>
               </div>
@@ -1241,7 +1192,6 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
               </button>
             </div>
 
-            {/* OpenStreetMap embedded iframe */}
             <div className="relative w-full" style={{ height: 180 }}>
               <iframe
                 title="Bus location map"
@@ -1251,54 +1201,31 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: FleetVehicle; onClose: 
                 loading="lazy"
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - bboxLng},${vehicle.lat - bboxLat},${vehicle.lng + bboxLng},${vehicle.lat + bboxLat}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
               />
-
-              {/* Live pulse indicator */}
-              {vehicle.status === "on-route" ? (
+              {vehicle.isLive ? (
                 <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                   LIVE GPS
                 </div>
               ) : (
                 <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
-                  DEPOT
+                  OFFLINE
                 </div>
               )}
-
-              {/* Zoom controls */}
               <div className="absolute bottom-2 right-2 flex flex-col gap-1">
-                <button
-                  onClick={() => setZoomLevel((z) => Math.min(z + 1, 5))}
+                <button onClick={() => setZoomLevel((z) => Math.min(z + 1, 5))}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                  title="Zoom in"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => setZoomLevel((z) => Math.max(z - 1, -3))}
+                  title="Zoom in">+</button>
+                <button onClick={() => setZoomLevel((z) => Math.max(z - 1, -3))}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                  title="Zoom out"
-                >
-                  −
-                </button>
+                  title="Zoom out">−</button>
               </div>
             </div>
 
-            {/* Coords footer */}
             <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
               <p className="text-[10px] font-mono text-muted-foreground">{vehicle.lat.toFixed(4)}°N, {vehicle.lng.toFixed(4)}°E</p>
               <p className="text-[10px] text-muted-foreground">Use +/− to zoom</p>
             </div>
           </div>
-
-          {/* Alerts */}
-          {(vehicle.fuel < 30 || vehicle.nextService < 1000 || vehicle.speed > 50) && (
-            <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 space-y-1.5">
-              <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5"><AlertTriangle size={12} /> Alerts</p>
-              {vehicle.fuel < 30 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><Wrench size={10} /> Fuel critically low ({vehicle.fuel}%)</p>}
-              {vehicle.nextService < 1000 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><Wrench size={10} /> Service due in {vehicle.nextService} km</p>}
-              {vehicle.speed > 50 && <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1"><AlertTriangle size={10} /> Speeding — {vehicle.speed} km/h</p>}
-            </div>
-          )}
 
           {/* Driver messages */}
           <div>
@@ -3085,7 +3012,7 @@ function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleItem[] }) {
 
 export default function AdminPortal() {
   const { user, login } = useAuth();
-  const driverLoc = useDriverLocation();
+  const liveLocations = useLiveLocations();
   const { data: stations, refetch: refetchStations } = useListStations();
   const { data: announcements, refetch: refetchAnnouncements } = useListAnnouncements();
   const { data: passengers, refetch: refetchPassengers } = useListPassengers();
@@ -3099,7 +3026,7 @@ export default function AdminPortal() {
   const [docAlertCount, setDocAlertCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [selectedVehicle, setSelectedVehicle] = useState<FleetVehicle | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<LiveFleetVehicle | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null);
   const [selectedPassenger, setSelectedPassenger] = useState<PassengerRow | null>(null);
   const [statsFilter, setStatsFilter] = useState<StatsFilter>(null);
@@ -3298,6 +3225,22 @@ export default function AdminPortal() {
   const liveTodayCount = passengers?.filter((p) => p.liveToday === 1).length ?? 0;
   const onLeaveCount = passengers?.filter((p) => p.quickMessage === "Staying home today").length ?? 0;
   const onRouteCount = (adminRoutes ?? []).filter((r) => r.isActive).length;
+
+  // Build live fleet vehicles by joining DB drivers with real GPS data
+  const fleetVehicles = useMemo<LiveFleetVehicle[]>(() => {
+    return (drivers ?? []).map((d) => {
+      const loc = liveLocations.find((l) => l.id === d.id);
+      return {
+        id: d.id,
+        plate: d.vehicleNumber || "—",
+        driver: d.name,
+        lat: loc?.lat ?? 27.7172,
+        lng: loc?.lng ?? 85.3240,
+        status: loc?.isLive ? "on-route" as const : "depot" as const,
+        isLive: loc?.isLive ?? false,
+      };
+    });
+  }, [drivers, liveLocations]);
 
   return (
     <div className="mx-auto w-full max-w-[860px] p-4 sm:p-6 space-y-6">
@@ -3714,7 +3657,7 @@ export default function AdminPortal() {
               {onRouteCount} bus{onRouteCount !== 1 ? "es" : ""} on route · all vehicles auto-fit
             </p>
           </div>
-          {driverLoc.isLive && (
+          {liveLocations.some((l) => l.isLive) && (
             <div className="flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-200 dark:border-green-800 px-2.5 py-1 text-[10px] font-bold text-green-700 dark:text-green-400">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
               GPS LIVE
@@ -3723,19 +3666,18 @@ export default function AdminPortal() {
         </div>
         <OsmMap
           mode="fleet"
-          buses={FLEET_VEHICLES.map((v) => ({
+          buses={fleetVehicles.map((v) => ({
             id: v.id,
             label: v.plate,
             driverName: v.driver,
             lat: v.lat,
             lng: v.lng,
             status: v.status,
-            speed: v.speed,
           }))}
-          liveLat={driverLoc.lat}
-          liveLng={driverLoc.lng}
-          liveIsLive={driverLoc.isLive}
-          liveBusId={1}
+          liveLat={liveLocations[0]?.lat ?? 27.7172}
+          liveLng={liveLocations[0]?.lng ?? 85.3240}
+          liveIsLive={liveLocations.some((l) => l.isLive)}
+          liveBusId={liveLocations[0]?.id ?? -1}
           height={340}
         />
       </div>
@@ -3744,36 +3686,29 @@ export default function AdminPortal() {
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-primary">Fleet Status</h2>
-          <span className="text-xs text-muted-foreground">{onRouteCount} of {FLEET_VEHICLES.length} on route</span>
+          <span className="text-xs text-muted-foreground">{fleetVehicles.filter(v => v.isLive).length} of {fleetVehicles.length} live</span>
         </div>
         <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-          {FLEET_VEHICLES.map((v) => (
+          {fleetVehicles.length === 0 ? (
+            <p className="px-5 py-6 text-xs text-muted-foreground italic">No drivers assigned yet.</p>
+          ) : fleetVehicles.map((v) => (
             <button key={v.id}
               onClick={() => setSelectedVehicle(v)}
               className="w-full flex items-center gap-4 px-5 py-3 text-left hover:bg-muted/40 transition-colors">
-              <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${v.status === "on-route" ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
+              <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${v.isLive ? "bg-green-500 animate-pulse" : "bg-slate-400"}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-foreground">{v.plate}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${v.status === "on-route" ? "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800" : "bg-muted text-muted-foreground border-border"}`}>
-                    {v.status === "on-route" ? "On Route" : "At Depot"}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${v.isLive ? "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800" : "bg-muted text-muted-foreground border-border"}`}>
+                    {v.isLive ? "GPS Live" : "Offline"}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">{v.driver} · {v.route}</p>
+                <p className="text-xs text-muted-foreground">{v.driver}</p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="hidden sm:block text-right">
-                  <p className="text-xs text-muted-foreground">Speed</p>
-                  <p className={`text-sm font-bold ${v.speed > 50 ? "text-red-500" : "text-foreground"}`}>{v.speed} km/h</p>
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-xs text-muted-foreground">Fuel</p>
-                  <div className="flex items-center gap-1">
-                    <div className="w-12 h-1.5 rounded-full bg-border overflow-hidden">
-                      <div className={`h-full rounded-full ${v.fuel < 30 ? "bg-red-500" : v.fuel < 60 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${v.fuel}%` }} />
-                    </div>
-                    <p className="text-xs font-medium">{v.fuel}%</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className={`text-sm font-bold ${v.isLive ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>{v.isLive ? "On Route" : "Depot"}</p>
                 </div>
                 <span className="text-muted-foreground/40 text-sm">›</span>
               </div>
@@ -3787,16 +3722,20 @@ export default function AdminPortal() {
           <h2 className="font-semibold text-primary">Maintenance & Fuel Reminders</h2>
         </div>
         <div className="divide-y divide-border max-h-52 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-amber-500">
-          {FLEET_VEHICLES.map((v) => (
+          {fleetVehicles.length === 0 ? (
+            <p className="px-5 py-6 text-xs text-muted-foreground italic">No vehicles assigned. Add drivers with vehicles to see maintenance info.</p>
+          ) : fleetVehicles.map((v) => (
             <div key={v.id} className="flex items-center gap-4 px-5 py-3">
-              <span className="shrink-0 text-muted-foreground">{v.nextService < 1000 ? <Wrench size={18} className="text-red-500" /> : <Bus size={18} />}</span>
+              <span className="shrink-0 text-muted-foreground"><Bus size={18} /></span>
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{v.plate}</p>
-                <p className="text-xs text-muted-foreground">Next service in {v.nextService.toLocaleString()} km</p>
+                <p className="text-xs text-muted-foreground">{v.driver} · {v.isLive ? "GPS Live" : "Offline"}</p>
               </div>
               <div className="flex items-center gap-2">
-                {v.nextService < 1000 && <span className="rounded-full bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:text-red-400">Due Soon</span>}
-                {v.fuel < 50 && <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Low Fuel</span>}
+                {v.isLive
+                  ? <span className="rounded-full bg-green-100 dark:bg-green-950/40 border border-green-200 dark:border-green-800 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">Active</span>
+                  : <span className="rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">Parked</span>
+                }
               </div>
             </div>
           ))}
@@ -3824,6 +3763,8 @@ export default function AdminPortal() {
         <StatsDetailPanel
           filter={statsFilter}
           passengers={(passengers ?? []) as Passenger[]}
+          fleetVehicles={fleetVehicles}
+          onRouteCount={fleetVehicles.filter(v => v.isLive).length}
           onClose={() => setStatsFilter(null)}
         />
       )}
