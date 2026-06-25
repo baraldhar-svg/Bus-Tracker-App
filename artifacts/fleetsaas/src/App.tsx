@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -11,11 +11,35 @@ import RegisterScreen from "@/pages/register-screen";
 import AdminVerifyScreen from "@/pages/admin-verify";
 import Dashboard from "@/pages/dashboard";
 import SchoolProfile from "@/pages/school-profile";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { sendWhatsAppNotification } from "@/lib/whatsapp";
 import { useRealtime } from "@/hooks/use-realtime";
 
 const queryClient = new QueryClient();
+
+/**
+ * Clears all React Query caches whenever the logged-in user changes.
+ * This prevents stale driver/passenger data from a previous session leaking
+ * into a freshly logged-in driver's view.
+ */
+function CacheInvalidator() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const prevUserIdRef = useRef<number | null | undefined>(undefined);
+
+  useEffect(() => {
+    const prev = prevUserIdRef.current;
+    const curr = user?.id ?? null;
+    // On mount (prev === undefined) don't clear — we want the persisted cache.
+    // On user change (including logout to null, and new login) clear everything.
+    if (prev !== undefined && prev !== curr) {
+      qc.clear();
+    }
+    prevUserIdRef.current = curr;
+  }, [user?.id, qc]);
+
+  return null;
+}
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -46,12 +70,22 @@ function Router() {
       <Route path="/school/:id" component={SchoolProfile} />
       <Route path="/dashboard">
         <AuthGuard>
-          <Dashboard />
+          <DashboardKeyed />
         </AuthGuard>
       </Route>
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+/**
+ * Mounts Dashboard with a stable key tied to the logged-in user's id.
+ * When a new driver logs in after logout, the key changes → React unmounts
+ * the old component tree completely, resetting all local journey/GPS state.
+ */
+function DashboardKeyed() {
+  const { user } = useAuth();
+  return <Dashboard key={user?.id ?? "guest"} />;
 }
 
 function RealtimeBridge() {
@@ -69,6 +103,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
+            <CacheInvalidator />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>

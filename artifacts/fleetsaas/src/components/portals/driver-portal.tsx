@@ -67,17 +67,20 @@ export default function DriverPortal() {
   const { data: drivers } = useListDrivers();
   const queryClient = useQueryClient();
 
-  // Resolve MY driver record by matching the logged-in user's phone.
-  // Uses normalized comparison (strips +977 prefix and spaces) so format mismatches don't break the link.
-  // Falls back to the first active driver so demo/admin preview still works.
+  // Resolve MY driver record by strictly matching the authenticated session phone.
+  // No fallback to any other driver — if the phone doesn't match, show an explicit error
+  // rather than leaking another driver's name/vehicle into this session.
   const normalizePhone = (p: string) => {
     const s = p.replace(/[\s\-()]/g, "");
     if (s.startsWith("+977")) return s.slice(4);
     if (s.startsWith("977") && s.length > 10) return s.slice(3);
     return s;
   };
-  const myDriver = drivers?.find((d) => normalizePhone(d.phone) === normalizePhone(user?.phone ?? ""))
-    ?? drivers?.find((d) => d.isActive);
+  const myDriver = drivers?.find(
+    (d) => normalizePhone(d.phone) === normalizePhone(user?.phone ?? "")
+  );
+  // drivers loaded but no phone match — show a clear error rather than wrong driver data
+  const driverNotLinked = drivers !== undefined && myDriver === undefined;
 
   const [stationIdx, setStationIdx] = useState(0);
   const [boardingId, setBoardingId] = useState<number | null>(null);
@@ -119,7 +122,13 @@ export default function DriverPortal() {
         void fetch(`${BASE_GPS}/api/trips/location`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ lat, lng, accuracy, driverId: myDriver?.id }),
+          body: JSON.stringify({
+            lat,
+            lng,
+            accuracy,
+            driverId: myDriver?.id,
+            vehicleNo: myDriver?.vehicleNumber,
+          }),
         });
       },
       (err) => {
@@ -297,6 +306,25 @@ export default function DriverPortal() {
     return () => clearTimeout(id);
   }, [countdown]);
 
+  // Show a hard-stop error if the DB has no driver record for this phone,
+  // rather than silently displaying another driver's data.
+  if (driverNotLinked) {
+    return (
+      <div className="min-h-full w-full bg-[#0F172A] text-white flex flex-col items-center justify-center gap-4 p-8">
+        <div className="rounded-2xl bg-red-900/20 border border-red-700/40 p-6 w-full max-w-sm text-center space-y-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-700 mx-auto">
+            <AlertTriangle size={24} className="text-white" />
+          </div>
+          <p className="text-base font-bold text-red-300">No Driver Record Linked</p>
+          <p className="text-xs text-red-400/80">
+            Your account (<span className="font-mono text-red-300">{user?.phone}</span>) is not linked to any driver record in this school.
+          </p>
+          <p className="text-[11px] text-slate-500">Ask your admin to create a driver entry with this phone number.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full w-full bg-[#0F172A] text-white flex flex-col">
 
@@ -305,7 +333,10 @@ export default function DriverPortal() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-slate-100">Driver Portal</h1>
-            <p className="text-xs text-slate-400">{myDriver?.name ?? user?.name ?? "Driver"} · {myDriver?.vehicleNumber ?? ""}</p>
+            <p className="text-xs text-slate-400">
+              {myDriver?.name ?? user?.name ?? "Driver"}
+              {myDriver?.vehicleNumber ? ` · ${myDriver.vehicleNumber}` : ""}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
