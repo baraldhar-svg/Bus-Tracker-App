@@ -1705,23 +1705,28 @@ function RouteStationsPanel({
         </div>
       </div>
 
-      {/* Add stop (allows same station twice — forward + return) */}
+      {/* Add stop — only lists stations already on this route so no cross-route bleed.
+           For a brand-new geographic stop, use the map-click flow above. */}
       <div className="space-y-2 rounded-xl border border-border bg-card p-3">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-          <Plus size={9} />Add Stop (duplicate stops supported for round-trips)
+          <Plus size={9} />Add Stop (re-use this route&apos;s stations for round-trips)
+        </p>
+        <p className="text-[9px] text-muted-foreground leading-relaxed">
+          Pick a stop from this route and assign it a direction (Forward / Return). To add a brand-new location, click the map above.
         </p>
         <div className="flex gap-2">
           <select value={addingId} onChange={(e) => setAddingId(e.target.value)}
             className="flex-1 rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
-            <option value="">Select station…</option>
-            {(stations ?? []).map((s) => {
-              const alreadyOn = routeStations.some((rs) => rs.stationId === s.id);
-              return (
-                <option key={s.id} value={s.id}>
-                  {alreadyOn ? `↩ ${s.name} (already on route)` : s.name}
-                </option>
-              );
-            })}
+            <option value="">Select stop on this route…</option>
+            {/* Only stations explicitly assigned to THIS route appear here — no global bleed */}
+            {routeStations.map((rs) => (
+              <option key={`${rs.stationId}-${rs.id}`} value={rs.stationId}>
+                {rs.stopLabel || rs.stationName || `Stop #${rs.stationId}`}
+              </option>
+            ))}
+            {routeStations.length === 0 && (
+              <option value="" disabled>No stops yet — click map to add first stop</option>
+            )}
           </select>
           <select value={addingDir} onChange={(e) => setAddingDir(e.target.value as "forward" | "return")}
             className="rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none focus:border-amber-500">
