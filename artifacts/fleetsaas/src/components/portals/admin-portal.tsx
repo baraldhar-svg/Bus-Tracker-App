@@ -495,8 +495,8 @@ type LiveFleetVehicle = {
   id: number;
   plate: string;
   driver: string;
-  lat: number;
-  lng: number;
+  lat: number | null;   // null when driver has never shared GPS
+  lng: number | null;   // null when driver has never shared GPS
   status: "on-route" | "depot";
   isLive: boolean;
 };
@@ -1184,47 +1184,56 @@ function BusDetailPanel({ vehicle, onClose }: { vehicle: LiveFleetVehicle; onClo
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => window.open(`https://www.google.com/maps?q=${vehicle.lat},${vehicle.lng}`, "_blank", "noopener,noreferrer")}
-                className="flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors"
-              >
-                Open in Maps ↗
-              </button>
-            </div>
-
-            <div className="relative w-full" style={{ height: 180 }}>
-              <iframe
-                title="Bus location map"
-                width="100%"
-                height="180"
-                style={{ border: 0, display: "block" }}
-                loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - bboxLng},${vehicle.lat - bboxLat},${vehicle.lng + bboxLng},${vehicle.lat + bboxLat}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
-              />
-              {vehicle.isLive ? (
-                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                  LIVE GPS
-                </div>
-              ) : (
-                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
-                  OFFLINE
-                </div>
+              {vehicle.lat !== null && vehicle.lng !== null && (
+                <button
+                  onClick={() => window.open(`https://www.google.com/maps?q=${vehicle.lat},${vehicle.lng}`, "_blank", "noopener,noreferrer")}
+                  className="flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors"
+                >
+                  Open in Maps ↗
+                </button>
               )}
-              <div className="absolute bottom-2 right-2 flex flex-col gap-1">
-                <button onClick={() => setZoomLevel((z) => Math.min(z + 1, 5))}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                  title="Zoom in">+</button>
-                <button onClick={() => setZoomLevel((z) => Math.max(z - 1, -3))}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
-                  title="Zoom out">−</button>
-              </div>
             </div>
 
-            <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
-              <p className="text-[10px] font-mono text-muted-foreground">{vehicle.lat.toFixed(4)}°N, {vehicle.lng.toFixed(4)}°E</p>
-              <p className="text-[10px] text-muted-foreground">Use +/− to zoom</p>
-            </div>
+            {vehicle.lat !== null && vehicle.lng !== null ? (
+              <>
+                <div className="relative w-full" style={{ height: 180 }}>
+                  <iframe
+                    title="Bus location map"
+                    width="100%"
+                    height="180"
+                    style={{ border: 0, display: "block" }}
+                    loading="lazy"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicle.lng - bboxLng},${vehicle.lat - bboxLat},${vehicle.lng + bboxLng},${vehicle.lat + bboxLat}&layer=mapnik&marker=${vehicle.lat},${vehicle.lng}`}
+                  />
+                  {vehicle.isLive ? (
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-green-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                      LIVE GPS
+                    </div>
+                  ) : (
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-slate-600/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white shadow pointer-events-none">
+                      OFFLINE
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 right-2 flex flex-col gap-1">
+                    <button onClick={() => setZoomLevel((z) => Math.min(z + 1, 5))}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                      title="Zoom in">+</button>
+                    <button onClick={() => setZoomLevel((z) => Math.max(z - 1, -3))}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-border text-sm font-bold text-foreground shadow hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                      title="Zoom out">−</button>
+                  </div>
+                </div>
+                <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
+                  <p className="text-[10px] font-mono text-muted-foreground">{vehicle.lat.toFixed(4)}°N, {vehicle.lng.toFixed(4)}°E</p>
+                  <p className="text-[10px] text-muted-foreground">Use +/− to zoom</p>
+                </div>
+              </>
+            ) : (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground italic">
+                No GPS history — driver hasn't shared location yet.
+              </div>
+            )}
           </div>
 
           {/* Driver messages */}
@@ -3226,7 +3235,9 @@ export default function AdminPortal() {
   const onLeaveCount = passengers?.filter((p) => p.quickMessage === "Staying home today").length ?? 0;
   const onRouteCount = (adminRoutes ?? []).filter((r) => r.isActive).length;
 
-  // Build live fleet vehicles by joining DB drivers with real GPS data
+  // Build live fleet vehicles by joining DB drivers with real GPS data.
+  // lat/lng are null when a driver has never shared their position — these buses
+  // are excluded from the map to avoid fake markers piling up at a default coordinate.
   const fleetVehicles = useMemo<LiveFleetVehicle[]>(() => {
     return (drivers ?? []).map((d) => {
       const loc = liveLocations.find((l) => l.id === d.id);
@@ -3234,8 +3245,8 @@ export default function AdminPortal() {
         id: d.id,
         plate: d.vehicleNumber || "—",
         driver: d.name,
-        lat: loc?.lat ?? 27.7172,
-        lng: loc?.lng ?? 85.3240,
+        lat: loc?.lat ?? null,
+        lng: loc?.lng ?? null,
         status: loc?.isLive ? "on-route" as const : "depot" as const,
         isLive: loc?.isLive ?? false,
       };
@@ -3666,18 +3677,26 @@ export default function AdminPortal() {
         </div>
         <OsmMap
           mode="fleet"
-          buses={fleetVehicles.map((v) => ({
-            id: v.id,
-            label: v.plate,
-            driverName: v.driver,
-            lat: v.lat,
-            lng: v.lng,
-            status: v.status,
-          }))}
-          liveLat={liveLocations[0]?.lat ?? 27.7172}
-          liveLng={liveLocations[0]?.lng ?? 85.3240}
+          buses={
+            // Only pass buses with real GPS coords — offline-with-no-history buses are
+            // excluded so they don't pile up at a fake default coordinate on the map.
+            fleetVehicles
+              .filter((v): v is LiveFleetVehicle & { lat: number; lng: number } =>
+                v.lat !== null && v.lng !== null
+              )
+              .map((v) => ({
+                id: v.id,
+                label: v.plate,
+                driverName: v.driver,
+                lat: v.lat,
+                lng: v.lng,
+                status: v.status,
+              }))
+          }
+          liveLat={liveLocations.find((l) => l.isLive)?.lat ?? 27.7172}
+          liveLng={liveLocations.find((l) => l.isLive)?.lng ?? 85.3240}
           liveIsLive={liveLocations.some((l) => l.isLive)}
-          liveBusId={liveLocations[0]?.id ?? -1}
+          liveBusId={liveLocations.find((l) => l.isLive)?.id ?? -1}
           height={340}
         />
       </div>

@@ -444,24 +444,71 @@ export default function OsmMap({
     });
   }, [liveLat, liveLng, liveIsLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 3b. Fleet: sync all bus marker positions + icons when buses prop updates ─
-  // This fires whenever the parent passes fresh GPS data (e.g. from a poll or SSE event),
-  // ensuring every vehicle's marker moves to its latest coordinates automatically.
+  // ── 3b. Fleet: sync ALL bus marker positions + icons when buses prop updates ─
+  // Fires whenever the parent passes fresh GPS data (poll or SSE).
+  // Creates markers for buses that came online AFTER the initial render so
+  // every active driver's pin appears without a full map remount.
   useEffect(() => {
     if (mode !== "fleet" || !leafletRef.current) return;
     import("leaflet").then((L) => {
+      const map = leafletRef.current as any;
+      if (!map) return;
+
+      // Track which IDs are still in the buses list so we can prune stale markers.
+      const currentIds = new Set(buses.map((b) => b.id));
+
       buses.forEach((bus) => {
-        const marker = fleetMarkersRef.current.get(bus.id);
-        if (!marker) return;
+        // "on-route" buses are live regardless of which bus ID the parent nominates —
+        // every active driver gets the animated live icon, not just the first one.
+        const isLiveBus = bus.status === "on-route" && liveIsLive;
+        const iconSize: [number, number]   = isLiveBus ? [54, 60] : [42, 48];
+        const iconAnchor: [number, number] = isLiveBus ? [27, 20] : [21, 16];
+
+        let marker = fleetMarkersRef.current.get(bus.id);
+
+        if (!marker) {
+          // ── New bus came online after initial render — create its marker ──
+          const icon = L.divIcon({
+            html: busMarkerHtml(bus.status, isLiveBus, bus.label),
+            className: "",
+            iconSize,
+            iconAnchor,
+          });
+          marker = L.marker([bus.lat, bus.lng], {
+            icon,
+            zIndexOffset: isLiveBus ? 1000 : 0,
+          });
+          (marker as any).addTo(map);
+          (marker as any).bindTooltip(
+            `<b>${bus.label}</b><br>${bus.driverName ?? "Driver"} · ${
+              bus.status === "on-route" ? "🟢 On Route" : "⬛ At Depot"
+            }`,
+            { permanent: false, direction: "top", className: "osm-tip" }
+          );
+          fleetMarkersRef.current.set(bus.id, marker);
+          // Re-fit map bounds to include the new bus
+          _fitFleetBounds(L, map, buses);
+          return;
+        }
+
+        // ── Existing marker — move it and refresh the icon ──
         (marker as any).setLatLng([bus.lat, bus.lng]);
-        const isLiveBus = bus.id === liveBusId && liveIsLive;
         const icon = L.divIcon({
-          html: busMarkerHtml(bus.status, !!isLiveBus, bus.label),
+          html: busMarkerHtml(bus.status, isLiveBus, bus.label),
           className: "",
-          iconSize: isLiveBus ? [54, 60] : [42, 48],
-          iconAnchor: isLiveBus ? [27, 20] : [21, 16],
+          iconSize,
+          iconAnchor,
         });
         (marker as any).setIcon(icon);
+        (marker as any).setZIndexOffset(isLiveBus ? 1000 : 0);
+      });
+
+      // ── Remove markers for buses no longer in the list (went offline / removed) ──
+      fleetMarkersRef.current.forEach((marker, id) => {
+        if (!currentIds.has(id)) {
+          (marker as any).remove();
+          fleetMarkersRef.current.delete(id);
+        }
       });
     });
   }, [buses]); // eslint-disable-line react-hooks/exhaustive-deps
