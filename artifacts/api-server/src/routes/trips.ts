@@ -127,7 +127,7 @@ router.post("/location", async (req, res) => {
     .where(updateCondition)
     .limit(1);
 
-  broadcast("location_update", {
+  broadcast(req.tenantId, "location_update", {
     tenantId: req.tenantId,
     driverId: resolved?.id ?? driverId ?? null,
     vehicleNumber: resolved?.vehicleNumber ?? null,
@@ -163,7 +163,7 @@ router.post("/start", async (req, res) => {
     severity: "info",
   });
 
-  broadcast("trip_started", {
+  broadcast(req.tenantId, "trip_started", {
     tenantId: req.tenantId,
     driverId: activeDriver?.id ?? null,
     vehicleNumber: activeDriver?.vehicleNumber ?? null,
@@ -200,7 +200,7 @@ router.post("/complete", async (req, res) => {
     severity: "info",
   });
 
-  broadcast("trip_completed", {
+  broadcast(req.tenantId, "trip_completed", {
     tenantId: req.tenantId,
     driverId: activeDriver?.id ?? null,
     vehicleNumber: activeDriver?.vehicleNumber ?? null,
@@ -246,7 +246,7 @@ export function startHeartbeatWatchdog(): void {
           .set({ isOnline: false })
           .where(eq(driversTable.id, d.id));
 
-        broadcast("trip_completed", {
+        broadcast(d.tenantId, "trip_completed", {
           tenantId: d.tenantId,
           driverId: d.id,
           vehicleNumber: d.vehicleNumber ?? null,

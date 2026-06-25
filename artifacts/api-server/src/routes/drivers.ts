@@ -91,7 +91,7 @@ router.patch("/:id", async (req, res) => {
     .returning();
   if (!updated[0]) { res.status(404).json({ error: "Driver not found" }); return; }
 
-  broadcast("drivers_updated", { tenantId: req.tenantId, driverId: id });
+  broadcast(req.tenantId, "drivers_updated", { tenantId: req.tenantId, driverId: id });
 
   // When marking active, ensure the driver has a usersTable login account
   if (isActive === true) {

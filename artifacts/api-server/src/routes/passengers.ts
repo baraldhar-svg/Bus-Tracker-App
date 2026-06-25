@@ -284,7 +284,7 @@ router.post("/:id/board", async (req, res) => {
       action: "boarded",
     });
   }
-  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "boarded" });
+  broadcast(req.tenantId, "passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "boarded" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
@@ -315,7 +315,7 @@ router.post("/:id/absent", async (req, res) => {
       action: "absent",
     });
   }
-  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "absent" });
+  broadcast(req.tenantId, "passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "absent" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
@@ -331,7 +331,7 @@ router.post("/:id/unboard", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
-  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "unboarded" });
+  broadcast(req.tenantId, "passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "unboarded" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
@@ -347,7 +347,7 @@ router.post("/:id/leave", async (req, res) => {
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
     .where(eq(passengersTable.id, parsed.data.id));
-  broadcast("passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "leave" });
+  broadcast(req.tenantId, "passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "leave" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });
 });
 
@@ -400,7 +400,7 @@ router.post("/:id/driver-notify", async (req, res) => {
     })
     .returning();
 
-  broadcast("driver_notification", { tenantId: req.tenantId, passengerId: id, message: notification.message });
+  broadcast(req.tenantId, "driver_notification", { tenantId: req.tenantId, passengerId: id, message: notification.message });
   return res.json({ ok: true, alreadySent: false, notification });
 });
 
