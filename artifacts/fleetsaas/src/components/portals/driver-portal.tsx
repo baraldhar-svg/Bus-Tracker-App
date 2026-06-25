@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, useStartJourney, useCompleteJourney, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
+import { useListStations, useListPassengers, useBoardPassenger, useUnboardPassenger, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { sendDriverMessage } from "@/lib/driver-messages";
 import {
   Navigation, Flag, WifiOff, BellOff, CheckCircle, Home,
   MessageSquare, Send, Megaphone, AlertTriangle, Users, Building2,
   Wrench, Clock, Bus, CloudRain, Gauge, MapPin, Bell,
 } from "lucide-react";
-
-const DRIVER_NAME = "Ram Bahadur";
-const DRIVER_PLATE = "BA 1 KHA 1234";
 
 const QUICK_MESSAGES = [
   { Icon: Navigation,     text: "Traffic jam on route" },
@@ -60,18 +58,18 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 export default function DriverPortal() {
+  const { user } = useAuth();
   const { data: stations } = useListStations();
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
   const unboardPassenger = useUnboardPassenger();
-  const startJourney = useStartJourney();
-  const completeJourney = useCompleteJourney();
   const patchDriver = usePatchDriver();
   const { data: drivers } = useListDrivers();
   const queryClient = useQueryClient();
 
-  // First active driver — used for isOnline PATCH
-  const activeDriverId = drivers?.find((d) => d.isActive)?.id ?? drivers?.[0]?.id;
+  // Resolve MY driver record by matching the logged-in user's phone.
+  // Falls back to the first active driver so demo/admin preview still works.
+  const myDriver = drivers?.find((d) => d.phone === user?.phone) ?? drivers?.find((d) => d.isActive);
 
   const [stationIdx, setStationIdx] = useState(0);
   const [boardingId, setBoardingId] = useState<number | null>(null);
@@ -113,7 +111,7 @@ export default function DriverPortal() {
         void fetch(`${BASE_GPS}/api/trips/location`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ lat, lng, accuracy }),
+          body: JSON.stringify({ lat, lng, accuracy, driverId: myDriver?.id }),
         });
       },
       (err) => {
@@ -216,17 +214,19 @@ export default function DriverPortal() {
   async function handleToggleOffline() {
     const goingOffline = !isOffline;
     setIsOffline(goingOffline);
+    const driverName = myDriver?.name ?? user?.name ?? "Driver";
+    const vehiclePlate = myDriver?.vehicleNumber ?? "";
     sendDriverMessage({
-      driverName: DRIVER_NAME,
-      vehiclePlate: DRIVER_PLATE,
+      driverName,
+      vehiclePlate,
       text: goingOffline
         ? `🔴 Driver went OFFLINE — location sharing paused`
         : `🟢 Driver is back ONLINE — location sharing resumed`,
       isCustom: false,
     });
-    if (activeDriverId) {
+    if (myDriver?.id) {
       try {
-        await patchDriver.mutateAsync({ id: activeDriverId, data: { isOnline: !goingOffline } });
+        await patchDriver.mutateAsync({ id: myDriver.id, data: { isOnline: !goingOffline } });
         queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
       } catch { /* non-blocking */ }
     }
@@ -240,7 +240,14 @@ export default function DriverPortal() {
     // Start streaming GPS from the driver's phone
     startGpsTracking();
     try {
-      await startJourney.mutateAsync();
+      const tenantId = getTenantId();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+      await fetch(`${BASE_GPS}/api/trips/start`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ driverId: myDriver?.id }),
+      });
       queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
     } catch {
       // Non-blocking — UI already shows started state
@@ -257,7 +264,14 @@ export default function DriverPortal() {
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
     try {
-      await completeJourney.mutateAsync();
+      const tenantId = getTenantId();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+      await fetch(`${BASE_GPS}/api/trips/complete`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ driverId: myDriver?.id }),
+      });
       // Refresh passenger list (statuses reset to pending) and announcement boards
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getListAnnouncementsQueryKey() });
@@ -283,7 +297,7 @@ export default function DriverPortal() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-slate-100">Driver Portal</h1>
-            <p className="text-xs text-slate-400">{DRIVER_NAME} · {DRIVER_PLATE}</p>
+            <p className="text-xs text-slate-400">{myDriver?.name ?? user?.name ?? "Driver"} · {myDriver?.vehicleNumber ?? ""}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -807,7 +821,7 @@ export default function DriverPortal() {
                 {QUICK_MESSAGES.map((m) => (
                   <button key={m.text}
                     onClick={() => {
-                      sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: m.text, isCustom: false });
+                      sendDriverMessage({ driverName: myDriver?.name ?? user?.name ?? "Driver", vehiclePlate: myDriver?.vehicleNumber ?? "", text: m.text, isCustom: false });
                       setLastSent(m.text);
                       setQuickMsgOpen(false);
                     }}
@@ -829,7 +843,7 @@ export default function DriverPortal() {
                     className="flex-1 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && customMsg.trim()) {
-                        sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: customMsg.trim(), isCustom: true });
+                        sendDriverMessage({ driverName: myDriver?.name ?? user?.name ?? "Driver", vehiclePlate: myDriver?.vehicleNumber ?? "", text: customMsg.trim(), isCustom: true });
                         setLastSent(customMsg.trim());
                         setCustomMsg("");
                         setQuickMsgOpen(false);
@@ -839,7 +853,7 @@ export default function DriverPortal() {
                   <button
                     onClick={() => {
                       if (!customMsg.trim()) return;
-                      sendDriverMessage({ driverName: DRIVER_NAME, vehiclePlate: DRIVER_PLATE, text: customMsg.trim(), isCustom: true });
+                      sendDriverMessage({ driverName: myDriver?.name ?? user?.name ?? "Driver", vehiclePlate: myDriver?.vehicleNumber ?? "", text: customMsg.trim(), isCustom: true });
                       setLastSent(customMsg.trim());
                       setCustomMsg("");
                       setQuickMsgOpen(false);

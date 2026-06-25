@@ -6,11 +6,19 @@ import { broadcast } from "../lib/sse";
 
 const router = Router();
 
+// GET /api/trips/active — returns the active driver's location.
+// Optional ?driverId=N query param scopes the response to a specific driver.
 router.get("/active", async (req, res) => {
+  const driverIdParam = req.query.driverId ? Number(req.query.driverId) : null;
+
+  const driverCondition = driverIdParam
+    ? and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.id, driverIdParam))
+    : and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true));
+
   const [driver] = await db
     .select()
     .from(driversTable)
-    .where(eq(driversTable.isActive, true))
+    .where(driverCondition)
     .limit(1);
 
   const [allCount] = await db
@@ -29,14 +37,13 @@ router.get("/active", async (req, res) => {
     .where(eq(stationsTable.tenantId, req.tenantId))
     .limit(1);
 
-  // Use real GPS coords from driver record; fall back to Kathmandu centre only if no fix yet
   const currentLat = driver?.currentLat ?? 27.7172;
   const currentLng = driver?.currentLng ?? 85.3240;
   const locationUpdatedAt = driver?.locationUpdatedAt ?? null;
   const isLive = driver?.isOnline === true && driver?.currentLat != null;
 
   res.json({
-    tripId: 1,
+    tripId: driver?.id ?? 1,
     currentLat,
     currentLng,
     locationUpdatedAt,
@@ -58,6 +65,28 @@ router.get("/active", async (req, res) => {
   });
 });
 
+// GET /api/trips/locations — returns ALL currently online drivers with their live GPS positions.
+// Used by admin/superadmin dashboards to render multi-vehicle fleet maps.
+router.get("/locations", async (req, res) => {
+  const drivers = await db
+    .select()
+    .from(driversTable)
+    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isOnline, true)));
+
+  return res.json(
+    drivers.map((d) => ({
+      id: d.id,
+      name: d.name,
+      vehicleNumber: d.vehicleNumber,
+      lat: d.currentLat ?? null,
+      lng: d.currentLng ?? null,
+      isLive: d.isOnline === true && d.currentLat != null,
+      updatedAt: d.locationUpdatedAt ?? null,
+    }))
+  );
+});
+
+// GET /api/trips/timeline
 router.get("/timeline", async (_req, res) => {
   res.json([
     { id: 1, time: "06:45 AM", description: "Bus started from the main university campus garage.", status: "completed" },
@@ -66,9 +95,14 @@ router.get("/timeline", async (_req, res) => {
   ]);
 });
 
-// POST /api/trips/location — called by the driver's mobile every time the browser geolocation updates
+// POST /api/trips/location — called by the driver's mobile every ~3 s via navigator.geolocation.watchPosition.
+// Body: { lat, lng, accuracy?, driverId? }
+// When driverId is supplied the update is scoped to that specific driver row.
+// Without driverId the first isActive driver in the tenant is updated (backward-compat for single-driver tenants).
 router.post("/location", async (req, res) => {
-  const { lat, lng, accuracy } = req.body as { lat?: number; lng?: number; accuracy?: number };
+  const { lat, lng, accuracy, driverId } = req.body as {
+    lat?: number; lng?: number; accuracy?: number; driverId?: number;
+  };
 
   if (typeof lat !== "number" || typeof lng !== "number") {
     return res.status(400).json({ error: "lat and lng (numbers) are required" });
@@ -76,37 +110,51 @@ router.post("/location", async (req, res) => {
 
   const now = new Date().toISOString();
 
+  const updateCondition = driverId
+    ? and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.id, driverId))
+    : and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true));
+
   await db
     .update(driversTable)
-    .set({
-      currentLat: lat,
-      currentLng: lng,
-      locationUpdatedAt: now,
-      isOnline: true,
-    })
-    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)));
+    .set({ currentLat: lat, currentLng: lng, locationUpdatedAt: now, isOnline: true })
+    .where(updateCondition);
 
-  broadcast("location_update", { tenantId: req.tenantId, lat, lng, accuracy: accuracy ?? null, updatedAt: now });
+  // Resolve the driver record so we can include vehicleNumber in the broadcast.
+  const [resolved] = await db
+    .select({ id: driversTable.id, vehicleNumber: driversTable.vehicleNumber })
+    .from(driversTable)
+    .where(updateCondition)
+    .limit(1);
+
+  broadcast("location_update", {
+    tenantId: req.tenantId,
+    driverId: resolved?.id ?? driverId ?? null,
+    vehicleNumber: resolved?.vehicleNumber ?? null,
+    lat,
+    lng,
+    accuracy: accuracy ?? null,
+    updatedAt: now,
+  });
 
   return res.json({ ok: true });
 });
 
+// POST /api/trips/start — mark journey as started.
+// Body: { driverId? } — scopes the start to a specific driver.
+// Without driverId all isActive drivers in the tenant are marked online (single-driver compat).
 router.post("/start", async (req, res) => {
+  const { driverId } = req.body as { driverId?: number };
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
-  const [activeDriver] = await db
-    .select()
-    .from(driversTable)
-    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)))
-    .limit(1);
+  const driverCondition = driverId
+    ? and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.id, driverId))
+    : and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true));
 
+  const [activeDriver] = await db.select().from(driversTable).where(driverCondition).limit(1);
   const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
 
-  await db
-    .update(driversTable)
-    .set({ isOnline: true })
-    .where(eq(driversTable.tenantId, req.tenantId));
+  await db.update(driversTable).set({ isOnline: true }).where(driverCondition);
 
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
@@ -114,30 +162,36 @@ router.post("/start", async (req, res) => {
     severity: "info",
   });
 
-  broadcast("trip_started", { tenantId: req.tenantId, time: timeStr });
+  broadcast("trip_started", {
+    tenantId: req.tenantId,
+    driverId: activeDriver?.id ?? null,
+    vehicleNumber: activeDriver?.vehicleNumber ?? null,
+    time: timeStr,
+  });
   return res.json({ acknowledged: true, message: `Journey started at ${timeStr}. All passengers and admins notified.` });
 });
 
+// POST /api/trips/sos
 router.post("/sos", async (_req, res) => {
   return res.json({ acknowledged: true, message: "Emergency SOS broadcast sent to all admins and parents." });
 });
 
+// POST /api/trips/complete — mark journey as complete.
+// Body: { driverId? } — scopes the completion to a specific driver.
+// Without driverId all isActive drivers in the tenant are marked offline (single-driver compat).
 router.post("/complete", async (req, res) => {
+  const { driverId } = req.body as { driverId?: number };
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kathmandu" });
 
-  const [activeDriver] = await db
-    .select()
-    .from(driversTable)
-    .where(and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true)))
-    .limit(1);
+  const driverCondition = driverId
+    ? and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.id, driverId))
+    : and(eq(driversTable.tenantId, req.tenantId), eq(driversTable.isActive, true));
 
+  const [activeDriver] = await db.select().from(driversTable).where(driverCondition).limit(1);
   const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "Bus";
 
-  await db
-    .update(driversTable)
-    .set({ isOnline: false })
-    .where(eq(driversTable.tenantId, req.tenantId));
+  await db.update(driversTable).set({ isOnline: false }).where(driverCondition);
 
   await db.insert(announcementsTable).values({
     tenantId: req.tenantId,
@@ -145,7 +199,12 @@ router.post("/complete", async (req, res) => {
     severity: "info",
   });
 
-  broadcast("trip_completed", { tenantId: req.tenantId, time: timeStr });
+  broadcast("trip_completed", {
+    tenantId: req.tenantId,
+    driverId: activeDriver?.id ?? null,
+    vehicleNumber: activeDriver?.vehicleNumber ?? null,
+    time: timeStr,
+  });
 
   await db
     .update(passengersTable)
