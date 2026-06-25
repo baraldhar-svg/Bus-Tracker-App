@@ -57,6 +57,12 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+// ── LocalStorage keys scoped per driver ID ────────────────────────────────────
+// Using driver-specific keys prevents two different drivers on the same device
+// from clobbering each other's live state.
+const mkLiveKey    = (id: number) => `orbittrack_d${id}_live`;
+const mkJourneyKey = (id: number) => `orbittrack_d${id}_journey`;
+
 export default function DriverPortal() {
   const { user } = useAuth();
   const { data: stations } = useListStations();
@@ -101,6 +107,9 @@ export default function DriverPortal() {
   const watchIdRef = useRef<number | null>(null);
   const [gpsActive, setGpsActive] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+
+  // ── Hydration guard — prevents double-restore on React StrictMode double-invoke ──
+  const hydratedRef = useRef(false);
 
   const BASE_GPS = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -155,6 +164,43 @@ export default function DriverPortal() {
 
   // Cleanup on unmount
   useEffect(() => () => stopGpsTracking(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Hydration: restore live/journey state from localStorage on mount ─────────
+  // Fires once when myDriver is resolved so we know which driver's keys to read.
+  // Automatically re-hydrates the Live Tracking header + resumes GPS without
+  // requiring the driver to press "Go Live" again after a back-navigation or refresh.
+  useEffect(() => {
+    if (!myDriver?.id || hydratedRef.current) return;
+    hydratedRef.current = true;
+
+    const savedLive    = localStorage.getItem(mkLiveKey(myDriver.id));
+    const savedJourney = localStorage.getItem(mkJourneyKey(myDriver.id));
+
+    if (savedLive !== "ONLINE") return; // Nothing to restore — driver was not live
+
+    // ── 1. Restore ONLINE status ─────────────────────────────────────────────
+    setIsOffline(false);
+
+    // Re-signal server that driver is still online (fire-and-forget)
+    void patchDriver
+      .mutateAsync({ id: myDriver.id, data: { isOnline: true } })
+      .catch(() => { /* non-blocking */ });
+    queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
+
+    // ── 2. Restore active journey + resume GPS stream ────────────────────────
+    if (savedJourney) {
+      try {
+        const j = JSON.parse(savedJourney) as { started?: boolean; time?: string };
+        if (j.started) {
+          setJourneyStarted(true);
+          setJourneyTime(j.time ?? null);
+          // Re-attach watchPosition — resumes the continuous GPS stream
+          // (this is a new watchPosition call; the old watch was lost on navigation)
+          startGpsTracking();
+        }
+      } catch { /* malformed storage entry — ignore */ }
+    }
+  }, [myDriver?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentStation = stations?.[stationIdx];
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
@@ -231,6 +277,16 @@ export default function DriverPortal() {
   async function handleToggleOffline() {
     const goingOffline = !isOffline;
     setIsOffline(goingOffline);
+
+    // ── LocalStorage sync ─────────────────────────────────────────────────────
+    // Write ONLINE token when the driver goes live.
+    // Per spec: the token must ONLY be cleared by handleJourneyComplete, not here.
+    // Manual "go offline" during a journey is disabled by the UI anyway, but even
+    // if triggered, we intentionally leave the token so the stream survives a nav.
+    if (myDriver?.id && !goingOffline) {
+      localStorage.setItem(mkLiveKey(myDriver.id), "ONLINE");
+    }
+
     const driverName = myDriver?.name ?? user?.name ?? "Driver";
     const vehiclePlate = myDriver?.vehicleNumber ?? "";
     sendDriverMessage({
@@ -254,6 +310,16 @@ export default function DriverPortal() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     setJourneyTime(timeStr);
+
+    // ── LocalStorage sync ─────────────────────────────────────────────────────
+    // Persist journey start so hydration can resume GPS after a back-navigation.
+    if (myDriver?.id) {
+      localStorage.setItem(
+        mkJourneyKey(myDriver.id),
+        JSON.stringify({ started: true, time: timeStr })
+      );
+    }
+
     // Start streaming GPS from the driver's phone
     startGpsTracking();
     try {
@@ -278,6 +344,15 @@ export default function DriverPortal() {
     setCountdown(60);
     // Stop GPS — no more location updates
     stopGpsTracking();
+
+    // ── LocalStorage sync ─────────────────────────────────────────────────────
+    // This is the ONLY authorised place to clear the live token.
+    // The token survives: manual offline toggle, page reloads, back-navigation.
+    // It is removed only here, after the journey is officially finalised.
+    if (myDriver?.id) {
+      localStorage.removeItem(mkLiveKey(myDriver.id));
+      localStorage.removeItem(mkJourneyKey(myDriver.id));
+    }
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
     try {
