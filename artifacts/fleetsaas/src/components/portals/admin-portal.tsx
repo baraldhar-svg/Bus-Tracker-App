@@ -3678,11 +3678,13 @@ export default function AdminPortal() {
         <OsmMap
           mode="fleet"
           buses={
-            // Only pass buses with real GPS coords — offline-with-no-history buses are
-            // excluded so they don't pile up at a fake default coordinate on the map.
+            // Only pass buses that are actively LIVE (isOnline=true in DB).
+            // Drivers with stale coords (heartbeat timeout → isLive=false) must be excluded
+            // here — effect 3b in OsmMap will see them disappear from the array and remove
+            // their marker from the map viewport.
             fleetVehicles
               .filter((v): v is LiveFleetVehicle & { lat: number; lng: number } =>
-                v.lat !== null && v.lng !== null
+                v.lat !== null && v.lng !== null && v.isLive
               )
               .map((v) => ({
                 id: v.id,
@@ -3699,12 +3701,16 @@ export default function AdminPortal() {
           liveBusId={liveLocations.find((l) => l.isLive)?.id ?? -1}
           height={340}
         />
-        {/* Drivers registered in the system but haven't pushed GPS yet */}
-        {fleetVehicles.filter((v) => v.lat === null).length > 0 && (
+        {/* Offline status bar — two categories below the map ─────────────────── */}
+        {/* 1. Never connected: lat=null — driver has not gone online at all     */}
+        {/* 2. Disconnected: had GPS but heartbeat timed out → isLive=false       */}
+        {fleetVehicles.some((v) => !v.isLive) && (
           <div className="px-4 py-2.5 border-t border-border bg-muted/30 flex items-center flex-wrap gap-2">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">
-              Awaiting GPS:
-            </span>
+            {fleetVehicles.some((v) => v.lat === null) && (
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">
+                Awaiting GPS:
+              </span>
+            )}
             {fleetVehicles.filter((v) => v.lat === null).map((v) => (
               <span
                 key={v.id}
@@ -3714,8 +3720,29 @@ export default function AdminPortal() {
                 {v.plate} · {v.driver}
               </span>
             ))}
+            {fleetVehicles.some((v) => v.lat !== null && !v.isLive) && (
+              <>
+                {fleetVehicles.some((v) => v.lat === null) && (
+                  <span className="h-3 w-px bg-border mx-1 shrink-0" />
+                )}
+                <span className="text-[10px] font-semibold text-orange-500 uppercase tracking-wide shrink-0">
+                  Disconnected:
+                </span>
+                {fleetVehicles.filter((v) => v.lat !== null && !v.isLive).map((v) => (
+                  <span
+                    key={v.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/30 px-2.5 py-0.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
+                    {v.plate} · {v.driver}
+                  </span>
+                ))}
+              </>
+            )}
             <span className="text-[10px] text-muted-foreground italic ml-auto shrink-0">
-              Driver must go online to appear on map
+              {fleetVehicles.some((v) => v.lat !== null && !v.isLive)
+                ? "GPS signal lost — auto-removed from map"
+                : "Driver must go online to appear on map"}
             </span>
           </div>
         )}

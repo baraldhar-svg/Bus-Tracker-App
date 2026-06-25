@@ -57,11 +57,20 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-// ── LocalStorage keys scoped per driver ID ────────────────────────────────────
-// Using driver-specific keys prevents two different drivers on the same device
-// from clobbering each other's live state.
-const mkLiveKey    = (id: number) => `orbittrack_d${id}_live`;
-const mkJourneyKey = (id: number) => `orbittrack_d${id}_journey`;
+// ── Stable phone normalization (module-level so lazy useState inits can call it) ──
+function normalizePhone(raw: string): string {
+  const s = raw.replace(/[\s\-()]/g, "");
+  if (s.startsWith("+977")) return s.slice(4);
+  if (s.startsWith("977") && s.length > 10) return s.slice(3);
+  return s;
+}
+
+// ── LocalStorage keys — keyed on normalized session PHONE, not driver DB id ──────
+// Phone comes from the auth context and is available SYNCHRONOUSLY on the first render,
+// before the drivers API call resolves. This is the property that allows lazy useState
+// initializers (below) to read storage at render-zero and avoid the offline UI flash.
+const mkLiveKey    = (phone: string) => `orbittrack_live_${phone}`;
+const mkJourneyKey = (phone: string) => `orbittrack_journey_${phone}`;
 
 export default function DriverPortal() {
   const { user } = useAuth();
@@ -73,15 +82,9 @@ export default function DriverPortal() {
   const { data: drivers } = useListDrivers();
   const queryClient = useQueryClient();
 
-  // Resolve MY driver record by strictly matching the authenticated session phone.
-  // No fallback to any other driver — if the phone doesn't match, show an explicit error
-  // rather than leaking another driver's name/vehicle into this session.
-  const normalizePhone = (p: string) => {
-    const s = p.replace(/[\s\-()]/g, "");
-    if (s.startsWith("+977")) return s.slice(4);
-    if (s.startsWith("977") && s.length > 10) return s.slice(3);
-    return s;
-  };
+  // Stable key derived from auth context — available before the drivers API call resolves.
+  const sessionPhone = user?.phone ? normalizePhone(user.phone) : null;
+
   const myDriver = drivers?.find(
     (d) => normalizePhone(d.phone) === normalizePhone(user?.phone ?? "")
   );
@@ -92,12 +95,35 @@ export default function DriverPortal() {
   const [boardingId, setBoardingId] = useState<number | null>(null);
   const [unboardingId, setUnboardingId] = useState<number | null>(null);
   const [sosActive, setSosActive] = useState(false);
-  const [journeyStarted, setJourneyStarted] = useState(false);
-  const [journeyTime, setJourneyTime] = useState<string | null>(null);
+
+  // ── Lazy state initializers — read localStorage SYNCHRONOUSLY on first render ──
+  // Because sessionPhone comes from the auth context (not an API call), it is defined
+  // before the first paint. This eliminates the "offline flash" where the driver sees
+  // the grey "Go Online" banner for a moment before the hydration effect fires.
+  const [isOffline, setIsOffline] = useState<boolean>(() => {
+    if (!sessionPhone) return true;
+    return localStorage.getItem(mkLiveKey(sessionPhone)) !== "ONLINE";
+  });
+  const [journeyStarted, setJourneyStarted] = useState<boolean>(() => {
+    if (!sessionPhone) return false;
+    try {
+      const raw = localStorage.getItem(mkJourneyKey(sessionPhone));
+      if (!raw) return false;
+      return (JSON.parse(raw) as { started?: boolean }).started === true;
+    } catch { return false; }
+  });
+  const [journeyTime, setJourneyTime] = useState<string | null>(() => {
+    if (!sessionPhone) return null;
+    try {
+      const raw = localStorage.getItem(mkJourneyKey(sessionPhone));
+      if (!raw) return null;
+      return (JSON.parse(raw) as { time?: string }).time ?? null;
+    } catch { return null; }
+  });
+
   const [journeyCompleted, setJourneyCompleted] = useState(false);
   const [completedTime, setCompletedTime] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [isOffline, setIsOffline] = useState(true); // starts offline — driver must press "Go Live"
   const [driverPos, setDriverPos] = useState<{ lat: number; lng: number } | null>(null);
   const [quickMsgOpen, setQuickMsgOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
@@ -107,9 +133,6 @@ export default function DriverPortal() {
   const watchIdRef = useRef<number | null>(null);
   const [gpsActive, setGpsActive] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
-
-  // ── Hydration guard — prevents double-restore on React StrictMode double-invoke ──
-  const hydratedRef = useRef(false);
 
   const BASE_GPS = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -165,42 +188,28 @@ export default function DriverPortal() {
   // Cleanup on unmount
   useEffect(() => () => stopGpsTracking(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Hydration: restore live/journey state from localStorage on mount ─────────
-  // Fires once when myDriver is resolved so we know which driver's keys to read.
-  // Automatically re-hydrates the Live Tracking header + resumes GPS without
-  // requiring the driver to press "Go Live" again after a back-navigation or refresh.
+  // ── Effect A: Server re-sync ────────────────────────────────────────────────
+  // Fires once when myDriver resolves (the API call returns). If the driver was
+  // live (isOffline=false restored from localStorage), re-signal the server so
+  // isOnline stays true — the heartbeat watchdog may have timed them out while
+  // they were navigating away.
   useEffect(() => {
-    if (!myDriver?.id || hydratedRef.current) return;
-    hydratedRef.current = true;
-
-    const savedLive    = localStorage.getItem(mkLiveKey(myDriver.id));
-    const savedJourney = localStorage.getItem(mkJourneyKey(myDriver.id));
-
-    if (savedLive !== "ONLINE") return; // Nothing to restore — driver was not live
-
-    // ── 1. Restore ONLINE status ─────────────────────────────────────────────
-    setIsOffline(false);
-
-    // Re-signal server that driver is still online (fire-and-forget)
+    if (!myDriver?.id || isOffline) return;
     void patchDriver
       .mutateAsync({ id: myDriver.id, data: { isOnline: true } })
       .catch(() => { /* non-blocking */ });
     queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
-
-    // ── 2. Restore active journey + resume GPS stream ────────────────────────
-    if (savedJourney) {
-      try {
-        const j = JSON.parse(savedJourney) as { started?: boolean; time?: string };
-        if (j.started) {
-          setJourneyStarted(true);
-          setJourneyTime(j.time ?? null);
-          // Re-attach watchPosition — resumes the continuous GPS stream
-          // (this is a new watchPosition call; the old watch was lost on navigation)
-          startGpsTracking();
-        }
-      } catch { /* malformed storage entry — ignore */ }
-    }
   }, [myDriver?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Effect B: GPS auto-resume ───────────────────────────────────────────────
+  // Fires when myDriver resolves AND journeyStarted=true (restored from storage).
+  // Re-attaches navigator.geolocation.watchPosition so the GPS ping stream
+  // resumes immediately — no manual "Start Journey" tap required.
+  useEffect(() => {
+    if (!myDriver?.id || !journeyStarted || journeyCompleted) return;
+    if (watchIdRef.current !== null) return; // already running
+    startGpsTracking();
+  }, [myDriver?.id, journeyStarted, journeyCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentStation = stations?.[stationIdx];
   const boardedCount = passengers?.filter((p) => p.status === "boarded").length ?? 0;
@@ -283,8 +292,8 @@ export default function DriverPortal() {
     // Per spec: the token must ONLY be cleared by handleJourneyComplete, not here.
     // Manual "go offline" during a journey is disabled by the UI anyway, but even
     // if triggered, we intentionally leave the token so the stream survives a nav.
-    if (myDriver?.id && !goingOffline) {
-      localStorage.setItem(mkLiveKey(myDriver.id), "ONLINE");
+    if (sessionPhone && !goingOffline) {
+      localStorage.setItem(mkLiveKey(sessionPhone), "ONLINE");
     }
 
     const driverName = myDriver?.name ?? user?.name ?? "Driver";
@@ -312,10 +321,10 @@ export default function DriverPortal() {
     setJourneyTime(timeStr);
 
     // ── LocalStorage sync ─────────────────────────────────────────────────────
-    // Persist journey start so hydration can resume GPS after a back-navigation.
-    if (myDriver?.id) {
+    // Persist journey start so lazy init can restore the active journey on next mount.
+    if (sessionPhone) {
       localStorage.setItem(
-        mkJourneyKey(myDriver.id),
+        mkJourneyKey(sessionPhone),
         JSON.stringify({ started: true, time: timeStr })
       );
     }
@@ -349,9 +358,9 @@ export default function DriverPortal() {
     // This is the ONLY authorised place to clear the live token.
     // The token survives: manual offline toggle, page reloads, back-navigation.
     // It is removed only here, after the journey is officially finalised.
-    if (myDriver?.id) {
-      localStorage.removeItem(mkLiveKey(myDriver.id));
-      localStorage.removeItem(mkJourneyKey(myDriver.id));
+    if (sessionPhone) {
+      localStorage.removeItem(mkLiveKey(sessionPhone));
+      localStorage.removeItem(mkJourneyKey(sessionPhone));
     }
     const now = new Date();
     setCompletedTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));

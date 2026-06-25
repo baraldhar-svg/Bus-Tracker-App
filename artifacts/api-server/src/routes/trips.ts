@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { driversTable, passengersTable, stationsTable, announcementsTable } from "@workspace/db";
-import { eq, count, and } from "drizzle-orm";
+import { eq, count, and, isNotNull, sql } from "drizzle-orm";
 import { broadcast } from "../lib/sse";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -213,5 +214,51 @@ router.post("/complete", async (req, res) => {
 
   return res.json({ acknowledged: true, message: `Journey completed at ${timeStr}. All passengers and admins notified.` });
 });
+
+// ── Heartbeat watchdog ────────────────────────────────────────────────────────
+// Every 15 s: find drivers who are still marked isOnline=true but have not sent
+// a GPS ping in >45 s (WiFi cut, app killed, dead battery, etc.).
+// For each stale driver: set isOnline=false in the DB and broadcast
+// `trip_completed` so every connected SSE client immediately evicts that
+// vehicle marker from the fleet map. No frontend polling needed.
+export function startHeartbeatWatchdog(): void {
+  setInterval(async () => {
+    try {
+      const cutoff = new Date(Date.now() - 45_000).toISOString();
+      const stale = await db
+        .select({
+          id: driversTable.id,
+          tenantId: driversTable.tenantId,
+          vehicleNumber: driversTable.vehicleNumber,
+        })
+        .from(driversTable)
+        .where(
+          and(
+            eq(driversTable.isOnline, true),
+            isNotNull(driversTable.locationUpdatedAt),
+            sql`${driversTable.locationUpdatedAt} < ${cutoff}`
+          )
+        );
+
+      for (const d of stale) {
+        await db
+          .update(driversTable)
+          .set({ isOnline: false })
+          .where(eq(driversTable.id, d.id));
+
+        broadcast("trip_completed", {
+          tenantId: d.tenantId,
+          driverId: d.id,
+          vehicleNumber: d.vehicleNumber ?? null,
+          autoDisconnect: true,
+        });
+
+        logger.info({ driverId: d.id, tenantId: d.tenantId }, "heartbeat timeout — driver auto-disconnected");
+      }
+    } catch (err) {
+      logger.error({ err }, "heartbeat watchdog error");
+    }
+  }, 15_000);
+}
 
 export default router;
