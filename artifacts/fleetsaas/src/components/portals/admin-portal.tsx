@@ -3699,6 +3699,26 @@ export default function AdminPortal() {
           liveBusId={liveLocations.find((l) => l.isLive)?.id ?? -1}
           height={340}
         />
+        {/* Drivers registered in the system but haven't pushed GPS yet */}
+        {fleetVehicles.filter((v) => v.lat === null).length > 0 && (
+          <div className="px-4 py-2.5 border-t border-border bg-muted/30 flex items-center flex-wrap gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">
+              Awaiting GPS:
+            </span>
+            {fleetVehicles.filter((v) => v.lat === null).map((v) => (
+              <span
+                key={v.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                {v.plate} · {v.driver}
+              </span>
+            ))}
+            <span className="text-[10px] text-muted-foreground italic ml-auto shrink-0">
+              Driver must go online to appear on map
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Fleet Status */}
