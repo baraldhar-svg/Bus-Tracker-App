@@ -7,7 +7,7 @@ export const driversTable = pgTable("drivers", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
   name: text("name").notNull(),
-  phone: text("phone").notNull(),
+  phone: text("phone").notNull().unique(),
   photoUrl: text("photo_url"),
   vehicleNumber: text("vehicle_number").notNull(),
   isActive: boolean("is_active").notNull().default(false),

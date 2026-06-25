@@ -10,27 +10,38 @@ function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+/**
+ * Normalize a phone number to a bare digit string for consistent DB lookups.
+ * Strips leading +977 or 977 country prefix, spaces, dashes, and parentheses.
+ * "9851012345", "+977 9851012345", "+9779851012345" all become "9851012345".
+ */
+function normalizePhone(raw: string): string {
+  const stripped = raw.replace(/[\s\-()]/g, "");
+  // Remove leading +977 or 977 (Nepal country code)
+  if (stripped.startsWith("+977")) return stripped.slice(4);
+  if (stripped.startsWith("977") && stripped.length > 10) return stripped.slice(3);
+  return stripped;
+}
+
 // POST /auth/check-phone — look up phone, send OTP if found, deny if not
 router.post("/check-phone", async (req, res) => {
   const { phone } = req.body as { phone?: string };
-  const cleaned = (phone ?? "").replace(/[\s\-()]/g, "");
-  // Accept Nepal mobile numbers OR any international number (e.g. +countrycode...)
-  if (!cleaned || !/^\+?\d{7,15}$/.test(cleaned)) {
+  const raw = (phone ?? "").trim();
+  if (!raw || !/^\+?\d{7,15}$/.test(raw.replace(/[\s\-()]/g, ""))) {
     return res.status(400).json({ error: "Enter a valid mobile number" });
   }
+  // Always resolve to the canonical bare-digit form for lookups
+  const normalized = normalizePhone(raw);
 
-  let user = (await db.select().from(usersTable).where(eq(usersTable.phone, cleaned)).limit(1))[0];
-  // Also try the original phone string (in case stored with spaces)
-  if (!user && cleaned !== phone) {
-    user = (await db.select().from(usersTable).where(eq(usersTable.phone, phone!)).limit(1))[0];
-  }
+  // Primary lookup by normalized phone
+  let user = (await db.select().from(usersTable).where(eq(usersTable.phone, normalized)).limit(1))[0];
 
-  // Fallback: check passengersTable for users registered by admin before this fix
+  // Fallback: check passengersTable for students registered by admin (auto-promote to users)
   if (!user) {
     const [passenger] = await db
       .select()
       .from(passengersTable)
-      .where(and(eq(passengersTable.phone, phone!), isNotNull(passengersTable.phone)))
+      .where(and(eq(passengersTable.phone, normalized), isNotNull(passengersTable.phone)))
       .limit(1);
 
     if (passenger) {
@@ -41,23 +52,23 @@ router.post("/check-phone", async (req, res) => {
         if (tenant) schoolCode = tenant.schoolCode ?? null;
       }
       const [created] = await db.insert(usersTable).values({
-        phone: phone!,
+        phone: normalized,
         name: passenger.name,
         role: passenger.role ?? "student",
         tenantId,
         schoolCode,
         photoUrl: passenger.photoUrl ?? null,
-      }).returning();
-      user = created;
+      }).onConflictDoNothing().returning();
+      user = created ?? (await db.select().from(usersTable).where(eq(usersTable.phone, normalized)).limit(1))[0];
     }
   }
 
-  // Fallback: check driversTable for drivers registered by admin
+  // Fallback: check driversTable for drivers registered by admin (auto-promote to users)
   if (!user) {
     const [driver] = await db
       .select()
       .from(driversTable)
-      .where(eq(driversTable.phone, phone!))
+      .where(eq(driversTable.phone, normalized))
       .limit(1);
 
     if (driver) {
@@ -68,14 +79,14 @@ router.post("/check-phone", async (req, res) => {
         if (tenant) schoolCode = tenant.schoolCode ?? null;
       }
       const [created] = await db.insert(usersTable).values({
-        phone: phone!,
+        phone: normalized,
         name: driver.name,
         role: "driver",
         tenantId,
         schoolCode,
         photoUrl: driver.photoUrl ?? null,
-      }).returning();
-      user = created;
+      }).onConflictDoNothing().returning();
+      user = created ?? (await db.select().from(usersTable).where(eq(usersTable.phone, normalized)).limit(1))[0];
     }
   }
 
@@ -86,10 +97,10 @@ router.post("/check-phone", async (req, res) => {
     });
   }
 
-  // Auto-issue OTP
+  // Auto-issue OTP (store against normalized phone)
   const code = generateOtp();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await db.insert(otpCodesTable).values({ phone: phone!, code, expiresAt, used: 0 });
+  await db.insert(otpCodesTable).values({ phone: normalized, code, expiresAt, used: 0 });
   return res.json({
     found: true,
     name: user.name,
@@ -113,15 +124,16 @@ router.post("/send-otp", async (req, res) => {
 router.post("/verify-otp", async (req, res) => {
   const { phone, code, schoolCode } = req.body as { phone?: string; code?: string; schoolCode?: string };
   if (!phone || !code) return res.status(400).json({ error: "Phone and code required" });
+  const normalized = normalizePhone(phone);
   const [otp] = await db
     .select()
     .from(otpCodesTable)
-    .where(and(eq(otpCodesTable.phone, phone), eq(otpCodesTable.code, code), eq(otpCodesTable.used, 0), gt(otpCodesTable.expiresAt, new Date())))
+    .where(and(eq(otpCodesTable.phone, normalized), eq(otpCodesTable.code, code), eq(otpCodesTable.used, 0), gt(otpCodesTable.expiresAt, new Date())))
     .limit(1);
   if (!otp) return res.status(401).json({ error: "Invalid or expired code" });
   await db.update(otpCodesTable).set({ used: 1 }).where(eq(otpCodesTable.id, otp.id));
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, normalized)).limit(1);
   if (!user) {
     return res.status(403).json({ error: "Access denied. This number is not registered." });
   }
@@ -379,7 +391,8 @@ router.patch("/profile", async (req, res) => {
 router.get("/me", async (req, res) => {
   const { phone } = req.query as { phone?: string };
   if (!phone) return res.status(400).json({ error: "Phone required" });
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  const normalized = normalizePhone(phone);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, normalized)).limit(1);
   if (!user) return res.status(404).json({ error: "Not found" });
   let tenant = null;
   if (user.tenantId) {

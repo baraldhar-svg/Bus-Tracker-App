@@ -5,6 +5,14 @@ import { eq, and } from "drizzle-orm";
 import { CreateDriverBody } from "@workspace/api-zod";
 import { broadcast } from "../lib/sse";
 
+/** Strip +977 country prefix, spaces, and dashes for consistent phone storage. */
+function normalizePhone(raw: string): string {
+  const s = raw.replace(/[\s\-()]/g, "");
+  if (s.startsWith("+977")) return s.slice(4);
+  if (s.startsWith("977") && s.length > 10) return s.slice(3);
+  return s;
+}
+
 const router = Router();
 
 router.get("/", async (req, res) => {
@@ -33,25 +41,33 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
-  const { name, phone, photoUrl, vehicleNumber } = parsed.data;
+  const { name, photoUrl, vehicleNumber } = parsed.data;
+  const phone = normalizePhone(parsed.data.phone);
+
+  // Block duplicate phone before insert (UNIQUE constraint would also catch this)
+  const existing = await db.select().from(driversTable).where(eq(driversTable.phone, phone)).limit(1);
+  if (existing.length) {
+    return res.status(409).json({ error: "A driver with this phone number already exists." });
+  }
+
   const [row] = await db
     .insert(driversTable)
     .values({ tenantId: req.tenantId, name, phone, photoUrl: photoUrl ?? null, vehicleNumber, isActive: false })
     .returning();
 
-  // Auto-provision a usersTable login account so the driver can sign in immediately
-  const existing = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
-  if (!existing.length) {
-    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
-    await db.insert(usersTable).values({
-      phone,
-      name,
-      role: "driver",
-      tenantId: req.tenantId,
-      schoolCode: tenant?.schoolCode ?? null,
-      photoUrl: photoUrl ?? null,
-    });
-  }
+  // Auto-provision a usersTable login account so the driver can sign in immediately.
+  // Use onConflictDoNothing so a race or existing student account doesn't break the insert.
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
+  await db.insert(usersTable).values({
+    phone,
+    name,
+    role: "driver",
+    tenantId: req.tenantId,
+    schoolCode: tenant?.schoolCode ?? null,
+    photoUrl: photoUrl ?? null,
+  }).onConflictDoNothing();
+  // If a user already exists with that phone, update their role to driver so they can access the driver portal
+  await db.update(usersTable).set({ name, role: "driver" }).where(eq(usersTable.phone, phone));
 
   return res.status(201).json(row);
 });
@@ -80,18 +96,17 @@ router.patch("/:id", async (req, res) => {
   // When marking active, ensure the driver has a usersTable login account
   if (isActive === true) {
     const driver = updated[0];
-    const existing = await db.select().from(usersTable).where(eq(usersTable.phone, driver.phone)).limit(1);
-    if (!existing.length) {
-      const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
-      await db.insert(usersTable).values({
-        phone: driver.phone,
-        name: driver.name,
-        role: "driver",
-        tenantId: req.tenantId,
-        schoolCode: tenant?.schoolCode ?? null,
-        photoUrl: driver.photoUrl ?? null,
-      });
-    }
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, req.tenantId)).limit(1);
+    await db.insert(usersTable).values({
+      phone: driver.phone,
+      name: driver.name,
+      role: "driver",
+      tenantId: req.tenantId,
+      schoolCode: tenant?.schoolCode ?? null,
+      photoUrl: driver.photoUrl ?? null,
+    }).onConflictDoNothing();
+    // Ensure existing user has driver role
+    await db.update(usersTable).set({ name: driver.name, role: "driver" }).where(eq(usersTable.phone, driver.phone));
   }
 
   res.json(updated[0]);

@@ -68,8 +68,16 @@ export default function DriverPortal() {
   const queryClient = useQueryClient();
 
   // Resolve MY driver record by matching the logged-in user's phone.
+  // Uses normalized comparison (strips +977 prefix and spaces) so format mismatches don't break the link.
   // Falls back to the first active driver so demo/admin preview still works.
-  const myDriver = drivers?.find((d) => d.phone === user?.phone) ?? drivers?.find((d) => d.isActive);
+  const normalizePhone = (p: string) => {
+    const s = p.replace(/[\s\-()]/g, "");
+    if (s.startsWith("+977")) return s.slice(4);
+    if (s.startsWith("977") && s.length > 10) return s.slice(3);
+    return s;
+  };
+  const myDriver = drivers?.find((d) => normalizePhone(d.phone) === normalizePhone(user?.phone ?? ""))
+    ?? drivers?.find((d) => d.isActive);
 
   const [stationIdx, setStationIdx] = useState(0);
   const [boardingId, setBoardingId] = useState<number | null>(null);
