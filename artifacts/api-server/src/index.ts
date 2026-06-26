@@ -24,7 +24,10 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  seedNepalHolidays().catch((e) => logger.error({ err: e }, "Holiday seed failed"));
+  seedNepalHolidays().catch((e) =>
+    logger.error({ err: e }, "Holiday seed failed"),
+  );
   startCalendarNotifyCron((msg) => logger.info(msg));
   startHeartbeatWatchdog();
 });
+export default app;
