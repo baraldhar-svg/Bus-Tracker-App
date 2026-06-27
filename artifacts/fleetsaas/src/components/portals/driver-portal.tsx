@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useListRoutes, useListPassengers, useBoardPassenger, useUnboardPassenger, usePatchDriver, useListDrivers, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
+import { useListRoutes, useListPassengers, useBoardPassenger, useUnboardPassenger, usePatchDriver, useListDrivers, useSendBoardingOtp, getListPassengersQueryKey, getListAnnouncementsQueryKey, getListDriversQueryKey, getTenantId } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { sendDriverMessage } from "@/lib/driver-messages";
@@ -79,6 +79,7 @@ export default function DriverPortal() {
   const { data: passengers, refetch } = useListPassengers();
   const boardPassenger = useBoardPassenger();
   const unboardPassenger = useUnboardPassenger();
+  const sendBoardingOtp = useSendBoardingOtp();
   const patchDriver = usePatchDriver();
   const { data: drivers } = useListDrivers();
   const queryClient = useQueryClient();
@@ -300,7 +301,9 @@ export default function DriverPortal() {
   const handleBoard = async (id: number) => {
     setBoardingId(id);
     try {
-      await boardPassenger.mutateAsync({ id });
+      const otpRes = await sendBoardingOtp.mutateAsync({ id });
+      const otp = otpRes.demoCode ?? "000000";
+      await boardPassenger.mutateAsync({ id, data: { otp } });
       queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
       refetch();
     } finally { setBoardingId(null); }
@@ -1044,7 +1047,6 @@ export default function DriverPortal() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setDelayAlertOpen(false); }}>
           <div className="w-full max-w-md rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl">
-            <div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
               <div>
                 <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
@@ -1103,7 +1105,6 @@ export default function DriverPortal() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setQuickMsgOpen(false); }}>
           <div className="w-full max-w-md rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl">
-            <div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
               <div>
                 <h2 className="text-base font-bold text-slate-100 flex items-center gap-2"><Megaphone size={16} /> Report to Admin</h2>

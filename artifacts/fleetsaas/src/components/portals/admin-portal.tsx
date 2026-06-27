@@ -763,8 +763,6 @@ function DriverDetailPanel({
       }}
     >
       <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="shrink-0">
-        </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <img
