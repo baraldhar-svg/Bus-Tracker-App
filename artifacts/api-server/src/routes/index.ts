@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import cors from "cors"; // पहिचान गरिसकिएको छ
 import healthRouter from "./health";
 import tenantsRouter from "./tenants";
 import announcementsRouter from "./announcements";
@@ -25,6 +26,16 @@ import maintenanceRouter from "./maintenance-records";
 import vehicleDocumentsRouter from "./vehicle-documents";
 
 const router: IRouter = Router();
+
+// 🚀 यहाँ निर CORS थपिएको छ ताकि भर्सलले यो राउटर भित्रका सबै लिङ्कहरू एक्सेस गर्न पाओस्
+router.use(
+  cors({
+    origin: "*",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 router.use(healthRouter);
 router.use("/auth/webauthn", webauthnRouter);
