@@ -333,13 +333,13 @@ router.post("/register-admin", async (req, res) => {
     position,
     mobile,
   } = req.body as {
-    schoolName?: string;
-    contactName?: string;
-    landline?: string;
-    email?: string;
-    adminName?: string;
-    position?: string;
-    mobile?: string;
+    schoolName: string;
+    contactName: string;
+    landline: string;
+    email: string;
+    adminName: string;
+    position: string;
+    mobile: string;
   };
   const [reg] = await db
     .insert(adminRegistrationsTable)
