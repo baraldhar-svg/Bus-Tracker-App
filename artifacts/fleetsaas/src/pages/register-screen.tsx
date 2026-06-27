@@ -123,10 +123,18 @@ export default function RegisterScreen() {
     setErr(""); setLoading(true);
     try {
       const data = await apiPost("/auth/check-phone", { phone });
+      // API returns { found, verified, user, requiresSchoolCode, demoCode? }
+      // Map it to the FoundUser shape expected by the UI
+      const fu: FoundUser = {
+        name: data.user?.name ?? data.name ?? "",
+        role: data.user?.role ?? data.role ?? "student",
+        requiresSchoolCode: data.requiresSchoolCode ?? false,
+        demoCode: data.demoCode ?? "",
+      };
       // Existing user found — go to OTP login
-      setFoundUser(data as FoundUser);
+      setFoundUser(fu);
       // Auto-fill demo OTP
-      const digits = String((data as FoundUser).demoCode).split("").slice(0, 6);
+      const digits = String(fu.demoCode).split("").slice(0, 6);
       setOtp(digits.concat(Array(6 - digits.length).fill("")));
       setStep("login");
     } catch (e: unknown) {

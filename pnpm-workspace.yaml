@@ -158,3 +158,6 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+  # Force a single @types/react across the workspace (prevents mobile/web type mismatch)
+  "@types/react": "^19.2.0"
+  "@types/react-dom": "^19.2.0"

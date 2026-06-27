@@ -136,10 +136,18 @@ export default function AuthScreen() {
     try {
       const data = await apiPost("/auth/check-phone", { phone });
 
-      setFoundUser(data);
+      // API returns { found, verified, user, requiresSchoolCode, demoCode? }
+      // Map it to the FoundUser shape expected by the UI
+      const fu: FoundUser = {
+        name: data.user?.name ?? data.name ?? "",
+        role: data.user?.role ?? data.role ?? "student",
+        requiresSchoolCode: data.requiresSchoolCode ?? false,
+        demoCode: data.demoCode ?? "",
+      };
+      setFoundUser(fu);
       setSchoolCode("");
-      if (data.demoCode) {
-        setOtp(data.demoCode.split(""));
+      if (fu.demoCode) {
+        setOtp(fu.demoCode.split(""));
       }
       setStep("credentials");
     } catch (e: unknown) {
