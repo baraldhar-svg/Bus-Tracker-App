@@ -16,31 +16,46 @@ function tenantHeaders(): Record<string, string> {
   return id !== null ? { "Content-Type": "application/json", "x-tenant-id": String(id) } : { "Content-Type": "application/json" };
 }
 
-async function apiPost(path: string, body: unknown) {
-  const res = await fetch(`${BASE}/api${path}`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Failed");
-  return data;
-}
-async function apiPatch(path: string, body: unknown) {
-  const res = await fetch(`${BASE}/api${path}`, { method: "PATCH", headers: tenantHeaders(), body: JSON.stringify(body) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Failed");
-  return data;
-}
-async function apiDelete(path: string) {
-  const id = getTenantId();
-  const headers: Record<string, string> = id !== null ? { "x-tenant-id": String(id) } : {};
-  await fetch(`${BASE}/api${path}`, { method: "DELETE", headers });
-}
+  // 🚀 भर्सलको नियमहरूलाई बाइपास गरेर सिधै रीप्लिट ब्याकइन्डको ठेगाना हालेको
+  const REPLIT_BACKEND = "https://33c7862f-0438-4adc-83ae-af5ac11d06a3-00-3u2khpqjgrop5.sisko.replit.dev";
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  function tenantHeaders(): Record<string, string> {
+    const id = getTenantId();
+    return id !== null 
+      ? { "Content-Type": "application/json", "x-tenant-id": String(id) } 
+      : { "Content-Type": "application/json" };
+  }
+
+  async function apiPost(path: string, body: unknown) {
+    const res = await fetch(`${REPLIT_BACKEND}/api${path}`, { 
+      method: "POST", 
+      headers: tenantHeaders(), 
+      body: JSON.stringify(body) 
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed");
+    return data;
+  }
+
+  async function apiPatch(path: string, body: unknown) {
+    const res = await fetch(`${REPLIT_BACKEND}/api${path}`, { 
+      method: "PATCH", 
+      headers: tenantHeaders(), 
+      body: JSON.stringify(body) 
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed");
+    return data;
+  }
+
+  async function apiDelete(path: string) {
+    const id = getTenantId();
+    const headers: Record<string, string> = id !== null ? { "x-tenant-id": String(id) } : {};
+    await fetch(`${REPLIT_BACKEND}/api${path}`, { 
+      method: "DELETE", 
+      headers 
+    });
+  }
 }
 
 // Live fleet vehicles are derived from real driver DB records + GPS data — no hardcoded arrays.
