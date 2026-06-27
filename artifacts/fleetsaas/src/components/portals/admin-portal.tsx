@@ -1920,22 +1920,32 @@ type MaintenanceRow = {
   vendor: string | null;
 };
 
+type BudgetSettings = { fuelBudgetNpr: number; maintBudgetNpr: number };
+
 // ── FleetCostsSummaryCard ──────────────────────────────────────────────────────
 function FleetCostsSummaryCard() {
   const [fuelRows, setFuelRows] = useState<FuelLogRow[]>([]);
   const [maintRows, setMaintRows] = useState<MaintenanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [budget, setBudget] = useState<BudgetSettings>({ fuelBudgetNpr: 0, maintBudgetNpr: 0 });
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({ fuel: "", maint: "" });
+  const [savingBudget, setSavingBudget] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [fuelRes, maintRes] = await Promise.all([
+        const [fuelRes, maintRes, budgetRes] = await Promise.all([
           fetch(`${REPLIT_BACKEND}/api/fuel-logs`, { headers: tenantHeaders() }),
           fetch(`${REPLIT_BACKEND}/api/maintenance-records`, { headers: tenantHeaders() }),
+          fetch(`${REPLIT_BACKEND}/api/budget-settings`, { headers: tenantHeaders() }),
         ]);
         setFuelRows(await fuelRes.json() as FuelLogRow[]);
         setMaintRows(await maintRes.json() as MaintenanceRow[]);
+        const b = await budgetRes.json() as BudgetSettings;
+        setBudget(b);
+        setBudgetForm({ fuel: b.fuelBudgetNpr > 0 ? String(b.fuelBudgetNpr) : "", maint: b.maintBudgetNpr > 0 ? String(b.maintBudgetNpr) : "" });
       } finally {
         setLoading(false);
       }
@@ -1953,6 +1963,9 @@ function FleetCostsSummaryCard() {
   const totalMaintThisMonth = maintRows
     .filter((r) => r.serviceDate.slice(0, 7) === thisMonth)
     .reduce((sum, r) => sum + r.costNpr, 0);
+
+  const fuelOverBudget = budget.fuelBudgetNpr > 0 && totalFuelThisMonth > budget.fuelBudgetNpr;
+  const maintOverBudget = budget.maintBudgetNpr > 0 && totalMaintThisMonth > budget.maintBudgetNpr;
 
   const vehicleStats = useMemo(() => {
     const map = new Map<string, { plate: string; totalSpend: number; minOdo: number; maxOdo: number }>();
@@ -1975,6 +1988,26 @@ function FleetCostsSummaryCard() {
     }).filter((v) => v.costPerKm !== null);
   }, [fuelRows]);
 
+  async function saveBudget() {
+    const fuel = parseFloat(budgetForm.fuel) || 0;
+    const maint = parseFloat(budgetForm.maint) || 0;
+    setSavingBudget(true);
+    try {
+      const res = await fetch(`${REPLIT_BACKEND}/api/budget-settings`, {
+        method: "PUT",
+        headers: tenantHeaders(),
+        body: JSON.stringify({ fuelBudgetNpr: fuel, maintBudgetNpr: maint }),
+      });
+      if (res.ok) {
+        const updated = await res.json() as BudgetSettings;
+        setBudget(updated);
+        setEditingBudget(false);
+      }
+    } finally {
+      setSavingBudget(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-border bg-card shadow-sm p-6 text-center text-xs text-muted-foreground">
@@ -1985,31 +2018,115 @@ function FleetCostsSummaryCard() {
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <BarChart3 size={15} className="text-amber-500" />
-        <h3 className="font-bold text-sm text-primary">Fleet Costs — This Month</h3>
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={15} className="text-amber-500" />
+          <h3 className="font-bold text-sm text-primary">Fleet Costs — This Month</h3>
+        </div>
+        <button
+          onClick={() => setEditingBudget((v) => !v)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          title="Set monthly budgets"
+        >
+          <Settings2 size={13} />
+          <span>Set Budgets</span>
+        </button>
       </div>
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Droplets size={14} className="text-amber-500" />
-            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Fuel Spend</span>
+
+      {(fuelOverBudget || maintOverBudget) && (
+        <div className="flex items-start gap-2 mx-4 mt-3 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs">
+          <AlertCircle size={13} className="mt-0.5 shrink-0" />
+          <span className="font-medium">
+            Cost overrun:{" "}
+            {[
+              fuelOverBudget && `fuel spend exceeds Rs ${budget.fuelBudgetNpr.toLocaleString()} budget`,
+              maintOverBudget && `maintenance spend exceeds Rs ${budget.maintBudgetNpr.toLocaleString()} budget`,
+            ].filter(Boolean).join(" and ")}
+            .
+          </span>
+        </div>
+      )}
+
+      {editingBudget && (
+        <div className="mx-4 mt-3 p-3 rounded-xl border border-border bg-muted/40">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">Monthly Budget Limits (Rs)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-0.5 block">Fuel Budget</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 50000"
+                value={budgetForm.fuel}
+                onChange={(e) => setBudgetForm((f) => ({ ...f, fuel: e.target.value }))}
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-0.5 block">Maintenance Budget</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 30000"
+                value={budgetForm.maint}
+                onChange={(e) => setBudgetForm((f) => ({ ...f, maint: e.target.value }))}
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-amber-600 dark:text-amber-300">
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={() => void saveBudget()}
+              disabled={savingBudget}
+              className="rounded-md bg-primary text-primary-foreground text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+            >
+              {savingBudget ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => setEditingBudget(false)}
+              className="rounded-md text-xs px-3 py-1.5 text-muted-foreground hover:text-primary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={`rounded-xl p-4 border ${fuelOverBudget ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <Droplets size={14} className={fuelOverBudget ? "text-red-500" : "text-amber-500"} />
+            <span className={`text-xs font-semibold ${fuelOverBudget ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>Fuel Spend</span>
+            {fuelOverBudget && (
+              <span className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                <AlertCircle size={9} /> Over budget
+              </span>
+            )}
+          </div>
+          <p className={`text-2xl font-bold ${fuelOverBudget ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-300"}`}>
             Rs {totalFuelThisMonth.toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">this month</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {budget.fuelBudgetNpr > 0 ? `budget: Rs ${budget.fuelBudgetNpr.toLocaleString()}` : "this month"}
+          </p>
         </div>
 
-        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
+        <div className={`rounded-xl p-4 border ${maintOverBudget ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700" : "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"}`}>
           <div className="flex items-center gap-2 mb-1">
-            <Wrench size={14} className="text-blue-500" />
-            <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Maintenance Spend</span>
+            <Wrench size={14} className={maintOverBudget ? "text-red-500" : "text-blue-500"} />
+            <span className={`text-xs font-semibold ${maintOverBudget ? "text-red-700 dark:text-red-400" : "text-blue-700 dark:text-blue-400"}`}>Maintenance Spend</span>
+            {maintOverBudget && (
+              <span className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                <AlertCircle size={9} /> Over budget
+              </span>
+            )}
           </div>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-300">
+          <p className={`text-2xl font-bold ${maintOverBudget ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-300"}`}>
             Rs {totalMaintThisMonth.toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">this month</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {budget.maintBudgetNpr > 0 ? `budget: Rs ${budget.maintBudgetNpr.toLocaleString()}` : "this month"}
+          </p>
         </div>
 
         <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-border p-4">

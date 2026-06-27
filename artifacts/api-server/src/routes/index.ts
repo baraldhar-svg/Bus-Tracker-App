@@ -24,6 +24,7 @@ import superadminRouter from "./superadmin";
 import fuelLogsRouter from "./fuel-logs";
 import maintenanceRouter from "./maintenance-records";
 import vehicleDocumentsRouter from "./vehicle-documents";
+import budgetSettingsRouter from "./budget-settings";
 
 const router: IRouter = Router();
 
@@ -61,5 +62,6 @@ router.use("/superadmin", superadminRouter);
 router.use("/fuel-logs", fuelLogsRouter);
 router.use("/maintenance-records", maintenanceRouter);
 router.use("/vehicle-documents", vehicleDocumentsRouter);
+router.use("/budget-settings", budgetSettingsRouter);
 
 export default router;

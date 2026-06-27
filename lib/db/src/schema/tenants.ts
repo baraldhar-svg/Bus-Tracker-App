@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -52,6 +52,16 @@ export const insertAdminRegistrationSchema = createInsertSchema(adminRegistratio
 });
 export type InsertAdminRegistration = z.infer<typeof insertAdminRegistrationSchema>;
 export type AdminRegistration = typeof adminRegistrationsTable.$inferSelect;
+
+export const budgetSettingsTable = pgTable("budget_settings", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  fuelBudgetNpr: real("fuel_budget_npr").notNull().default(0),
+  maintBudgetNpr: real("maint_budget_npr").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type BudgetSettings = typeof budgetSettingsTable.$inferSelect;
 
 export const announcementsTable = pgTable("announcements", {
   id: serial("id").primaryKey(),
