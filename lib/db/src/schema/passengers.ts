@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -24,6 +24,7 @@ export const passengersTable = pgTable("passengers", {
   faculty: text("faculty"),
   designation: text("designation"),
   routeSubscribedAt: timestamp("route_subscribed_at"),
+  proximityAlertSentAt: timestamp("proximity_alert_sent_at"),
 });
 
 export const insertPassengerSchema = createInsertSchema(passengersTable).omit({ id: true, boardedAt: true });
@@ -80,3 +81,22 @@ export const whatsappNotificationsTable = pgTable("whatsapp_notifications", {
 });
 
 export type WhatsappNotification = typeof whatsappNotificationsTable.$inferSelect;
+
+// Expo push tokens — one row per (passenger, device) pair.
+// The same physical device token can appear in multiple rows (once per child a
+// parent tracks) so the proximity watchdog can fan out to every child on the same
+// device without the global-token unique constraint clobbering earlier entries.
+// uniqueIndex on (passengerId, token) prevents the same device registering the
+// same child more than once while allowing multiple passengers per token.
+export const pushTokensTable = pgTable("push_tokens", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  passengerId: integer("passenger_id").notNull(),
+  token: text("token").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("push_tokens_passenger_token_unique").on(t.passengerId, t.token),
+]);
+
+export type PushToken = typeof pushTokensTable.$inferSelect;

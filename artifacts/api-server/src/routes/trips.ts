@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { driversTable, passengersTable, stationsTable, announcementsTable, routesTable } from "@workspace/db";
-import { eq, count, and, isNotNull, isNull, sql, lt } from "drizzle-orm";
+import { driversTable, passengersTable, stationsTable, announcementsTable, routesTable, pushTokensTable } from "@workspace/db";
+import { eq, count, and, isNotNull, isNull, sql, lt, inArray } from "drizzle-orm";
 import { broadcast } from "../lib/sse";
 import { logger } from "../lib/logger";
 import { sendWhatsAppAlert } from "../lib/whatsapp";
+import { sendExpoPushNotifications } from "../lib/expoPush";
 
 const router = Router();
 
@@ -257,6 +258,12 @@ router.post("/start", async (req, res) => {
     .set({ isOnline: true, tripStartedAt: now, delayAlertSentAt: null })
     .where(driverCondition);
 
+  // Reset proximity alert flags on all passengers so the watchdog re-arms for this trip
+  await db
+    .update(passengersTable)
+    .set({ proximityAlertSentAt: null })
+    .where(eq(passengersTable.tenantId, req.tenantId));
+
   // Reset in-memory station index so students don't see a stale stop from the previous run
   if (activeDriver?.id != null) driverStationState.delete(activeDriver.id);
 
@@ -451,6 +458,157 @@ export function startHeartbeatWatchdog(): void {
 // without a delay alert being sent yet. Auto-fires WhatsApp alerts to all parents
 // on the driver's assigned route and stamps delayAlertSentAt to prevent re-alerting
 // within the same trip.
+// ── Proximity watchdog ────────────────────────────────────────────────────────
+// Every 60 s: for every online driver, check the current ETA stored in the
+// active trip response. When etaMinutes ≤ 5, send an Expo push notification to
+// all registered devices belonging to passengers on that driver's route.
+// proximityAlertSentAt is stamped on each passenger row so the alert fires at
+// most once per trip (reset when a new trip starts via /api/trips/start).
+export function startProximityWatchdog(): void {
+  // ETA threshold in minutes — bus is "close" when at or below this value.
+  const ETA_THRESHOLD = Number(process.env["PROXIMITY_ETA_THRESHOLD"] ?? 5);
+
+  setInterval(async () => {
+    try {
+      // Find all online drivers
+      const onlineDrivers = await db
+        .select({
+          id: driversTable.id,
+          tenantId: driversTable.tenantId,
+          vehicleNumber: driversTable.vehicleNumber,
+          currentLat: driversTable.currentLat,
+          currentLng: driversTable.currentLng,
+        })
+        .from(driversTable)
+        .where(eq(driversTable.isOnline, true));
+
+      for (const driver of onlineDrivers) {
+        // Compute a simple distance-based ETA for each passenger's station.
+        // The active-trip endpoint currently returns a static etaMinutes=7.
+        // We use the driver's live GPS position and each station's coordinates
+        // to compute a haversine ETA, falling back to 7 min when GPS is absent.
+        const { resolvedRouteId, targets } = await resolveRoutePassengers(
+          driver.tenantId,
+          driver.id,
+          null
+        );
+
+        if (targets.length === 0) continue;
+
+        // Collect passenger IDs that still need a proximity alert this trip
+        const passengerIds = targets.map((t) => t.id);
+
+        // Find passengers who have NOT yet received a proximity alert this trip
+        const pendingPassengers = await db
+          .select({
+            id: passengersTable.id,
+            stationId: passengersTable.stationId,
+            name: passengersTable.name,
+          })
+          .from(passengersTable)
+          .where(
+            and(
+              inArray(passengersTable.id, passengerIds),
+              isNull(passengersTable.proximityAlertSentAt)
+            )
+          );
+
+        if (pendingPassengers.length === 0) continue;
+
+        // Get all unique station IDs for these passengers
+        const uniqueStationIds = [...new Set(pendingPassengers.map((p) => p.stationId))];
+
+        const stations = await db
+          .select({ id: stationsTable.id, lat: stationsTable.lat, lng: stationsTable.lng, name: stationsTable.name })
+          .from(stationsTable)
+          .where(inArray(stationsTable.id, uniqueStationIds));
+
+        const stationMap = new Map(stations.map((s) => [s.id, s]));
+
+        // Determine which passengers are within ETA threshold
+        const nearbyPassengerIds: number[] = [];
+
+        for (const p of pendingPassengers) {
+          const station = stationMap.get(p.stationId);
+          let etaMinutes = 7; // default when GPS unavailable
+
+          if (driver.currentLat != null && driver.currentLng != null && station) {
+            const distKm = haversineKm(
+              driver.currentLat,
+              driver.currentLng,
+              station.lat,
+              station.lng
+            );
+            // Assume ~25 km/h average speed through city traffic
+            const speedKmh = 25;
+            etaMinutes = (distKm / speedKmh) * 60;
+          }
+
+          if (etaMinutes <= ETA_THRESHOLD) {
+            nearbyPassengerIds.push(p.id);
+          }
+        }
+
+        if (nearbyPassengerIds.length === 0) continue;
+
+        // Fetch push tokens for nearby passengers
+        const tokens = await db
+          .select({ token: pushTokensTable.token, passengerId: pushTokensTable.passengerId })
+          .from(pushTokensTable)
+          .where(
+            and(
+              eq(pushTokensTable.tenantId, driver.tenantId),
+              inArray(pushTokensTable.passengerId, nearbyPassengerIds)
+            )
+          );
+
+        if (tokens.length > 0) {
+          const busLabel = driver.vehicleNumber ? `Bus ${driver.vehicleNumber}` : "Your bus";
+          await sendExpoPushNotifications(
+            tokens.map((t) => ({
+              to: t.token,
+              title: "🚌 Bus arriving soon!",
+              body: `${busLabel} is less than ${ETA_THRESHOLD} minutes away. Please head to your stop.`,
+              data: { screen: "map", driverId: driver.id, routeId: resolvedRouteId },
+              sound: "default" as const,
+              channelId: "bus-proximity",
+            }))
+          );
+        }
+
+        // Stamp alert sent on all nearby passengers (even those without tokens,
+        // so we don't keep querying their ETA every minute for the rest of the trip).
+        await db
+          .update(passengersTable)
+          .set({ proximityAlertSentAt: new Date() })
+          .where(inArray(passengersTable.id, nearbyPassengerIds));
+
+        logger.info(
+          { driverId: driver.id, tenantId: driver.tenantId, routeId: resolvedRouteId, count: tokens.length },
+          "proximity push sent"
+        );
+      }
+    } catch (err) {
+      logger.error({ err }, "proximity watchdog error");
+    }
+  }, 60_000);
+}
+
+/** Haversine great-circle distance in kilometres. */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
 export function startDelayWatchdog(): void {
   const thresholdMs = DELAY_THRESHOLD_MINUTES * 60 * 1000;
 

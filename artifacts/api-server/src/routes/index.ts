@@ -25,6 +25,7 @@ import fuelLogsRouter from "./fuel-logs";
 import maintenanceRouter from "./maintenance-records";
 import vehicleDocumentsRouter from "./vehicle-documents";
 import budgetSettingsRouter from "./budget-settings";
+import pushTokensRouter from "./push-tokens";
 
 const router: IRouter = Router();
 
@@ -63,5 +64,6 @@ router.use("/fuel-logs", fuelLogsRouter);
 router.use("/maintenance-records", maintenanceRouter);
 router.use("/vehicle-documents", vehicleDocumentsRouter);
 router.use("/budget-settings", budgetSettingsRouter);
+router.use("/push-tokens", pushTokensRouter);
 
 export default router;

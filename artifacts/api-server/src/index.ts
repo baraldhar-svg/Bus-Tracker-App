@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startCalendarNotifyCron, seedNepalHolidays } from "./routes/calendar";
-import { startHeartbeatWatchdog, startDelayWatchdog } from "./routes/trips";
+import { startHeartbeatWatchdog, startDelayWatchdog, startProximityWatchdog } from "./routes/trips";
 
 const rawPort = process.env["PORT"];
 
@@ -30,5 +30,6 @@ app.listen(port, (err) => {
   startCalendarNotifyCron((msg) => logger.info(msg));
   startHeartbeatWatchdog();
   startDelayWatchdog();
+  startProximityWatchdog();
 });
 export default app;

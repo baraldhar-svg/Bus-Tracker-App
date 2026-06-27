@@ -9,13 +9,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setBaseUrl, setTenantId } from "@workspace/api-client-react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { RoleProvider } from "@/context/RoleContext";
+import { RoleProvider, useRole } from "@/context/RoleContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
@@ -35,6 +36,45 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Registers the device's Expo push token with the server once the parent is
+ * logged in. Fetches ALL passenger IDs linked to this parent's phone number so
+ * every child triggers proximity alerts on this device (multi-child support).
+ *
+ * Uses a plain fetch (not the generated hook) to avoid the queryKey requirement
+ * of UseQueryOptions while staying outside TanStack Query's context boundary.
+ */
+function PushTokenRegistrar() {
+  const { role, parentPhone } = useRole();
+  const isParent = role === "parent" && !!parentPhone;
+  const [passengerIds, setPassengerIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!isParent || !parentPhone) {
+      setPassengerIds([]);
+      return;
+    }
+    const base = process.env.EXPO_PUBLIC_DOMAIN
+      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+      : "";
+    fetch(`${base}/api/passengers?phone=${encodeURIComponent(parentPhone)}`, {
+      headers: { "x-tenant-id": "1" },
+    })
+      .then((r) => r.json())
+      .then((data: Array<{ id: number }>) => {
+        if (Array.isArray(data)) {
+          const ids = data.map((p) => p.id).filter(Boolean);
+          if (ids.length > 0) setPassengerIds(ids);
+        }
+      })
+      .catch(() => {});
+  }, [isParent, parentPhone]);
+
+  usePushNotifications(passengerIds, isParent);
+
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -68,6 +108,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <RoleProvider>
+                <PushTokenRegistrar />
                 <RootLayoutNav />
               </RoleProvider>
             </KeyboardProvider>
