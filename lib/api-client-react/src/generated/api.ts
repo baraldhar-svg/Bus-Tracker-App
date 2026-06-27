@@ -36,6 +36,7 @@ import type {
   GeocodeResult,
   HealthStatus,
   ListCalendarEventsParams,
+  ListPassengersParams,
   Passenger,
   PassengerInput,
   PassengerUpdate,
@@ -1390,20 +1391,27 @@ export const useSwapFleet = <TError = ErrorType<unknown>,
       return useMutation(getSwapFleetMutationOptions(options));
     }
 
-export const getListPassengersUrl = () => {
+export const getListPassengersUrl = (params?: ListPassengersParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/passengers`
+  return stringifiedParams.length > 0 ? `/api/passengers?${stringifiedParams}` : `/api/passengers`
 }
 
 /**
  * @summary List all passengers for today's trip checklist
  */
-export const listPassengers = async ( options?: RequestInit): Promise<Passenger[]> => {
+export const listPassengers = async (params?: ListPassengersParams, options?: RequestInit): Promise<Passenger[]> => {
 
-  return customFetch<Passenger[]>(getListPassengersUrl(),
+  return customFetch<Passenger[]>(getListPassengersUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1416,23 +1424,23 @@ export const listPassengers = async ( options?: RequestInit): Promise<Passenger[
 
 
 
-export const getListPassengersQueryKey = () => {
+export const getListPassengersQueryKey = (params?: ListPassengersParams,) => {
     return [
-    `/api/passengers`
+    `/api/passengers`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListPassengersQueryOptions = <TData = Awaited<ReturnType<typeof listPassengers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassengers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListPassengersQueryOptions = <TData = Awaited<ReturnType<typeof listPassengers>>, TError = ErrorType<unknown>>(params?: ListPassengersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassengers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListPassengersQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListPassengersQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPassengers>>> = ({ signal }) => listPassengers({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPassengers>>> = ({ signal }) => listPassengers(params, { signal, ...requestOptions });
 
 
 
@@ -1450,11 +1458,11 @@ export type ListPassengersQueryError = ErrorType<unknown>
  */
 
 export function useListPassengers<TData = Awaited<ReturnType<typeof listPassengers>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassengers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListPassengersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassengers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListPassengersQueryOptions(options)
+  const queryOptions = getListPassengersQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

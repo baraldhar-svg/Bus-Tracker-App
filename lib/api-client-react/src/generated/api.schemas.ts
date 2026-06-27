@@ -478,6 +478,13 @@ export interface DashboardStats {
   subscriptionBreakdown?: DashboardStatsSubscriptionBreakdown;
 }
 
+export type ListPassengersParams = {
+/**
+ * Filter passengers to those whose parent phone matches this value (used for parent portal scoping)
+ */
+phone?: string;
+};
+
 export type SendBoardingOtp200 = {
   success: boolean;
   /** Demo only — the generated OTP for testing (not shown in production UI) */

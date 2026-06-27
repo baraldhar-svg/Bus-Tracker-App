@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useGetActiveTrip, useGetTripTimeline, useGetTenantMe } from "@workspace/api-client-react";
+import { useGetActiveTrip, useGetTripTimeline, useGetTenantMe, useListPassengers } from "@workspace/api-client-react";
 import React from "react";
 import {
   ActivityIndicator,
@@ -24,7 +24,7 @@ export default function MapScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { setRole } = useRole();
+  const { setRole, parentPhone } = useRole();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -33,6 +33,10 @@ export default function MapScreen() {
   });
   const { data: timeline } = useGetTripTimeline({ query: { refetchInterval: 30_000 } });
   const { data: tenant } = useGetTenantMe();
+  const { data: myChildren = [] } = useListPassengers(
+    parentPhone ? { phone: parentPhone } : undefined,
+    { query: { enabled: !!parentPhone } },
+  );
 
   const busLat = trip?.currentLat ?? KATHMANDU_LAT;
   const busLng = trip?.currentLng ?? KATHMANDU_LNG;
@@ -40,13 +44,19 @@ export default function MapScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.schoolName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
             {tenant?.name ?? "OrbitTrack"}
           </Text>
-          <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            Live Bus Location
-          </Text>
+          {myChildren.length > 0 ? (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              Tracking: {myChildren.map((c) => c.name).join(", ")}
+            </Text>
+          ) : (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              Live Bus Location
+            </Text>
+          )}
         </View>
         <Pressable
           onPress={async () => { await setRole(null); router.replace("/"); }}
@@ -55,6 +65,44 @@ export default function MapScreen() {
           <Ionicons name="swap-horizontal" size={18} color={colors.mutedForeground} />
         </Pressable>
       </View>
+
+      {myChildren.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.childBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+          {myChildren.map((child) => {
+            const statusColor =
+              child.status === "boarded"
+                ? "#22c55e"
+                : child.status === "absent"
+                ? "#ef4444"
+                : child.status === "leave"
+                ? "#94a3b8"
+                : "#f59e0b";
+            return (
+              <View key={child.id} style={[styles.childChip, { backgroundColor: statusColor + "18", borderColor: statusColor + "55" }]}>
+                <Ionicons
+                  name={
+                    child.status === "boarded"
+                      ? "checkmark-circle"
+                      : child.status === "absent"
+                      ? "close-circle"
+                      : child.status === "leave"
+                      ? "moon"
+                      : "time"
+                  }
+                  size={14}
+                  color={statusColor}
+                />
+                <Text style={[styles.childName, { color: statusColor, fontFamily: "Inter_600SemiBold" }]}>
+                  {child.name}
+                </Text>
+                <Text style={[styles.childStatus, { color: statusColor, fontFamily: "Inter_400Regular" }]}>
+                  · {child.status.charAt(0).toUpperCase() + child.status.slice(1)}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
 
       <BusMapView
         busLat={busLat}
@@ -167,6 +215,18 @@ const styles = StyleSheet.create({
   schoolName: { fontSize: 17 },
   headerSub: { fontSize: 12, marginTop: 2 },
   switchBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  childBar: { borderBottomWidth: 1, paddingVertical: 8 },
+  childChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  childName: { fontSize: 13 },
+  childStatus: { fontSize: 12 },
   loadingOverlay: {
     position: "absolute",
     top: 120,

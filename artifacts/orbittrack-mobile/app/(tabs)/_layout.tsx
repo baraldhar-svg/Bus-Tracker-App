@@ -157,7 +157,7 @@ function ClassicTabs({ isParent }: { isParent: boolean }) {
 }
 
 export default function TabLayout() {
-  const { role, isLoading } = useRole();
+  const { role, isLoading, parentPhone } = useRole();
   const colors = useColors();
 
   if (isLoading) {
@@ -169,6 +169,10 @@ export default function TabLayout() {
   }
 
   if (!role) {
+    return <Redirect href="/" />;
+  }
+
+  if (role === "parent" && !parentPhone) {
     return <Redirect href="/" />;
   }
 

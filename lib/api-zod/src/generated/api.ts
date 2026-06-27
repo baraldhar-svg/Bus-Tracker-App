@@ -247,6 +247,10 @@ export const SwapFleetResponse = zod.object({
 /**
  * @summary List all passengers for today's trip checklist
  */
+export const ListPassengersQueryParams = zod.object({
+  "phone": zod.coerce.string().optional().describe('Filter passengers to those whose parent phone matches this value (used for parent portal scoping)')
+})
+
 export const ListPassengersResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),

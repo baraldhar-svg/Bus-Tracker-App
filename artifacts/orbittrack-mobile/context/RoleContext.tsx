@@ -7,25 +7,37 @@ interface RoleContextValue {
   role: AppRole;
   setRole: (role: AppRole) => Promise<void>;
   isLoading: boolean;
+  parentPhone: string | null;
+  setParentPhone: (phone: string | null) => Promise<void>;
 }
 
 const RoleContext = createContext<RoleContextValue>({
   role: null,
   setRole: async () => {},
   isLoading: true,
+  parentPhone: null,
+  setParentPhone: async () => {},
 });
 
-const STORAGE_KEY = "@orbittrack/role";
+const ROLE_KEY = "@orbittrack/role";
+const PARENT_PHONE_KEY = "@orbittrack/parentPhone";
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<AppRole>(null);
+  const [parentPhone, setParentPhoneState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (stored === "parent" || stored === "driver") {
-          setRoleState(stored);
+    Promise.all([
+      AsyncStorage.getItem(ROLE_KEY),
+      AsyncStorage.getItem(PARENT_PHONE_KEY),
+    ])
+      .then(([storedRole, storedPhone]) => {
+        if (storedRole === "parent" || storedRole === "driver") {
+          setRoleState(storedRole);
+        }
+        if (storedPhone) {
+          setParentPhoneState(storedPhone);
         }
       })
       .finally(() => setIsLoading(false));
@@ -34,14 +46,27 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const setRole = useCallback(async (newRole: AppRole) => {
     setRoleState(newRole);
     if (newRole) {
-      await AsyncStorage.setItem(STORAGE_KEY, newRole);
+      await AsyncStorage.setItem(ROLE_KEY, newRole);
     } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(ROLE_KEY);
+    }
+    if (!newRole) {
+      setParentPhoneState(null);
+      await AsyncStorage.removeItem(PARENT_PHONE_KEY);
+    }
+  }, []);
+
+  const setParentPhone = useCallback(async (phone: string | null) => {
+    setParentPhoneState(phone);
+    if (phone) {
+      await AsyncStorage.setItem(PARENT_PHONE_KEY, phone);
+    } else {
+      await AsyncStorage.removeItem(PARENT_PHONE_KEY);
     }
   }, []);
 
   return (
-    <RoleContext.Provider value={{ role, setRole, isLoading }}>
+    <RoleContext.Provider value={{ role, setRole, isLoading, parentPhone, setParentPhone }}>
       {children}
     </RoleContext.Provider>
   );

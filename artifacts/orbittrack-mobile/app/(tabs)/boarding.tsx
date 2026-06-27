@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useRole } from "@/context/RoleContext";
 
 const STATUS_COLORS: Record<string, string> = {
   boarded: "#22c55e",
@@ -35,35 +36,59 @@ export default function BoardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<string>("all");
+  const { role, parentPhone } = useRole();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 80;
 
-  const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers({
-    query: { refetchInterval: 20_000 },
-  });
+  const phoneParam = role === "parent" && parentPhone ? parentPhone : undefined;
 
-  const filtered = passengers?.filter((p) => filter === "all" || p.status === filter) ?? [];
+  const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers(
+    phoneParam ? { phone: phoneParam } : undefined,
+    { query: { refetchInterval: 20_000 } },
+  );
+
+  const isParentView = role === "parent" && parentPhone;
+  const passengerList = passengers ?? [];
+
+  const filtered = passengerList.filter((p) => filter === "all" || p.status === filter);
 
   const counts = {
-    all: passengers?.length ?? 0,
-    boarded: passengers?.filter((p) => p.status === "boarded").length ?? 0,
-    pending: passengers?.filter((p) => p.status === "pending").length ?? 0,
-    absent: passengers?.filter((p) => p.status === "absent").length ?? 0,
-    leave: passengers?.filter((p) => p.status === "leave").length ?? 0,
+    all: passengerList.length,
+    boarded: passengerList.filter((p) => p.status === "boarded").length,
+    pending: passengerList.filter((p) => p.status === "pending").length,
+    absent: passengerList.filter((p) => p.status === "absent").length,
+    leave: passengerList.filter((p) => p.status === "leave").length,
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-          Boarding Status
+          {isParentView ? "My Child's Status" : "Boarding Status"}
         </Text>
-        <View style={styles.summaryRow}>
-          <SummaryBadge label="On board" count={counts.boarded} color="#22c55e" colors={colors} />
-          <SummaryBadge label="Pending" count={counts.pending} color="#f59e0b" colors={colors} />
-          <SummaryBadge label="Absent" count={counts.absent} color="#ef4444" colors={colors} />
-        </View>
+        {isParentView && passengerList.length === 0 && !isLoading && (
+          <View style={[styles.noChildBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.mutedForeground} />
+            <Text style={[styles.noChildTxt, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              No children found for this number
+            </Text>
+          </View>
+        )}
+        {!isParentView && (
+          <View style={styles.summaryRow}>
+            <SummaryBadge label="On board" count={counts.boarded} color="#22c55e" colors={colors} />
+            <SummaryBadge label="Pending" count={counts.pending} color="#f59e0b" colors={colors} />
+            <SummaryBadge label="Absent" count={counts.absent} color="#ef4444" colors={colors} />
+          </View>
+        )}
+        {isParentView && passengerList.length > 0 && (
+          <View style={styles.summaryRow}>
+            <SummaryBadge label="On board" count={counts.boarded} color="#22c55e" colors={colors} />
+            <SummaryBadge label="Pending" count={counts.pending} color="#f59e0b" colors={colors} />
+            <SummaryBadge label="Absent" count={counts.absent} color="#ef4444" colors={colors} />
+          </View>
+        )}
         <FilterBar filter={filter} setFilter={setFilter} counts={counts} colors={colors} />
       </View>
 
@@ -99,7 +124,9 @@ export default function BoardingScreen() {
             <View style={styles.centered}>
               <Ionicons name="people-outline" size={40} color={colors.mutedForeground} />
               <Text style={[styles.emptyTxt, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                No passengers in this filter
+                {isParentView
+                  ? "No children registered under your number"
+                  : "No passengers in this filter"}
               </Text>
             </View>
           }
@@ -205,6 +232,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { fontSize: 24, marginBottom: 12 },
+  noChildBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  noChildTxt: { fontSize: 13 },
   summaryRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   summaryBadge: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 8 },
   summaryCount: { fontSize: 20 },

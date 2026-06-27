@@ -56,11 +56,16 @@ function computeSubStatus(row: { routeId: number | null; routeSubscribedAt: Date
 }
 
 router.get("/", async (req, res) => {
+  const { phone } = req.query as { phone?: string };
+  const baseWhere = eq(passengersTable.tenantId, req.tenantId);
+  const whereClause = phone
+    ? and(baseWhere, eq(passengersTable.phone, phone))
+    : baseWhere;
   const rows = await db
     .select(PASSENGER_SELECT)
     .from(passengersTable)
     .leftJoin(stationsTable, eq(passengersTable.stationId, stationsTable.id))
-    .where(eq(passengersTable.tenantId, req.tenantId));
+    .where(whereClause);
   const enriched = rows.map((r) => ({ ...r, ...computeSubStatus(r) }));
   return res.json(enriched);
 });

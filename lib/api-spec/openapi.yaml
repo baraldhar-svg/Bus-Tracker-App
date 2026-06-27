@@ -339,6 +339,12 @@ paths:
       operationId: listPassengers
       tags: [passengers]
       summary: List all passengers for today's trip checklist
+      parameters:
+        - in: query
+          name: phone
+          schema:
+            type: string
+          description: Filter passengers to those whose parent phone matches this value (used for parent portal scoping)
       responses:
         "200":
           description: Passenger list

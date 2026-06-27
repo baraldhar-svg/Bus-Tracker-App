@@ -43,9 +43,10 @@ export default function PassengersScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 80;
 
-  const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers({
-    query: { refetchInterval: 20_000 },
-  });
+  const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers(
+    undefined,
+    { query: { refetchInterval: 20_000 } },
+  );
 
   const boardMutation = useBoardPassenger();
   const unboardMutation = useUnboardPassenger();
