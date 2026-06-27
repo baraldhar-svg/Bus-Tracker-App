@@ -109,6 +109,17 @@ async function apiPatch(path: string, body: unknown) {
   return data;
 }
 
+async function apiPut(path: string, body: unknown) {
+  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+    method: "PUT",
+    headers: tenantHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Failed");
+  return data;
+}
+
 async function apiDelete(path: string) {
   const id = getTenantId();
   const headers: Record<string, string> =
@@ -1559,31 +1570,44 @@ function BoardingLogPanel({
       {list.length === 0 ? (
         <p className="text-xs text-muted-foreground p-4 text-center">No passengers registered yet.</p>
       ) : (
-        <div className="divide-y divide-border max-h-80 overflow-y-auto">
-          {list.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelected({
-                id: p.id,
-                name: p.name,
-                phone: p.phone,
-                photoUrl: p.photoUrl,
-                role: p.role,
-                stationId: p.stationId,
-                stationName: p.stationName,
-                routeId: null,
-              })}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
-            >
-              <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                <p className="text-xs text-muted-foreground">{p.stationName ?? "—"}</p>
+        <div className="max-h-96 overflow-y-auto">
+          {[
+            { label: "Boarded", items: boarded, style: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300" },
+            { label: "Pending", items: pending, style: "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300" },
+            { label: "On Leave", items: onLeave, style: "bg-gray-50 dark:bg-gray-800/20 text-gray-600 dark:text-gray-400" },
+          ].filter(({ items }) => items.length > 0).map(({ label, items, style }) => (
+            <div key={label}>
+              <div className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wide ${style}`}>
+                {label} — {items.length}
               </div>
-              <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLES[p.status] ?? STATUS_STYLES["pending"]}`}>
-                {STATUS_LABELS[p.status] ?? p.status}
-              </span>
-            </button>
+              <div className="divide-y divide-border">
+                {items.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelected({
+                      id: p.id,
+                      name: p.name,
+                      phone: p.phone,
+                      photoUrl: p.photoUrl,
+                      role: p.role,
+                      stationId: p.stationId,
+                      stationName: p.stationName,
+                      routeId: null,
+                    })}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                  >
+                    <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.stationName ?? "—"}</p>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLES[p.status] ?? STATUS_STYLES["pending"]}`}>
+                      {STATUS_LABELS[p.status] ?? p.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -1613,7 +1637,21 @@ function DriverCommunicationsPanel({
   onRefresh: () => void;
 }) {
   const [selected, setSelected] = useState<DriverRow | null>(null);
+  const liveLocations = useLiveLocations();
   const list = drivers ?? [];
+
+  // Build a map of driverId → last ping timestamp from the live-location poll
+  const lastPingMap = new Map<number, string | null>(
+    liveLocations.map((loc) => [loc.id, loc.updatedAt])
+  );
+
+  function formatLastPing(ts: string | null | undefined): string {
+    if (!ts) return "Never";
+    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
+  }
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -1635,33 +1673,43 @@ function DriverCommunicationsPanel({
         <p className="text-xs text-muted-foreground p-4 text-center">No drivers registered yet.</p>
       ) : (
         <div className="divide-y divide-border">
-          {list.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setSelected(d)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
-            >
-              <img
-                src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}`}
-                alt={d.name}
-                className="h-9 w-9 rounded-full border-2 border-border object-cover shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{d.name}</p>
-                <p className="text-xs text-muted-foreground">{d.vehicleNumber}</p>
-              </div>
-              <span className={`shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                d.isOnline
-                  ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
-                  : d.isActive
-                    ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                    : "bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
-              }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${d.isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-                {d.isOnline ? "Online" : d.isActive ? "Active" : "Inactive"}
-              </span>
-            </button>
-          ))}
+          {list.map((d) => {
+            const lastPing = lastPingMap.get(d.id);
+            return (
+              <button
+                key={d.id}
+                onClick={() => setSelected(d)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+              >
+                <img
+                  src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}`}
+                  alt={d.name}
+                  className="h-9 w-9 rounded-full border-2 border-border object-cover shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{d.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {d.vehicleNumber}
+                    {lastPingMap.has(d.id) && (
+                      <span className="ml-2 text-[10px] text-muted-foreground/60">
+                        · ping {formatLastPing(lastPing)}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span className={`shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  d.isOnline
+                    ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
+                    : d.isActive
+                      ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                      : "bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${d.isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+                  {d.isOnline ? "Online" : d.isActive ? "Active" : "Inactive"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
       {selected && (
@@ -2047,14 +2095,10 @@ function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleRow[] | undefined 
   async function handleSave(vehicleId: number) {
     setSaving(true);
     try {
-      await fetch(`${REPLIT_BACKEND}/api/vehicle-documents/${vehicleId}`, {
-        method: "PUT",
-        headers: tenantHeaders(),
-        body: JSON.stringify({
-          bluebookExpiry: editForm.bluebookExpiry || null,
-          insuranceExpiry: editForm.insuranceExpiry || null,
-          pollutionExpiry: editForm.pollutionExpiry || null,
-        }),
+      await apiPut(`/vehicle-documents/${vehicleId}`, {
+        bluebookExpiry: editForm.bluebookExpiry || null,
+        insuranceExpiry: editForm.insuranceExpiry || null,
+        pollutionExpiry: editForm.pollutionExpiry || null,
       });
       setEditing(null);
       void load();
@@ -2152,15 +2196,16 @@ function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleRow[] | undefined 
 // ── Live Fleet Map Panel ───────────────────────────────────────────────────────
 function LiveFleetMapPanel() {
   const liveLocations = useLiveLocations();
+  // Only show drivers who are actively streaming GPS (isLive === true)
   const buses: FleetBus[] = liveLocations
-    .filter((loc) => loc.lat !== null && loc.lng !== null)
+    .filter((loc) => loc.isLive && loc.lat !== null && loc.lng !== null)
     .map((loc) => ({
       id: loc.id,
       label: loc.vehicleNumber,
       driverName: loc.name,
       lat: loc.lat!,
       lng: loc.lng!,
-      status: loc.isLive ? "on-route" : "depot",
+      status: "on-route" as const,
     }));
 
   if (buses.length === 0) {
