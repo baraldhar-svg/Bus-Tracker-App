@@ -179,55 +179,456 @@ function PassengerAvatar({
   );
 }
 
-// ── 📅 CalendarManager (Date by Notes, Event Notification & One-Click Weekend Holidays) ───────────────────
-type CalendarEvent = {
+// ── 🛠️ १. VEHICLE SERVICE & MANAGEMENT PANEL (अब सिधै मर्ज गरिएको) ──
+type FuelLogRow = {
   id: number;
-  title: string;
-  description?: string | null;
-  type: string;
-  eventDate: string;
-  notified: boolean;
-  autoNotify: boolean;
+  vehicleId: number | null;
+  vehiclePlate: string | null;
+  date: string;
+  liters: number;
+  amountNpr: number;
+  odometerKm: number;
+  notes: string | null;
+};
+type MaintenanceRow = {
+  id: number;
+  vehicleId: number | null;
+  vehiclePlate: string | null;
+  partType: string;
+  description: string | null;
+  costNpr: number;
+  odometerKm: number;
+  serviceDate: string;
+  vendor: string | null;
+};
+type VehicleDocRow = {
+  id: number;
+  vehicleId: number;
+  vehiclePlate: string | null;
+  vehicleModel: string | null;
+  bluebookExpiry: string | null;
+  insuranceExpiry: string | null;
+  pollutionExpiry: string | null;
+  daysUntilBluebook: number | null;
+  daysUntilInsurance: number | null;
+  daysUntilPollution: number | null;
 };
 
-const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WEEKDAYS_NE = ["आइत", "सोम", "मङ्गल", "बुध", "बिही", "शुक्र", "शनि"];
+function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
+  const [subTab, setSubTab] = useState<"fuel" | "service" | "docs">("fuel");
+  const [fuelRows, setFuelRows] = useState<FuelLogRow[]>([]);
+  const [fuelForm, setFuelForm] = useState({
+    vehicleId: "",
+    date: new Date().toISOString().slice(0, 10),
+    liters: "",
+    amountNpr: "",
+    odometerKm: "",
+    notes: "",
+  });
+  const [maintRows, setMaintRows] = useState<MaintenanceRow[]>([]);
+  const [maintForm, setMaintForm] = useState({
+    vehicleId: "",
+    partType: "",
+    description: "",
+    costNpr: "",
+    odometerKm: "",
+    serviceDate: new Date().toISOString().slice(0, 10),
+    vendor: "",
+  });
+  const [docRows, setDocRows] = useState<VehicleDocRow[]>([]);
+  const [editingDocId, setEditingDocId] = useState<number | null>(null);
+  const [docForm, setDocForm] = useState({
+    bluebookExpiry: "",
+    insuranceExpiry: "",
+    pollutionExpiry: "",
+  });
+  const [loading, setLoading] = useState(false);
 
-function getAdDaysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate();
-}
-function getAdFirstWeekday(year: number, month: number) {
-  return new Date(year, month - 1, 1).getDay();
+  async function loadAllData() {
+    setLoading(true);
+    try {
+      const [f, m, d] = await Promise.all([
+        fetch(`${REPLIT_BACKEND}/api/fuel-logs`, {
+          headers: tenantHeaders(),
+        }).then((res) => res.json()),
+        fetch(`${REPLIT_BACKEND}/api/maintenance-records`, {
+          headers: tenantHeaders(),
+        }).then((res) => res.json()),
+        fetch(`${REPLIT_BACKEND}/api/vehicle-documents`, {
+          headers: tenantHeaders(),
+        }).then((res) => res.json()),
+      ]);
+      setFuelRows(f || []);
+      setMaintRows(m || []);
+      setDocRows(d || []);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadAllData();
+  }, []);
+
+  async function handleAddFuel() {
+    if (
+      !fuelForm.date ||
+      !fuelForm.liters ||
+      !fuelForm.amountNpr ||
+      !fuelForm.odometerKm
+    )
+      return;
+    try {
+      await apiPost("/fuel-logs", {
+        vehicleId: fuelForm.vehicleId ? Number(fuelForm.vehicleId) : null,
+        date: fuelForm.date,
+        liters: Number(fuelForm.liters),
+        amountNpr: Number(fuelForm.amountNpr),
+        odometerKm: Number(fuelForm.odometerKm),
+        notes: fuelForm.notes || null,
+      });
+      setFuelForm({
+        vehicleId: "",
+        date: new Date().toISOString().slice(0, 10),
+        liters: "",
+        amountNpr: "",
+        odometerKm: "",
+        notes: "",
+      });
+      void loadAllData();
+    } catch {
+      alert("Failed");
+    }
+  }
+
+  async function handleAddMaint() {
+    if (!maintForm.partType || !maintForm.serviceDate || !maintForm.odometerKm)
+      return;
+    try {
+      await apiPost("/maintenance-records", {
+        vehicleId: maintForm.vehicleId ? Number(maintForm.vehicleId) : null,
+        partType: maintForm.partType,
+        description: maintForm.description || null,
+        costNpr: Number(maintForm.costNpr) || 0,
+        odometerKm: Number(maintForm.odometerKm),
+        serviceDate: maintForm.serviceDate,
+        vendor: maintForm.vendor || null,
+      });
+      setMaintForm({
+        vehicleId: "",
+        partType: "",
+        description: "",
+        costNpr: "",
+        odometerKm: "",
+        serviceDate: new Date().toISOString().slice(0, 10),
+        vendor: "",
+      });
+      void loadAllData();
+    } catch {
+      alert("Failed");
+    }
+  }
+
+  async function handleSaveDoc(vehicleId: number) {
+    try {
+      await apiPut(`/vehicle-documents/${vehicleId}`, {
+        bluebookExpiry: docForm.bluebookExpiry || null,
+        insuranceExpiry: docForm.insuranceExpiry || null,
+        pollutionExpiry: docForm.pollutionExpiry || null,
+      });
+      setEditingDocId(null);
+      void loadAllData();
+    } catch {
+      alert("Failed");
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex border-b border-border bg-muted/20 p-1 gap-1 text-xs font-semibold">
+        <button
+          onClick={() => setSubTab("fuel")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "fuel" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Droplets size={13} /> Fuel Logs
+        </button>
+        <button
+          onClick={() => setSubTab("service")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "service" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Wrench size={13} /> Service Records
+        </button>
+        <button
+          onClick={() => setSubTab("docs")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "docs" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <FileText size={13} /> Documents
+        </button>
+      </div>
+      <div className="p-4">
+        {loading && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            Loading...
+          </p>
+        )}
+        {!loading && subTab === "fuel" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <select
+                value={fuelForm.vehicleId}
+                onChange={(e) =>
+                  setFuelForm((f) => ({ ...f, vehicleId: e.target.value }))
+                }
+                className="border rounded-lg p-2 bg-background"
+              >
+                <option value="">Select Bus</option>
+                {(vehicles ?? []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.plateNumber}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={fuelForm.date}
+                onChange={(e) =>
+                  setFuelForm((f) => ({ ...f, date: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+              <input
+                type="number"
+                placeholder="Liters"
+                value={fuelForm.liters}
+                onChange={(e) =>
+                  setFuelForm((f) => ({ ...f, liters: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+              <input
+                type="number"
+                placeholder="Amount (NPR)"
+                value={fuelForm.amountNpr}
+                onChange={(e) =>
+                  setFuelForm((f) => ({ ...f, amountNpr: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+              <input
+                type="number"
+                placeholder="Odometer"
+                value={fuelForm.odometerKm}
+                onChange={(e) =>
+                  setFuelForm((f) => ({ ...f, odometerKm: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+            </div>
+            <button
+              onClick={handleAddFuel}
+              className="w-full bg-amber-500 text-slate-900 font-bold py-2 rounded-xl text-xs"
+            >
+              ✓ Save Fuel Entry
+            </button>
+            <div className="max-h-40 overflow-y-auto border rounded-xl divide-y text-xs mt-2 bg-muted/10">
+              {fuelRows.map((r) => (
+                <div
+                  key={r.id}
+                  className="p-2 flex justify-between items-center bg-card"
+                >
+                  <div>
+                    <p className="font-semibold">
+                      {r.vehiclePlate || "General"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {r.date} · {r.liters}L · Rs {r.amountNpr}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (confirm("Delete?")) {
+                        await apiDelete(`/fuel-logs/${r.id}`);
+                        void loadAllData();
+                      }
+                    }}
+                    className="text-red-500"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {!loading && subTab === "service" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <select
+                value={maintForm.vehicleId}
+                onChange={(e) =>
+                  setMaintForm((f) => ({ ...f, vehicleId: e.target.value }))
+                }
+                className="border rounded-lg p-2 bg-background"
+              >
+                <option value="">Select Bus</option>
+                {(vehicles ?? []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.plateNumber}
+                  </option>
+                ))}
+              </select>
+              <input
+                placeholder="Part"
+                value={maintForm.partType}
+                onChange={(e) =>
+                  setMaintForm((f) => ({ ...f, partType: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+              <input
+                type="number"
+                placeholder="Cost NPR"
+                value={maintForm.costNpr}
+                onChange={(e) =>
+                  setMaintForm((f) => ({ ...f, costNpr: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+              <input
+                type="number"
+                placeholder="Odometer"
+                value={maintForm.odometerKm}
+                onChange={(e) =>
+                  setMaintForm((f) => ({ ...f, odometerKm: e.target.value }))
+                }
+                className="border rounded-lg p-2"
+              />
+            </div>
+            <button
+              onClick={handleAddMaint}
+              className="w-full bg-amber-500 text-slate-900 font-bold py-2 rounded-xl text-xs"
+            >
+              ✓ Save Service Record
+            </button>
+            <div className="max-h-40 overflow-y-auto border rounded-xl divide-y text-xs mt-2 bg-muted/10">
+              {maintRows.map((r) => (
+                <div
+                  key={r.id}
+                  className="p-2 flex justify-between items-center bg-card"
+                >
+                  <div>
+                    <p className="font-semibold">
+                      {r.vehiclePlate} — {r.partType}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {r.serviceDate} · Rs {r.costNpr}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (confirm("Delete?")) {
+                        await apiDelete(`/maintenance-records/${r.id}`);
+                        void loadAllData();
+                      }
+                    }}
+                    className="text-red-500"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {!loading && subTab === "docs" && (
+          <div className="space-y-3 text-xs">
+            <div className="divide-y border rounded-xl max-h-56 overflow-y-auto bg-card">
+              {(vehicles ?? []).map((v) => {
+                const doc = docRows.find((d) => d.vehicleId === v.id);
+                const isEditing = editingDocId === v.id;
+                return (
+                  <div key={v.id} className="p-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold text-foreground">
+                        {v.plateNumber}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (isEditing) setEditingDocId(null);
+                          else {
+                            setEditingDocId(v.id);
+                            setDocForm({
+                              bluebookExpiry: doc?.bluebookExpiry || "",
+                              insuranceExpiry: doc?.insuranceExpiry || "",
+                              pollutionExpiry: doc?.pollutionExpiry || "",
+                            });
+                          }
+                        }}
+                        className="text-amber-600 font-bold flex items-center gap-1"
+                      >
+                        <Pencil size={11} /> {isEditing ? "Cancel" : "Update"}
+                      </button>
+                    </div>
+                    {isEditing ? (
+                      <div className="space-y-2 bg-muted/40 p-2 rounded-xl">
+                        <input
+                          type="date"
+                          value={docForm.bluebookExpiry}
+                          onChange={(e) =>
+                            setDocForm((f) => ({
+                              ...f,
+                              bluebookExpiry: e.target.value,
+                            }))
+                          }
+                          className="border p-1 rounded w-full text-xs"
+                        />
+                        <button
+                          onClick={() => void handleSaveDoc(v.id)}
+                          className="w-full bg-green-600 text-white font-bold py-1 rounded text-xs"
+                        >
+                          Save dates
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        Bluebook Expiry:{" "}
+                        <span className="font-mono font-bold text-foreground">
+                          {doc?.bluebookExpiry || "Not Set"}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
+// ── 📅 CalendarManager ──
 function CalendarManager() {
   const queryClient = useQueryClient();
   const todayB = todayBs();
   const todayAd = new Date();
-
   const [calSystem, setCalSystem] = useState<"bs" | "ad">("bs");
   const [bsYear, setBsYear] = useState(todayB.year);
   const [bsMonth, setBsMonth] = useState(todayB.month);
   const [adYear, setAdYear] = useState(todayAd.getFullYear());
   const [adMonth, setAdMonth] = useState(todayAd.getMonth() + 1);
 
-  // इभेन्ट/नोट्स थप्ने नयाँ स्टेटहरू
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteDescription, setNoteDescription] = useState("");
-  const [eventType, setEventType] = useState("holiday"); // holiday वा event
+  const [eventType, setEventType] = useState("holiday");
   const [savingNote, setSavingNote] = useState(false);
 
-  const adMonthStart = useMemo(() => {
-    if (calSystem === "bs") return bsToAd(bsYear, bsMonth, 1);
-    return { year: adYear, month: adMonth, day: 1 };
-  }, [calSystem, bsYear, bsMonth, adYear, adMonth]);
-
-  const adMonthEnd = useMemo(() => {
-    if (calSystem === "bs")
-      return bsToAd(bsYear, bsMonth, getDaysInBsMonth(bsYear, bsMonth));
-    return { year: adYear, month: adMonth, day: 1 };
-  }, [calSystem, bsYear, bsMonth, adYear, adMonth]);
+  const adMonthStart = bsToAd(bsYear, bsMonth, 1);
+  const adMonthEnd = bsToAd(bsYear, bsMonth, getDaysInBsMonth(bsYear, bsMonth));
 
   const queryMonth1 = `${adMonthStart.year}-${String(adMonthStart.month).padStart(2, "0")}`;
   const queryMonth2 =
@@ -257,88 +658,38 @@ function CalendarManager() {
     if (queryMonth2) void refetchB();
   }
 
-  function switchTo(sys: "bs" | "ad") {
-    if (sys === calSystem) return;
-    if (sys === "ad") {
-      const d = bsToAd(bsYear, bsMonth, 1);
-      setAdYear(d.year);
-      setAdMonth(d.month);
-    } else {
-      const bs = adToBs(adYear, adMonth, 1);
-      setBsYear(bs.year);
-      setBsMonth(bs.month);
-    }
-    setCalSystem(sys);
-    setSelectedDay(null);
-  }
-
   function prevMonth() {
-    setSelectedDay(null);
-    if (calSystem === "bs") {
-      if (bsMonth === 1) {
-        setBsYear((y) => y - 1);
-        setBsMonth(12);
-      } else setBsMonth((m) => m - 1);
-    } else {
-      if (adMonth === 1) {
-        setAdYear((y) => y - 1);
-        setAdMonth(12);
-      } else setAdMonth((m) => m - 1);
-    }
+    if (bsMonth === 1) {
+      setBsYear((y) => y - 1);
+      setBsMonth(12);
+    } else setBsMonth((m) => m - 1);
   }
   function nextMonth() {
-    setSelectedDay(null);
-    if (calSystem === "bs") {
-      if (bsMonth === 12) {
-        setBsYear((y) => y + 1);
-        setBsMonth(1);
-      } else setBsMonth((m) => m + 1);
-    } else {
-      if (adMonth === 12) {
-        setAdYear((y) => y + 1);
-        setAdMonth(1);
-      } else setAdMonth((m) => m + 1);
-    }
+    if (bsMonth === 12) {
+      setBsYear((y) => y + 1);
+      setBsMonth(1);
+    } else setBsMonth((m) => m + 1);
   }
 
-  const daysInMonth =
-    calSystem === "bs"
-      ? getDaysInBsMonth(bsYear, bsMonth)
-      : getAdDaysInMonth(adYear, adMonth);
-  const firstWeekday =
-    calSystem === "bs"
-      ? getFirstWeekdayOfBsMonth(bsYear, bsMonth)
-      : getAdFirstWeekday(adYear, adMonth);
+  const daysInMonth = getDaysInBsMonth(bsYear, bsMonth);
+  const firstWeekday = getFirstWeekdayOfBsMonth(bsYear, bsMonth);
 
   const eventsByDay = new Map<number, CalendarEvent[]>();
   for (const ev of events ?? []) {
     const parts = ev.eventDate.split("-").map(Number);
-    if (calSystem === "bs") {
-      const bs = adToBs(parts[0]!, parts[1]!, parts[2]!);
-      if (bs.year === bsYear && bs.month === bsMonth) {
-        const list = eventsByDay.get(bs.day) ?? [];
-        list.push(ev as CalendarEvent);
-        eventsByDay.set(bs.day, list);
-      }
-    } else {
-      if (parts[0] === adYear && parts[1] === adMonth) {
-        const list = eventsByDay.get(parts[2]!) ?? [];
-        list.push(ev as CalendarEvent);
-        eventsByDay.set(parts[2]!, list);
-      }
+    const bs = adToBs(parts[0], parts[1], parts[2]);
+    if (bs.year === bsYear && bs.month === bsMonth) {
+      const list = eventsByDay.get(bs.day) ?? [];
+      list.push(ev as CalendarEvent);
+      eventsByDay.set(bs.day, list);
     }
   }
 
-  // तारिख अनुसार नोट / इभेन्ट सेभ गर्ने फङ्सन
   async function handleSaveNote() {
     if (!selectedDay || !noteTitle.trim()) return;
     setSavingNote(true);
     try {
-      const adDateStr =
-        calSystem === "bs"
-          ? bsDateToAd(bsYear, bsMonth, selectedDay)
-          : `${adYear}-${String(adMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
-
+      const adDateStr = bsDateToAd(bsYear, bsMonth, selectedDay);
       await apiPost("/calendar-events", {
         title: noteTitle.trim(),
         description: noteDescription.trim() || null,
@@ -354,38 +705,21 @@ function CalendarManager() {
         queryKey: getListCalendarEventsQueryKey(),
       });
     } catch {
-      alert("Failed to save event note.");
+      alert("Failed");
     } finally {
       setSavingNote(false);
     }
   }
 
-  // 🛠️ One-Click Weekly Holiday (महिनाका सबै शनिबारहरूलाई एकै क्लिकमा बिदा सेट गर्ने)
   async function handleSetWeeklyHolidays() {
-    if (
-      !confirm(
-        "महिनाका सबै शनिबारहरूलाई बिदा (Holiday) को रूपमा सेट गर्न चाहनुहुन्छ?",
-      )
-    )
-      return;
+    if (!confirm("Set all Saturdays as Holidays?")) return;
     try {
       for (let day = 1; day <= daysInMonth; day++) {
-        let weekday = 0;
-        if (calSystem === "bs") {
-          // नेपाली सिस्टमको बार निकाल्ने लजिक
-          weekday = (firstWeekday + day - 1) % 7;
-        } else {
-          weekday = new Date(adYear, adMonth - 1, day).getDay();
-        }
-
+        let weekday = (firstWeekday + day - 1) % 7;
         if (weekday === 6) {
-          // ६ भनेको शनिबार (Saturday)
-          const adDateStr =
-            calSystem === "bs"
-              ? bsDateToAd(bsYear, bsMonth, day)
-              : `${adYear}-${String(adMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const adDateStr = bsDateToAd(bsYear, bsMonth, day);
           await apiPost("/calendar-events", {
-            title: "साप्ताहिक बिदा (Saturday Holiday)",
+            title: "साっぱり बिदा (Saturday Holiday)",
             type: "holiday",
             eventDate: adDateStr,
             autoNotify: false,
@@ -396,56 +730,14 @@ function CalendarManager() {
       queryClient.invalidateQueries({
         queryKey: getListCalendarEventsQueryKey(),
       });
-      alert("महिनाका सबै शनिबारहरू बिदा सेट भए!");
     } catch {
-      alert("Failed to apply weekly holidays.");
+      alert("Failed");
     }
   }
 
-  const WEEKDAYS = calSystem === "bs" ? WEEKDAYS_NE : WEEKDAYS_EN;
-  const headerTitle =
-    calSystem === "bs"
-      ? `${BS_MONTH_NAMES_NE[bsMonth - 1]} ${bsYear}`
-      : `${AD_MONTH_NAMES[adMonth - 1]} ${adYear}`;
-  const headerSubtitle =
-    calSystem === "bs"
-      ? `${queryMonth1.replace("-", " / ")} AD`
-      : (() => {
-          const bs = adToBs(adYear, adMonth, 1);
-          return `${BS_MONTH_NAMES_NE[bs.month - 1]} ${bs.year} BS`;
-        })();
-
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-[#FFF078]" />
-          <div>
-            <h2 className="font-semibold text-primary">
-              विद्यालय क्यालेन्डर (Date Notes & Notifications)
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Click any date to add important Notes, Events or Holidays
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-muted p-0.5 text-xs font-semibold">
-          <button
-            onClick={() => switchTo("bs")}
-            className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "bs" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            BS
-          </button>
-          <button
-            onClick={() => switchTo("ad")}
-            className={`px-2.5 py-1 rounded-lg transition-colors ${calSystem === "ad" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            AD
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
         <button
           onClick={prevMonth}
           className="rounded-lg p-1.5 hover:bg-muted transition-colors"
@@ -453,15 +745,16 @@ function CalendarManager() {
           <ChevronLeft size={16} />
         </button>
         <div className="text-center">
-          <p className="font-bold text-sm text-foreground">{headerTitle}</p>
-          <p className="text-[10px] text-muted-foreground">{headerSubtitle}</p>
+          <p className="font-bold text-sm text-foreground">
+            {BS_MONTH_NAMES_NE[bsMonth - 1]} {bsYear}
+          </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleSetWeeklyHolidays}
-            className="text-[10px] bg-red-500 text-white font-bold px-2 py-1 rounded-lg hover:bg-red-600 transition-colors"
+            className="text-[10px] bg-red-500 text-white font-bold px-2 py-1 rounded-lg"
           >
-            🎯 One-Click Sat Holidays
+            Sat Holidays
           </button>
           <button
             onClick={nextMonth}
@@ -471,12 +764,10 @@ function CalendarManager() {
           </button>
         </div>
       </div>
-
       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* क्यालेन्डर ग्रिड */}
-        <div className="md:col-span-2 border-r border-border/50 pr-2">
-          <div className="grid grid-cols-7 mb-1">
-            {WEEKDAYS.map((d) => (
+        <div className="md:col-span-2">
+          <div className="grid grid-cols-7 gap-0.5">
+            {WEEKDAYS_NE.map((d) => (
               <div
                 key={d}
                 className="text-center text-[10px] font-semibold text-muted-foreground py-1"
@@ -484,104 +775,61 @@ function CalendarManager() {
                 {d}
               </div>
             ))}
-          </div>
-          <div className="grid grid-cols-7 gap-0.5">
             {Array.from({ length: firstWeekday }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
-              const isToday =
-                day === todayB.day &&
-                bsMonth === todayB.month &&
-                calSystem === "bs";
+              const isToday = day === todayB.day && bsMonth === todayB.month;
               const dayEvents = eventsByDay.get(day) ?? [];
               const isHoliday = dayEvents.some((e) => e.type === "holiday");
-              const isEvent = dayEvents.some((e) => e.type === "event");
-              const isSelected = selectedDay === day;
-
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`relative flex flex-col items-center rounded-xl py-1.5 transition-all text-xs ${isSelected ? "bg-primary text-primary-foreground font-bold shadow-md" : isToday ? "bg-amber-400 dark:bg-amber-500 text-white font-extrabold ring-2 ring-amber-500" : isHoliday ? "bg-red-100 text-red-700 font-semibold" : isEvent ? "bg-blue-100 text-blue-700 font-semibold" : "hover:bg-muted text-foreground font-medium"}`}
+                  className={`relative flex flex-col items-center rounded-xl py-1.5 text-xs ${isToday ? "bg-amber-400 text-white font-bold" : isHoliday ? "bg-red-100 text-red-700" : "hover:bg-muted"}`}
                 >
                   <span>{day}</span>
-                  <div className="flex gap-0.5 mt-0.5">
-                    {isHoliday && (
-                      <span className="h-1 w-1 rounded-full bg-red-600" />
-                    )}
-                    {isEvent && (
-                      <span className="h-1 w-1 rounded-full bg-blue-600" />
-                    )}
-                  </div>
                 </button>
               );
             })}
           </div>
         </div>
-
-        {/* डेट वाईज नोट्स / इभेन्ट फर्म सेक्सन */}
-        <div className="p-2 bg-muted/20 rounded-xl space-y-2">
-          <h3 className="text-xs font-bold text-primary uppercase">
-            📅 Add Notes & Notification
-          </h3>
+        <div className="p-2 bg-muted/20 rounded-xl space-y-2 text-xs">
+          <h3 className="font-bold text-primary">Notes Management</h3>
           {selectedDay ? (
-            <div className="space-y-2 text-xs">
-              <p className="font-semibold text-amber-600">
-                Selected: {selectedDay} {headerTitle}
-              </p>
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-0.5">
-                  Title
-                </label>
-                <input
-                  value={noteTitle}
-                  onChange={(e) => setNoteTitle(e.target.value)}
-                  placeholder="e.g. Saturday, Summer Vacation"
-                  className="w-full border rounded-lg p-1.5 bg-background outline-none text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-0.5">
-                  Description / Notes
-                </label>
-                <textarea
-                  value={noteDescription}
-                  onChange={(e) => setNoteDescription(e.target.value)}
-                  placeholder="Additional notes..."
-                  rows={2}
-                  className="w-full border rounded-lg p-1.5 bg-background outline-none text-xs resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-0.5">
-                  Type
-                </label>
-                <select
-                  value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
-                  className="w-full border rounded-lg p-1.5 bg-background text-xs"
-                >
-                  <option value="holiday">सार्वजनिक बिदा (Holiday)</option>
-                  <option value="event">
-                    विद्यालय कार्यक्रम (School Event)
-                  </option>
-                </select>
-              </div>
+            <div className="space-y-2">
+              <input
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                placeholder="Title"
+                className="w-full border p-1 rounded bg-background"
+              />
+              <textarea
+                value={noteDescription}
+                onChange={(e) => setNoteDescription(e.target.value)}
+                placeholder="Description"
+                rows={2}
+                className="w-full border p-1 rounded bg-background resize-none"
+              />
+              <select
+                value={eventType}
+                onChange={(e) => setEventType(e.target.value)}
+                className="w-full border p-1 rounded bg-background"
+              >
+                <option value="holiday">Holiday</option>
+                <option value="event">Event</option>
+              </select>
               <button
                 onClick={handleSaveNote}
-                disabled={savingNote || !noteTitle.trim()}
-                className="w-full bg-amber-500 text-slate-900 font-bold py-1.5 rounded-lg text-xs disabled:opacity-50"
+                className="w-full bg-amber-500 py-1 rounded font-bold text-slate-900"
               >
-                {savingNote
-                  ? "Saving Note..."
-                  : "✓ Save & Broadcast Notification"}
+                Save note
               </button>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic pt-5 text-center">
-              Click any date on the calendar to write logs or assign holidays.
+            <p className="text-muted-foreground italic text-center pt-4">
+              Click date to add notes
             </p>
           )}
         </div>
@@ -590,630 +838,10 @@ function CalendarManager() {
   );
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 85
-      ? "text-green-600 bg-green-100 dark:bg-green-950/40 border-green-200 dark:border-green-800"
-      : score >= 70
-        ? "text-amber-600 bg-amber-100 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800"
-        : "text-red-600 bg-red-100 dark:bg-red-950/40 border-red-200 dark:border-red-800";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${color}`}
-    >
-      {score}/100
-    </span>
-  );
-}
-
-function PhotoPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const galleryRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
-  async function handleFile(file: File) {
-    if (file) onChange(await fileToDataUrl(file));
-  }
-  return (
-    <div>
-      <input
-        ref={galleryRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void handleFile(f);
-        }}
-      />
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void handleFile(f);
-        }}
-      />
-      {value ? (
-        <div className="flex items-center gap-3">
-          <img
-            src={value}
-            alt="preview"
-            className="h-12 w-12 rounded-full object-cover border border-border shrink-0"
-          />
-          <button
-            onClick={() => onChange("")}
-            className="text-xs text-red-500 hover:text-red-400"
-          >
-            Remove
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => galleryRef.current?.click()}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors"
-          >
-            <Upload size={13} /> Upload Photo
-          </button>
-          <button
-            onClick={() => cameraRef.current?.click()}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted py-2.5 text-xs font-medium text-muted-foreground hover:border-amber-500 hover:text-[#FFF078] transition-colors"
-          >
-            <Camera size={13} /> Take Photo
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-type Modal = "add-passenger" | "add-driver" | null;
-type StatsFilter = "boarded" | "live" | "leave" | "buses" | null;
-type Tenant = {
-  id: number;
-  name: string;
-  address?: string | null;
-  contactPhone?: string | null;
-  bannerUrl?: string | null;
-  schoolCode?: string | null;
-};
-type LiveFleetVehicle = {
-  id: number;
-  plate: string;
-  driver: string;
-  lat: number | null;
-  lng: number | null;
-  status: "on-route" | "depot";
-  isLive: boolean;
-};
-type Passenger = {
-  id: number;
-  name: string;
-  phone?: string | null;
-  role: string;
-  status: string;
-  liveToday: number;
-  stationId: number;
-  stationName?: string | null;
-  quickMessage?: string | null;
-  photoUrl?: string | null;
-};
-
-type DriverRow = {
-  id: number;
-  name: string;
-  phone: string;
-  vehicleNumber: string;
-  isActive: boolean;
-  isOnline: boolean;
-  photoUrl?: string | null;
-};
-
-function DriverDetailPanel({
-  driver,
-  vehicles,
-  routes,
-  onClose,
-  onRefresh,
-}: {
-  driver: DriverRow;
-  vehicles: any[] | undefined;
-  routes: any[] | undefined;
-  onClose: () => void;
-  onRefresh: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [saving, setSaving] = useState(false);
-  const [localIsActive, setLocalIsActive] = useState(driver.isActive);
-  const [err, setErr] = useState("");
-
-  async function handleToggleActive() {
-    setSaving(true);
-    setErr("");
-    const next = !localIsActive;
-    try {
-      await apiPatch(`/drivers/${driver.id}`, { isActive: next });
-      setLocalIsActive(next);
-      onRefresh();
-    } catch {
-      setErr("Failed to update status");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirm(`Remove driver ${driver.name}?`)) return;
-    await apiDelete(`/drivers/${driver.id}`);
-    queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
-    onRefresh();
-    onClose();
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-border" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
-            <img
-              src={
-                driver.photoUrl ??
-                `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(driver.name)}`
-              }
-              alt={driver.name}
-              className="h-10 w-10 rounded-full border-2 border-amber-500 object-cover shrink-0"
-            />
-            <div>
-              <h2 className="text-base font-bold text-foreground">
-                {driver.name}
-              </h2>
-              <span className="text-[10px] font-semibold text-muted-foreground">
-                {localIsActive ? "● Active" : "● Inactive"}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-          {err && (
-            <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-xl">
-              {err}
-            </p>
-          )}
-          <button
-            onClick={handleToggleActive}
-            className="w-full bg-amber-500 py-2 text-xs font-bold rounded-xl text-slate-900"
-          >
-            {localIsActive ? "Mark Inactive" : "Mark Active"}
-          </button>
-          <button
-            onClick={handleDelete}
-            className="w-full bg-red-500 py-2 text-xs font-bold rounded-xl text-white"
-          >
-            Remove Driver
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type PassengerRow = {
-  id: number;
-  name: string;
-  phone?: string | null;
-  photoUrl?: string | null;
-  role: string;
-  stationId: number;
-  stationName?: string | null;
-  routeId?: number | null;
-};
-type StationOption = { id: number; name: string };
-
-function PassengerDetailPanel({
-  passenger,
-  stations,
-  routes,
-  onClose,
-  onRefresh,
-}: {
-  passenger: PassengerRow;
-  stations: StationOption[] | undefined;
-  routes: any[] | undefined;
-  onClose: () => void;
-  onRefresh: () => void;
-}) {
-  const [editName, setEditName] = useState(passenger.name);
-  const [editPhone, setEditPhone] = useState(passenger.phone ?? "");
-
-  async function handleSave() {
-    if (!editName.trim()) return;
-    try {
-      await apiPatch(`/passengers/${passenger.id}`, {
-        name: editName.trim(),
-        phone: editPhone.trim() || undefined,
-        stationId: passenger.stationId,
-        routeId: passenger.routeId,
-      });
-      onRefresh();
-      onClose();
-    } catch {
-      alert("Failed to save");
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirm(`Remove ${passenger.name}?`)) return;
-    await fetch(`${REPLIT_BACKEND}/api/passengers/${passenger.id}`, {
-      method: "DELETE",
-      headers:
-        getTenantId() !== null ? { "x-tenant-id": String(getTenantId()) } : {},
-    });
-    onRefresh();
-    onClose();
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl flex flex-col p-5 space-y-3">
-        <input
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          className="w-full border p-2 rounded-xl bg-muted"
-        />
-        <input
-          value={editPhone}
-          onChange={(e) => setEditPhone(e.target.value)}
-          className="w-full border p-2 rounded-xl bg-muted"
-        />
-        <button
-          onClick={handleSave}
-          className="w-full bg-amber-500 py-2 rounded-xl text-slate-900 font-bold"
-        >
-          Save Changes
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full bg-red-500 py-2 rounded-xl text-white font-bold"
-        >
-          Remove
-        </button>
-      </div>
-    </div>
-  );
-}
-
-type RouteStation = {
-  id: number;
-  routeId: number;
-  stationId: number;
-  position: number;
-  direction: string;
-  stopLabel: string | null;
-  eta: string | null;
-  stationName: string | null;
-  lat: number | null;
-  lng: number | null;
-  radius: number | null;
-};
-type RouteRow = {
-  id: number;
-  name: string;
-  driverId: number | null;
-  vehicleId: number | null;
-  isActive: boolean | null;
-  driverName: string | null;
-  vehiclePlate: string | null;
-  departureTime?: string | null;
-  avgSpeedKmh?: number | null;
-};
-type VehicleRow = {
-  id: number;
-  plateNumber: string;
-  model: string;
-  capacity: number;
-  isActive: boolean;
-  tag?: string | null;
-};
-
-function RouteStationsPanel({
-  routeId,
-  route,
-  vehicles,
-  drivers,
-  onClose,
-  onRouteUpdated,
-}: {
-  routeId: number;
-  route: RouteRow;
-  vehicles: VehicleRow[] | undefined;
-  drivers: Array<{ id: number; name: string }> | undefined;
-  onClose: () => void;
-  onRouteUpdated: () => void;
-}) {
-  const [editVehicle, setEditVehicle] = useState(String(route.vehicleId ?? ""));
-  const [editDriver, setEditDriver] = useState(String(route.driverId ?? ""));
-  const [depTime, setDepTime] = useState(route.departureTime ?? "06:00 AM");
-  const [speedKmh, setSpeedKmh] = useState(String(route.avgSpeedKmh ?? 25));
-
-  async function handleAssign() {
-    try {
-      await apiPatch(`/routes/${routeId}`, {
-        vehicleId: editVehicle ? Number(editVehicle) : null,
-        driverId: editDriver ? Number(editDriver) : null,
-      });
-      onRouteUpdated();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <div className="bg-muted/30 border border-border rounded-xl p-4 mt-2 space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          value={depTime}
-          onChange={(e) => setDepTime(e.target.value)}
-          className="border p-2 text-xs rounded-lg"
-        />
-        <input
-          type="number"
-          value={speedKmh}
-          onChange={(e) => setSpeedKmh(e.target.value)}
-          className="border p-2 text-xs rounded-lg"
-        />
-      </div>
-      <button
-        onClick={handleAssign}
-        className="w-full bg-green-600 py-1 rounded-lg text-xs font-bold text-white"
-      >
-        Save Assignment
-      </button>
-    </div>
-  );
-}
-
-function VehicleTagGrid({
-  vehicles,
-  routes,
-  onTagUpdated,
-}: {
-  vehicles: VehicleRow[] | undefined;
-  routes: RouteRow[] | undefined;
-  onTagUpdated: () => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [aPlate, setAPlate] = useState("");
-  const [aModel, setAModel] = useState("");
-
-  async function handleAddVehicle() {
-    if (!aPlate.trim() || !aModel.trim()) return;
-    try {
-      await apiPost("/vehicles", {
-        plateNumber: aPlate.trim(),
-        model: aModel.trim(),
-        capacity: 40,
-      });
-      setAPlate("");
-      setAModel("");
-      setAdding(false);
-      onTagUpdated();
-    } catch {
-      alert("Failed");
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-sm text-primary">Fleet Asset Grid</h2>
-        <button
-          onClick={() => setAdding(!adding)}
-          className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
-        >
-          + Add Vehicle
-        </button>
-      </div>
-      {adding && (
-        <div className="space-y-2 mt-3 p-3 bg-muted rounded-xl">
-          <input
-            value={aPlate}
-            onChange={(e) => setAPlate(e.target.value)}
-            placeholder="Plate Number (BA 1 KHA 1234)"
-            className="w-full border p-2 text-xs rounded-lg"
-          />
-          <input
-            value={aModel}
-            onChange={(e) => setAModel(e.target.value)}
-            placeholder="Model"
-            className="w-full border p-2 text-xs rounded-lg"
-          />
-          <button
-            onClick={handleAddVehicle}
-            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900"
-          >
-            Add Vehicle
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RouteManager({
-  drivers,
-  vehicles,
-}: {
-  drivers: Array<{ id: number; name: string }> | undefined;
-  vehicles: VehicleRow[] | undefined;
-}) {
-  const queryClient = useQueryClient();
-  const { data: routes, refetch } = useListRoutes();
-  const [creating, setCreating] = useState(false);
-  const [rName, setRName] = useState("");
-
-  async function handleCreate() {
-    if (!rName.trim()) return;
-    try {
-      await apiPost("/routes", { name: rName.trim() });
-      setRName("");
-      setCreating(false);
-      refetch();
-      queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
-    } catch {
-      /* noop */
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-sm text-primary">Route Management</h2>
-        <button
-          onClick={() => setCreating(!creating)}
-          className="bg-amber-500 text-xs px-3 py-1 font-bold rounded-xl text-slate-900"
-        >
-          New Route
-        </button>
-      </div>
-      {creating && (
-        <div className="space-y-2 mt-3">
-          <input
-            value={rName}
-            onChange={(e) => setRName(e.target.value)}
-            placeholder="Route Name"
-            className="w-full border p-2 text-xs rounded-lg"
-          />
-          <button
-            onClick={handleCreate}
-            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900"
-          >
-            Create
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SmartStationManager({
-  stations,
-  onChanged,
-}: {
-  stations: StationRow[] | undefined;
-  onChanged: () => void;
-}) {
-  const [pendingName, setPendingName] = useState("");
-
-  async function handleSave() {
-    if (!pendingName.trim()) return;
-    try {
-      await apiPost("/stations", {
-        name: pendingName.trim(),
-        lat: 27.7172,
-        lng: 85.324,
-        radius: 100,
-      });
-      onChanged();
-      setPendingName("");
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h2 className="font-bold text-sm text-primary mb-3">Geofence Stations</h2>
-      <div className="flex gap-2">
-        <input
-          value={pendingName}
-          onChange={(e) => setPendingName(e.target.value)}
-          placeholder="New Station Name"
-          className="flex-1 border p-2 text-xs rounded-xl"
-        />
-        <button
-          onClick={handleSave}
-          className="bg-amber-500 text-xs px-4 py-2 font-bold rounded-xl text-slate-900"
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function BoardingLogPanel() {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h2 className="font-semibold text-primary text-sm">Live Boarding Log</h2>
-      <p className="text-xs text-muted-foreground mt-1">
-        Real-time board/absent logs active from drivers.
-      </p>
-    </div>
-  );
-}
-function DriverCommunicationsPanel() {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h2 className="font-semibold text-primary text-sm">Communications Log</h2>
-      <p className="text-xs text-muted-foreground mt-1">
-        Driver reports & messaging channel.
-      </p>
-    </div>
-  );
-}
-function FleetFuelPanel() {
-  return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Fuel Logs</h3>
-    </div>
-  );
-}
-function FleetMaintenancePanel() {
-  return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Service Records</h3>
-    </div>
-  );
-}
-function FleetDocumentsPanel() {
-  return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Statutory Documents</h3>
-    </div>
-  );
-}
-
-// ── 🚀 ह्वाट्सएप मेसेजिङ प्यानल (WhatsApp Alerts with Scrolling & Dropdown Log Hide) ──
+// ── WhatsApp Notifications Panel with Dropdown Log Hide ──
 function WhatsAppNotificationsPanel() {
   const [activeSubTab, setActiveSubTab] = useState<
-    "students" | "staff" | "drivers" | "all"
+    "students" | "staff" | "drivers"
   >("students");
   const [selectedClass, setSelectedClass] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -1244,13 +872,6 @@ function WhatsAppNotificationsPanel() {
         status: "success",
         time: "Jun 27, 08:55 PM",
       },
-      {
-        id: 4,
-        type: "Emergency",
-        target: "All Drivers",
-        status: "success",
-        time: "Jun 27, 08:48 PM",
-      },
     ]);
   }, []);
 
@@ -1276,9 +897,9 @@ function WhatsAppNotificationsPanel() {
         ...prev,
       ]);
       setCustomMessage("");
-      alert("WhatsApp broadcast request sent successfully!");
+      alert("Broadcast sent!");
     } catch {
-      alert("Failed to broadcast message.");
+      alert("Failed");
     } finally {
       setSending(false);
     }
@@ -1289,87 +910,69 @@ function WhatsAppNotificationsPanel() {
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <MessageCircle size={15} className="text-green-500" />
-          <h2 className="font-semibold text-primary text-sm">
-            WhatsApp Alerts & Broadcaster
-          </h2>
-        </div>
+      <div className="px-4 py-3 border-b border-border font-bold text-sm text-primary flex items-center gap-2">
+        <MessageCircle size={15} className="text-green-500" /> WhatsApp Alerts &
+        Broadcaster
       </div>
-
-      <div className="flex border-b border-border bg-muted/40 p-1 gap-1 text-xs">
+      <div className="flex bg-muted/40 p-1 text-xs font-semibold gap-1">
         <button
           onClick={() => setActiveSubTab("students")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "students" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "students" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           Students/Parents
         </button>
         <button
           onClick={() => setActiveSubTab("staff")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "staff" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "staff" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           Staff
         </button>
         <button
           onClick={() => setActiveSubTab("drivers")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "drivers" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "drivers" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           Drivers
         </button>
       </div>
-
       <div className="p-4 space-y-3">
         {activeSubTab === "students" && (
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-              Filter by Class
-            </label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full border rounded-xl p-2 text-xs bg-background"
-            >
-              <option value="">All Classes</option>
-              {[
-                "Class 1",
-                "Class 2",
-                "Class 3",
-                "Class 4",
-                "Class 5",
-                "Class 6",
-                "Class 7",
-                "Class 8",
-                "Class 9",
-                "Class 10",
-                "Class 11",
-                "Class 12",
-              ].map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="w-full border rounded-xl p-2 text-xs bg-background"
+          >
+            <option value="">All Classes</option>
+            {[
+              "Class 1",
+              "Class 2",
+              "Class 3",
+              "Class 4",
+              "Class 5",
+              "Class 6",
+              "Class 7",
+              "Class 8",
+              "Class 9",
+              "Class 10",
+              "Class 11",
+              "Class 12",
+            ].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         )}
-
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">
-            Custom Message Box
-          </label>
-          <textarea
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder={`Write WhatsApp text alert to ${activeSubTab}...`}
-            rows={3}
-            className="w-full border rounded-xl p-2.5 text-xs outline-none bg-muted/20 focus:border-amber-500 resize-none"
-          />
-        </div>
-
+        <textarea
+          value={customMessage}
+          onChange={(e) => setCustomMessage(e.target.value)}
+          placeholder="Write alert..."
+          rows={3}
+          className="w-full border rounded-xl p-2.5 text-xs bg-muted/20 outline-none resize-none"
+        />
         <button
           onClick={handleBroadcast}
           disabled={sending || !customMessage.trim()}
-          className="w-full bg-green-600 text-white font-bold text-xs py-2.5 rounded-xl hover:bg-green-500 transition-colors disabled:opacity-40"
+          className="w-full bg-green-600 text-white font-bold text-xs py-2.5 rounded-xl"
         >
           {sending ? "Broadcasting..." : "🚀 Send WhatsApp Broadcast Alert"}
         </button>
@@ -1381,80 +984,41 @@ function WhatsAppNotificationsPanel() {
           {latestMessage && (
             <div className="flex items-center justify-between p-3 border rounded-xl bg-green-500/10 border-green-500/30 text-xs mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${latestMessage.status === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-                >
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700">
                   {latestMessage.type}
                 </span>
                 <p className="truncate text-foreground font-semibold">
                   {latestMessage.target}
                 </p>
               </div>
-              <div className="text-right text-[10px] shrink-0 font-medium">
-                <span
-                  className={
-                    latestMessage.status === "success"
-                      ? "text-green-500"
-                      : "text-red-400"
-                  }
-                >
-                  {latestMessage.status}
-                </span>
-                <p className="text-[9px] text-muted-foreground">
-                  {latestMessage.time}
-                </p>
-              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {latestMessage.time}
+              </span>
             </div>
           )}
-
           {olderMessages.length > 0 && (
             <div className="space-y-1.5">
               <button
                 onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-                className="w-full flex items-center justify-between px-3 py-1.5 bg-muted/40 border border-border rounded-xl text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                className="w-full flex items-center justify-between px-3 py-1.5 bg-muted/40 border border-border rounded-xl text-[11px] font-medium text-muted-foreground"
               >
                 <span>
                   {isHistoryOpen
                     ? "🔼 Hide Older Logs"
-                    : `🔽 View Older Logs (${olderMessages.length})`}
+                    : `🔽 View Older Logs history (${olderMessages.length})`}
                 </span>
-                {isHistoryOpen ? (
-                  <ChevronUp size={12} />
-                ) : (
-                  <ChevronDown size={12} />
-                )}
               </button>
               {isHistoryOpen && (
-                <div className="border border-border rounded-xl divide-y max-h-36 overflow-y-auto bg-muted/10 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+                <div className="border border-border rounded-xl divide-y max-h-36 overflow-y-auto bg-muted/10">
                   {olderMessages.map((h) => (
                     <div
                       key={h.id}
                       className="flex items-center justify-between p-2 text-xs"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${h.status === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-                        >
-                          {h.type}
-                        </span>
-                        <p className="truncate text-muted-foreground">
-                          {h.target}
-                        </p>
-                      </div>
-                      <div className="text-right text-[10px] shrink-0 font-medium">
-                        <span
-                          className={
-                            h.status === "success"
-                              ? "text-green-500"
-                              : "text-red-400"
-                          }
-                        >
-                          {h.status}
-                        </span>
-                        <p className="text-[9px] text-muted-foreground">
-                          {h.time}
-                        </p>
-                      </div>
+                      <span>{h.target}</span>
+                      <span className="text-[9px] text-muted-foreground">
+                        {h.time}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1467,88 +1031,16 @@ function WhatsAppNotificationsPanel() {
   );
 }
 
-// ── Shared Fleet Summary Components ──
-function FleetCostsSummaryCard() {
-  const [fuelRows, setFuelRows] = useState<FuelLogRow[]>([]);
-  const [maintRows, setMaintRows] = useState<MaintenanceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [fuelRes, maintRes] = await Promise.all([
-          fetch(`${REPLIT_BACKEND}/api/fuel-logs`, {
-            headers: tenantHeaders(),
-          }),
-          fetch(`${REPLIT_BACKEND}/api/maintenance-records`, {
-            headers: tenantHeaders(),
-          }),
-        ]);
-        if (fuelRes.ok) setFuelRows(await fuelRes.json());
-        if (maintRes.ok) setMaintRows(await maintRes.json());
-      } catch {
-        /* noop */
-      } finally {
-        setLoading(false);
-      }
-    }
-    void load();
-  }, []);
-
-  const totalFuelThisMonth = fuelRows.reduce((sum, r) => sum + r.amountNpr, 0);
-  const totalMaintThisMonth = maintRows.reduce((sum, r) => sum + r.costNpr, 0);
-
-  if (loading)
-    return (
-      <div className="rounded-2xl border border-border bg-card shadow-sm p-6 text-center text-xs text-muted-foreground">
-        Loading costs…
-      </div>
-    );
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase">
-            Fuel This Month
-          </p>
-          <p className="text-2xl font-bold text-amber-500 mt-1">
-            Rs {totalFuelThisMonth.toLocaleString()}
-          </p>
-        </div>
-        <Droplets size={24} className="text-amber-500/40" />
-      </div>
-      <div className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase">
-            Service This Month
-          </p>
-          <p className="text-2xl font-bold text-blue-500 mt-1">
-            Rs {totalMaintThisMonth.toLocaleString()}
-          </p>
-        </div>
-        <Wrench size={24} className="text-blue-500/40" />
-      </div>
-    </div>
-  );
-}
-
-// ── 🛠️ Live Fleet Map Tracker (बिदाको दिन सम्पूर्ण जीपीएस ट्र्याकिङ फ्रिज / लक गर्ने कोड) ──
+// ── Live Fleet Map Panel with Strict Holiday Freeze Lock ──
 function LiveFleetMapPanel() {
   const liveLocations = useLiveLocations();
   const todayB = todayBs();
-  const queryClient = useQueryClient();
-
-  // ब्याकइन्ड क्यालेन्डरबाट आज बिदा (Holiday) छ कि छैन भनेर चेक गर्ने
   const queryMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const { data: currentMonthEvents } = useListCalendarEvents({
-    month: queryMonth,
-  });
+  const { data: monthEvents } = useListCalendarEvents({ month: queryMonth });
 
   const isTodayHoliday = useMemo(() => {
-    if (!currentMonthEvents) return false;
-    return currentMonthEvents.some((ev: any) => {
+    if (!monthEvents) return false;
+    return monthEvents.some((ev: any) => {
       const parts = ev.eventDate.split("-").map(Number);
       const bs = adToBs(parts[0], parts[1], parts[2]);
       return (
@@ -1558,10 +1050,9 @@ function LiveFleetMapPanel() {
         ev.type === "holiday"
       );
     });
-  }, [currentMonthEvents, todayB]);
+  }, [monthEvents, todayB]);
 
   const buses: FleetBus[] = useMemo(() => {
-    // 🛑 यदि आज स्कूल बिदा छ भने नक्सा र जीपीएस ट्र्याकिङमा कुनै पनि गाडी देखाउँदैन (Freeze)
     if (isTodayHoliday) return [];
     return liveLocations
       .filter((loc) => loc.isLive && loc.lat !== null && loc.lng !== null)
@@ -1577,26 +1068,18 @@ function LiveFleetMapPanel() {
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <MapPin size={15} className="text-amber-500" />
-        <h2 className="font-semibold text-primary text-sm">
-          Live Fleet Map Tracker
-        </h2>
+      <div className="px-4 py-3 border-b border-border font-bold text-sm text-primary flex items-center gap-2">
+        <MapPin size={15} className="text-amber-500" /> Live Fleet Map Tracker
       </div>
-
       {isTodayHoliday ? (
-        <div className="p-6 bg-red-500/5 text-center space-y-2">
-          <AlertCircle
-            size={28}
-            className="text-red-500 mx-auto animate-pulse"
-          />
-          <p className="text-sm font-bold text-red-600 dark:text-red-400">
+        <div className="p-6 bg-red-500/5 text-center space-y-1.5">
+          <AlertCircle size={24} className="text-red-500 mx-auto" />
+          <p className="text-xs font-bold text-red-600">
             🏫 आज विद्यालय सार्वजनिक/साप्ताहिक बिदा रहेको छ।
           </p>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            बिदाको दिनमा सुरक्षा र आन्तरिक गोपनियताका कारण विद्यार्थी/अभिभावक
-            प्यानलमा बसको लाइभ जीपीएस स्थान र ट्र्याकिङ रोक्का (Freeze) गरिएको
-            छ।
+          <p className="text-[10px] text-muted-foreground">
+            सुरक्षा कारण बिदाको दिनमा बसको लाइभ ट्र्याकिङ र जीपीएस मेसेजहरू
+            रोक्का (Freeze) गरिएको छ।
           </p>
         </div>
       ) : buses.length === 0 ? (
@@ -1610,38 +1093,93 @@ function LiveFleetMapPanel() {
   );
 }
 
+function SmartStationManager({
+  stations,
+  onChanged,
+}: {
+  stations: any[] | undefined;
+  onChanged: () => void;
+}) {
+  const [pendingName, setPendingName] = useState("");
+  async function handleSave() {
+    if (!pendingName.trim()) return;
+    try {
+      await apiPost("/stations", {
+        name: pendingName.trim(),
+        lat: 27.7172,
+        lng: 85.324,
+        radius: 100,
+      });
+      onChanged();
+      setPendingName("");
+    } catch {
+      /* ignore */
+    }
+  }
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h2 className="font-bold text-sm text-primary mb-3">Geofence Stations</h2>
+      <div className="flex gap-2">
+        <input
+          value={pendingName}
+          onChange={(e) => setPendingName(e.target.value)}
+          placeholder="New Station Name"
+          className="flex-1 border p-2 text-xs rounded-xl"
+        />
+        <button
+          onClick={handleSave}
+          className="bg-amber-500 text-xs px-4 py-2 font-bold rounded-xl text-slate-900"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VehicleTagGrid({
+  vehicles,
+  routes,
+  onTagUpdated,
+}: {
+  vehicles: any[] | undefined;
+  routes: any[] | undefined;
+  onTagUpdated: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h2 className="font-semibold text-primary text-sm">Vehicle Assets</h2>
+      <p className="text-xs text-muted-foreground mt-1">
+        Total registered transport logs configuration asset grid.
+      </p>
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user } = useAuth();
-  const liveLocations = useLiveLocations();
   const { data: stations } = useListStations();
-  const { data: passengers, refetch: refetchPassengers } = useListPassengers();
-  const { data: drivers, refetch: refetchDrivers } = useListDrivers();
+  const { data: drivers } = useListDrivers();
   const { data: vehicles } = useListVehicles();
   const { data: adminRoutes } = useListRoutes();
   const queryClient = useQueryClient();
 
-  const [adminTab, setAdminTab] = useState<
-    "dashboard" | "fleet-fuel" | "fleet-maintenance" | "fleet-documents"
-  >("dashboard");
-  const [tenant, setTenant] = useState<Tenant | null>(user?.tenant ?? null);
-
+  const [tenant, setTenant] = useState<any | null>(user?.tenant ?? null);
   const tenantId = user?.tenantId ?? 1;
 
   useEffect(() => {
     if (!tenant) {
       fetch(`${REPLIT_BACKEND}/api/tenants/${tenantId}`)
         .then((r) => r.json())
-        .then((data: Tenant) => setTenant(data))
+        .then((data: any) => setTenant(data))
         .catch(() => {});
     }
   }, [tenantId, tenant]);
 
   function refetchAll() {
-    queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
   }
 
   return (
@@ -1653,82 +1191,33 @@ export default function AdminPortal() {
         </div>
       </header>
 
-      <nav className="rounded-xl border border-border bg-card shadow-sm flex overflow-x-auto p-1 gap-2 text-xs font-semibold">
-        {(
-          [
-            "dashboard",
-            "fleet-fuel",
-            "fleet-maintenance",
-            "fleet-documents",
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setAdminTab(tab)}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${adminTab === tab ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
-          >
-            {tab === "dashboard"
-              ? "Dashboard"
-              : tab === "fleet-fuel"
-                ? "Fuel Logs"
-                : tab === "fleet-maintenance"
-                  ? "Service"
-                  : "Documents"}
-          </button>
-        ))}
+      {/* ── 🛠️ पुराना बटन हटाएर सफा राखिएको ── */}
+      <nav className="rounded-xl border border-border bg-card shadow-sm flex p-1 gap-2 text-xs font-semibold bg-muted/20">
+        <span className="px-4 py-2 bg-amber-500 text-slate-900 rounded-lg shadow-sm">
+          Dashboard Overview
+        </span>
       </nav>
 
-      {adminTab === "dashboard" && (
-        <>
-          <FleetCostsSummaryCard />
-          <LiveFleetMapPanel />
-          <BoardingLogPanel
-            passengers={passengers as Passenger[] | undefined}
-            stations={stations as StationOption[] | undefined}
-            routes={adminRoutes as RouteRow[] | undefined}
-            onRefresh={refetchAll}
-          />
-          <WhatsAppNotificationsPanel />
-          <DriverCommunicationsPanel
-            drivers={drivers as DriverRow[] | undefined}
-            vehicles={vehicles as any[] | undefined}
-            routes={adminRoutes as RouteRow[] | undefined}
-            onRefresh={refetchAll}
-          />
-          <SmartStationManager
-            stations={stations as StationRow[] | undefined}
-            onChanged={() =>
-              queryClient.invalidateQueries({
-                queryKey: getListStationsQueryKey(),
-              })
-            }
-          />
-          <VehicleTagGrid
-            vehicles={vehicles as any[] | undefined}
-            routes={adminRoutes as RouteRow[] | undefined}
-            onTagUpdated={() =>
-              queryClient.invalidateQueries({
-                queryKey: getListVehiclesQueryKey(),
-              })
-            }
-          />
-          <RouteManager
-            drivers={drivers}
-            vehicles={vehicles as any[] | undefined}
-          />
-          <CalendarManager />
-        </>
-      )}
+      <div className="space-y-6">
+        <LiveFleetMapPanel />
 
-      {adminTab === "fleet-fuel" && (
-        <FleetFuelPanel vehicles={vehicles as any[] | undefined} />
-      )}
-      {adminTab === "fleet-maintenance" && (
-        <FleetMaintenancePanel vehicles={vehicles as any[] | undefined} />
-      )}
-      {adminTab === "fleet-documents" && (
-        <FleetDocumentsPanel vehicles={vehicles as any[] | undefined} />
-      )}
+        {/* ── 🚀 २. सिधै यही फाइल भित्र लोड गरिएको "Vehicle Service" प्रणाली ── */}
+        <VehicleServiceTabs vehicles={vehicles as any[] | undefined} />
+
+        <BoardingLogPanel />
+        <WhatsAppNotificationsPanel />
+        <DriverCommunicationsPanel />
+        <SmartStationManager
+          stations={stations as any[] | undefined}
+          onChanged={refetchAll}
+        />
+        <VehicleTagGrid
+          vehicles={vehicles as any[] | undefined}
+          routes={adminRoutes as any[] | undefined}
+          onTagUpdated={refetchAll}
+        />
+        <CalendarManager />
+      </div>
     </div>
   );
 }
