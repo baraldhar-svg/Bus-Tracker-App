@@ -1824,14 +1824,11 @@ function AddDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl">
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="h-1 w-10 rounded-full bg-border" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-bold text-base text-foreground flex items-center gap-2">
             <Bus size={16} className="text-amber-500" /> Add New Driver
           </h2>
@@ -1839,7 +1836,7 @@ function AddDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <X size={18} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1">Full Name *</label>
             <input
@@ -1873,7 +1870,7 @@ function AddDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated
             />
           </div>
           {err && <p className="text-xs text-red-500 font-medium">{err}</p>}
-          <div className="flex gap-2 pt-1 pb-2">
+          <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
