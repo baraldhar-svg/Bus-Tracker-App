@@ -1644,6 +1644,7 @@ type WaNotification = {
   stationName: string | null;
   messageBody: string;
   status: string;
+  errorDetail: string | null;
   sentAt: string | Date;
 };
 
@@ -1773,9 +1774,18 @@ function WhatsAppNotificationsPanel() {
                 <span className="shrink-0 text-[10px] text-muted-foreground">{formatTime(row.sentAt)}</span>
               </div>
               {expanded === row.id && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground whitespace-pre-wrap pl-1 border-l-2 border-muted">
-                  {row.messageBody}
-                </p>
+                <div className="mt-1.5 pl-1 border-l-2 border-muted space-y-1">
+                  {row.status === "failed" && row.errorDetail && (
+                    <p className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                      {row.errorDetail === "token_not_configured"
+                        ? "⚠ WhatsApp token not configured — alert was not delivered. Set WHATSAPP_ACCESS_TOKEN in environment secrets."
+                        : row.errorDetail}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">
+                    {row.messageBody}
+                  </p>
+                </div>
               )}
             </button>
           ))}

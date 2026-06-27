@@ -84,7 +84,23 @@ function buildTemplateComponents(
 export async function sendWhatsAppAlert(payload: WhatsAppPayload): Promise<void> {
   const token = process.env["WHATSAPP_ACCESS_TOKEN"];
   if (!token) {
-    logger.warn("WHATSAPP_ACCESS_TOKEN not set — skipping WhatsApp notification");
+    logger.warn("WHATSAPP_ACCESS_TOKEN not set — logging failed notification to DB");
+    try {
+      await db.insert(whatsappNotificationsTable).values({
+        tenantId: payload.tenantId,
+        to: payload.to,
+        recipientName: payload.recipientName,
+        type: payload.type,
+        passengerName: payload.passengerName ?? null,
+        stationName: payload.stationName ?? null,
+        templateName: TEMPLATES[payload.type],
+        messageBody: payload.messageBody,
+        status: "failed",
+        errorDetail: "token_not_configured",
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to persist WhatsApp notification log (no-token path)");
+    }
     return;
   }
 
