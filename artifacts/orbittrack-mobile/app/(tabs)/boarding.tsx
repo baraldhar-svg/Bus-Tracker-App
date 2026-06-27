@@ -45,7 +45,8 @@ export default function BoardingScreen() {
 
   const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers(
     phoneParam ? { phone: phoneParam } : undefined,
-    { query: { refetchInterval: 20_000 } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { refetchInterval: 20_000 } as any },
   );
 
   const isParentView = role === "parent" && parentPhone;

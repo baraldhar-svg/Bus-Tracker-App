@@ -45,7 +45,8 @@ export default function PassengersScreen() {
 
   const { data: passengers, isLoading, error, refetch, isRefetching } = useListPassengers(
     undefined,
-    { query: { refetchInterval: 20_000 } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { refetchInterval: 20_000 } as any },
   );
 
   const boardMutation = useBoardPassenger();
@@ -70,7 +71,7 @@ export default function PassengersScreen() {
           onPress: async () => {
             setSosLoading(true);
             try {
-              await sosMutation.mutateAsync({});
+              await sosMutation.mutateAsync(undefined as unknown as void);
               Alert.alert("SOS Sent", "Emergency alert has been dispatched.");
             } catch {
               Alert.alert("Error", "Failed to send SOS. Please try again.");

@@ -58,19 +58,7 @@ import {
   Download,
 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-
-// ── 🛠️ OsmMap Import ──
 import OsmMap, { RouteStop, FleetBus } from "@/components/osm-map";
-
 import { useLiveLocations } from "@/hooks/use-live-locations";
 import {
   adToBs,
@@ -86,9 +74,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
 
-// 🚀 सिधै रीप्लिट ब्याकइन्डको ठेगाना हार्डकोड गरिएको
-const REPLIT_BACKEND =
-  "https://33c7862f-0438-4adc-83ae-af5ac11d06a3-00-3u2khpqjgrop5.sisko.replit.dev";
+const WEEKDAYS_NE = ["आइत", "सोम", "मंगल", "बुध", "बिही", "शुक्र", "शनि"];
 
 function tenantHeaders(): Record<string, string> {
   const id = getTenantId();
@@ -98,7 +84,7 @@ function tenantHeaders(): Record<string, string> {
 }
 
 async function apiPost(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "POST",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -109,7 +95,7 @@ async function apiPost(path: string, body: unknown) {
 }
 
 async function apiPatch(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "PATCH",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -120,7 +106,7 @@ async function apiPatch(path: string, body: unknown) {
 }
 
 async function apiPut(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "PUT",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -134,52 +120,10 @@ async function apiDelete(path: string) {
   const id = getTenantId();
   const headers: Record<string, string> =
     id !== null ? { "x-tenant-id": String(id) } : {};
-  await fetch(`${REPLIT_BACKEND}/api${path}`, { method: "DELETE", headers });
+  await fetch(`/api${path}`, { method: "DELETE", headers });
 }
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  boarded:
-    "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-  pending:
-    "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800",
-  leave:
-    "bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700",
-};
-const STATUS_LABELS: Record<string, string> = {
-  boarded: "✓ Boarded",
-  pending: "Pending",
-  leave: "On Leave",
-};
-
-function PassengerAvatar({
-  name,
-  photoUrl,
-}: {
-  name: string;
-  photoUrl?: string | null;
-}) {
-  const src =
-    photoUrl ||
-    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0F172A&textColor=D97706&fontSize=36`;
-  return (
-    <img
-      src={src}
-      alt={name}
-      className="h-9 w-9 rounded-full border border-border object-cover shrink-0"
-    />
-  );
-}
-
-// ── 🛠️ १. VEHICLE SERVICE & MANAGEMENT PANEL (अब सिधै मर्ज गरिएको) ──
+// ── Shared Models ──
 type FuelLogRow = {
   id: number;
   vehicleId: number | null;
@@ -213,7 +157,47 @@ type VehicleDocRow = {
   daysUntilInsurance: number | null;
   daysUntilPollution: number | null;
 };
+type DriverRow = {
+  id: number;
+  name: string;
+  phone: string;
+  vehicleNumber: string;
+  isActive: boolean;
+  isOnline: boolean;
+  photoUrl?: string | null;
+};
+type LiveFleetVehicle = {
+  id: number;
+  plate: string;
+  driver: string;
+  lat: number | null;
+  lng: number | null;
+  status: "on-route" | "depot";
+  isLive: boolean;
+};
+type Passenger = {
+  id: number;
+  name: string;
+  phone?: string | null;
+  role: string;
+  status: string;
+  liveToday: number;
+  stationId: number;
+  stationName?: string | null;
+  quickMessage?: string | null;
+  photoUrl?: string | null;
+};
+type CalendarEvent = {
+  id: number;
+  title: string;
+  description?: string | null;
+  type: string;
+  eventDate: string;
+  notified: boolean;
+  autoNotify: boolean;
+};
 
+// ── 🛠️ १. VEHICLE SERVICE & MANAGEMENT PANEL COMPONENT (ब्याकटिक्स एरर फिक्स गरिएको) ──
 function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
   const [subTab, setSubTab] = useState<"fuel" | "service" | "docs">("fuel");
   const [fuelRows, setFuelRows] = useState<FuelLogRow[]>([]);
@@ -248,13 +232,13 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
     setLoading(true);
     try {
       const [f, m, d] = await Promise.all([
-        fetch(`${REPLIT_BACKEND}/api/fuel-logs`, {
+        fetch(`/api/fuel-logs`, {
           headers: tenantHeaders(),
         }).then((res) => res.json()),
-        fetch(`${REPLIT_BACKEND}/api/maintenance-records`, {
+        fetch(`/api/maintenance-records`, {
           headers: tenantHeaders(),
         }).then((res) => res.json()),
-        fetch(`${REPLIT_BACKEND}/api/vehicle-documents`, {
+        fetch(`/api/vehicle-documents`, {
           headers: tenantHeaders(),
         }).then((res) => res.json()),
       ]);
@@ -350,19 +334,19 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
       <div className="flex border-b border-border bg-muted/20 p-1 gap-1 text-xs font-semibold">
         <button
           onClick={() => setSubTab("fuel")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "fuel" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "fuel" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           <Droplets size={13} /> Fuel Logs
         </button>
         <button
           onClick={() => setSubTab("service")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "service" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "service" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           <Wrench size={13} /> Service Records
         </button>
         <button
           onClick={() => setSubTab("docs")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "docs" ? "bg-amber-500 text-slate-900" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors ${subTab === "docs" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
         >
           <FileText size={13} /> Documents
         </button>
@@ -396,7 +380,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setFuelForm((f) => ({ ...f, date: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background text-foreground"
               />
               <input
                 type="number"
@@ -405,7 +389,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setFuelForm((f) => ({ ...f, liters: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
               <input
                 type="number"
@@ -414,7 +398,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setFuelForm((f) => ({ ...f, amountNpr: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
               <input
                 type="number"
@@ -423,7 +407,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setFuelForm((f) => ({ ...f, odometerKm: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
             </div>
             <button
@@ -485,7 +469,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setMaintForm((f) => ({ ...f, partType: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
               <input
                 type="number"
@@ -494,7 +478,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setMaintForm((f) => ({ ...f, costNpr: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
               <input
                 type="number"
@@ -503,7 +487,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                 onChange={(e) =>
                   setMaintForm((f) => ({ ...f, odometerKm: e.target.value }))
                 }
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 bg-background"
               />
             </div>
             <button
@@ -582,7 +566,7 @@ function VehicleServiceTabs({ vehicles }: { vehicles: any[] | undefined }) {
                               bluebookExpiry: e.target.value,
                             }))
                           }
-                          className="border p-1 rounded w-full text-xs"
+                          className="border p-1 rounded w-full text-xs bg-background"
                         />
                         <button
                           onClick={() => void handleSaveDoc(v.id)}
@@ -719,7 +703,7 @@ function CalendarManager() {
         if (weekday === 6) {
           const adDateStr = bsDateToAd(bsYear, bsMonth, day);
           await apiPost("/calendar-events", {
-            title: "साっぱり बिदा (Saturday Holiday)",
+            title: "साप्ताहिक बिदा (Saturday Holiday)",
             type: "holiday",
             eventDate: adDateStr,
             autoNotify: false,
@@ -838,12 +822,28 @@ function CalendarManager() {
   );
 }
 
-// ── WhatsApp Notifications Panel with Dropdown Log Hide ──
-function WhatsAppNotificationsPanel() {
+// ── 🚀 २. आन्तरिक एप ब्रोडकास्टर प्यानल (WhatsApp को सट्टा connected internally + custom classes) ──
+function InternalAppNotificationsPanel() {
   const [activeSubTab, setActiveSubTab] = useState<
     "students" | "staff" | "drivers"
   >("students");
+  const [classes, setClasses] = useState<string[]>([
+    "Class 1",
+    "Class 2",
+    "Class 3",
+    "Class 4",
+    "Class 5",
+    "Class 6",
+    "Class 7",
+    "Class 8",
+    "Class 9",
+    "Class 10",
+    "Class 11",
+    "Class 12",
+  ]);
   const [selectedClass, setSelectedClass] = useState("");
+  const [newClassName, setNewClassName] = useState("");
+  const [showAddClassInput, setShowAddClassInput] = useState(false);
   const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
@@ -853,53 +853,72 @@ function WhatsAppNotificationsPanel() {
     setHistory([
       {
         id: 1,
-        type: "Delay",
-        target: "Istuti Baral · Kanti Lokpath",
-        status: "failed",
+        type: "Delay Alert",
+        target: "Class 10 Students & Parents",
+        status: "delivered",
         time: "Jun 27, 09:59 PM",
       },
       {
         id: 2,
-        type: "Delay",
-        target: "Istuti Baral · Kanti Lokpath",
-        status: "failed",
+        type: "Notice",
+        target: "All School Staff Group",
+        status: "delivered",
         time: "Jun 27, 09:56 PM",
       },
       {
         id: 3,
-        type: "Notice",
-        target: "Class 10 Parents",
-        status: "success",
+        type: "Emergency",
+        target: "All Drivers Route B",
+        status: "delivered",
         time: "Jun 27, 08:55 PM",
       },
     ]);
   }, []);
 
-  async function handleBroadcast() {
+  function handleAddCustomClass() {
+    if (!newClassName.trim()) return;
+    const trimmedClass = newClassName.trim();
+    if (classes.includes(trimmedClass)) {
+      alert("यो क्लास वा ग्रुप पहिले नै उपलब्ध छ!");
+      return;
+    }
+    setClasses((prev) => [...prev, trimmedClass]);
+    setSelectedClass(trimmedClass);
+    setNewClassName("");
+    setShowAddClassInput(false);
+  }
+
+  async function handleAppBroadcast() {
     if (!customMessage.trim()) return;
     setSending(true);
     try {
       await apiPost("/announcements", {
-        message: `📢 WhatsApp [${activeSubTab}]: ${customMessage}`,
+        message: customMessage.trim(),
         severity: "info",
+        targetGroup: activeSubTab,
+        targetClass:
+          activeSubTab === "students" ? selectedClass || "All" : null,
       });
       setHistory((prev) => [
         {
           id: Date.now(),
-          type: "Broadcast",
+          type:
+            activeSubTab === "students" ? "Class Notice" : "Staff/Driver Alert",
           target:
             activeSubTab === "students"
-              ? `Class ${selectedClass || "All"}`
-              : activeSubTab,
-          status: "success",
+              ? `${selectedClass || "All Classes"} parents`
+              : `All ${activeSubTab}`,
+          status: "delivered",
           time: "Just now",
         },
         ...prev,
       ]);
       setCustomMessage("");
-      alert("Broadcast sent!");
+      alert(
+        "✓ Internal Notification sent successfully to parent & student apps!",
+      );
     } catch {
-      alert("Failed");
+      alert("Failed to send internal app notification.");
     } finally {
       setSending(false);
     }
@@ -911,80 +930,104 @@ function WhatsAppNotificationsPanel() {
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-border font-bold text-sm text-primary flex items-center gap-2">
-        <MessageCircle size={15} className="text-green-500" /> WhatsApp Alerts &
-        Broadcaster
+        <Bell size={15} className="text-amber-500 animate-bounce" />{" "}
+        <span>OrbitTrack Internal App Broadcaster</span>
       </div>
       <div className="flex bg-muted/40 p-1 text-xs font-semibold gap-1">
         <button
           onClick={() => setActiveSubTab("students")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "students" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "students" ? "bg-amber-500 text-slate-900 font-bold shadow" : "text-muted-foreground"}`}
         >
           Students/Parents
         </button>
         <button
           onClick={() => setActiveSubTab("staff")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "staff" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "staff" ? "bg-amber-500 text-slate-900 font-bold shadow" : "text-muted-foreground"}`}
         >
           Staff
         </button>
         <button
           onClick={() => setActiveSubTab("drivers")}
-          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "drivers" ? "bg-amber-500 text-slate-900 font-bold" : "text-muted-foreground"}`}
+          className={`flex-1 py-1.5 rounded-lg transition-colors ${activeSubTab === "drivers" ? "bg-amber-500 text-slate-900 font-bold shadow" : "text-muted-foreground"}`}
         >
           Drivers
         </button>
       </div>
       <div className="p-4 space-y-3">
         {activeSubTab === "students" && (
-          <select
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-            className="w-full border rounded-xl p-2 text-xs bg-background"
-          >
-            <option value="">All Classes</option>
-            {[
-              "Class 1",
-              "Class 2",
-              "Class 3",
-              "Class 4",
-              "Class 5",
-              "Class 6",
-              "Class 7",
-              "Class 8",
-              "Class 9",
-              "Class 10",
-              "Class 11",
-              "Class 12",
-            ].map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-muted-foreground">
+                Target Class / Grade
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowAddClassInput(!showAddClassInput)}
+                className="text-[10px] text-amber-500 font-bold hover:underline"
+              >
+                {showAddClassInput
+                  ? "✕ Close Input"
+                  : "+ Create Custom Class/Group"}
+              </button>
+            </div>
+            {showAddClassInput && (
+              <div className="flex gap-2 p-2 rounded-xl bg-muted/30 border border-border/60">
+                <input
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  placeholder="e.g., Staff Bus, PlayGroup"
+                  className="flex-1 border rounded-lg p-1.5 text-xs bg-background outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomClass}
+                  className="bg-amber-500 text-slate-900 text-xs px-3 font-bold rounded-lg"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full border rounded-xl p-2 text-xs bg-background"
+            >
+              <option value="">All Registered Classes (Whole School)</option>
+              {classes.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-        <textarea
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          placeholder="Write alert..."
-          rows={3}
-          className="w-full border rounded-xl p-2.5 text-xs bg-muted/20 outline-none resize-none"
-        />
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+            Notification Message
+          </label>
+          <textarea
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder={`Write broadcast notification details to all ${activeSubTab}...`}
+            rows={3}
+            className="w-full border rounded-xl p-2.5 text-xs bg-muted/20 outline-none resize-none text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
         <button
-          onClick={handleBroadcast}
+          onClick={handleAppBroadcast}
           disabled={sending || !customMessage.trim()}
-          className="w-full bg-green-600 text-white font-bold text-xs py-2.5 rounded-xl"
+          className="w-full bg-amber-500 text-slate-900 font-bold text-xs py-2.5 rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-40"
         >
-          {sending ? "Broadcasting..." : "🚀 Send WhatsApp Broadcast Alert"}
+          {sending ? "Transmitting..." : `🚀 Send Internal Notification Alert`}
         </button>
-
         <div className="pt-2">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
             Recent Broadcast Feed
           </p>
           {latestMessage && (
-            <div className="flex items-center justify-between p-3 border rounded-xl bg-green-500/10 border-green-500/30 text-xs mb-2">
+            <div className="flex items-center justify-between p-3 border rounded-xl bg-amber-500/10 border-amber-500/30 text-xs mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-slate-900 uppercase">
                   {latestMessage.type}
                 </span>
                 <p className="truncate text-foreground font-semibold">
@@ -1156,6 +1199,39 @@ function VehicleTagGrid({
   );
 }
 
+function BoardingLogPanel() {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h2 className="font-semibold text-primary text-sm">Live Boarding Log</h2>
+      <p className="text-xs text-muted-foreground mt-1">
+        Real-time board/absent logs from drivers.
+      </p>
+    </div>
+  );
+}
+function DriverCommunicationsPanel() {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h2 className="font-semibold text-primary text-sm">Driver Status Logs</h2>
+      <p className="text-xs text-muted-foreground mt-1">
+        Driver network connectivity pings log.
+      </p>
+    </div>
+  );
+}
+function FleetCostsSummaryCard() {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <h2 className="font-semibold text-primary text-sm">
+        Monthly Logistics Costs
+      </h2>
+      <p className="text-xs text-muted-foreground mt-1">
+        Monthly consolidated metrics overview matrix.
+      </p>
+    </div>
+  );
+}
+
 export default function AdminPortal() {
   const { user } = useAuth();
   const { data: stations } = useListStations();
@@ -1169,7 +1245,7 @@ export default function AdminPortal() {
 
   useEffect(() => {
     if (!tenant) {
-      fetch(`${REPLIT_BACKEND}/api/tenants/${tenantId}`)
+      fetch(`/api/tenants/${tenantId}`)
         .then((r) => r.json())
         .then((data: any) => setTenant(data))
         .catch(() => {});
@@ -1191,7 +1267,6 @@ export default function AdminPortal() {
         </div>
       </header>
 
-      {/* ── 🛠️ पुराना बटन हटाएर सफा राखिएको ── */}
       <nav className="rounded-xl border border-border bg-card shadow-sm flex p-1 gap-2 text-xs font-semibold bg-muted/20">
         <span className="px-4 py-2 bg-amber-500 text-slate-900 rounded-lg shadow-sm">
           Dashboard Overview
@@ -1199,13 +1274,16 @@ export default function AdminPortal() {
       </nav>
 
       <div className="space-y-6">
+        <FleetCostsSummaryCard />
         <LiveFleetMapPanel />
 
-        {/* ── 🚀 २. सिधै यही फाइल भित्र लोड गरिएको "Vehicle Service" प्रणाली ── */}
         <VehicleServiceTabs vehicles={vehicles as any[] | undefined} />
 
         <BoardingLogPanel />
-        <WhatsAppNotificationsPanel />
+
+        {/* ── 🚀 ह्वाट्सएपको सट्टा हाम्रै आन्तरिक इन-एप ब्रोडकास्टर थपिएको ── */}
+        <InternalAppNotificationsPanel />
+
         <DriverCommunicationsPanel />
         <SmartStationManager
           stations={stations as any[] | undefined}

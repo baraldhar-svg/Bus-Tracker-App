@@ -40,10 +40,12 @@ export default function RouteScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 80;
 
-  const { data: trip } = useGetActiveTrip({ query: { refetchInterval: 15_000 } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: trip } = useGetActiveTrip({ query: { refetchInterval: 15_000 } as any });
   const { data: routes } = useListRoutes();
   const activeRoute = routes?.find((r) => r.isActive) ?? routes?.[0];
-  const { data: stations } = useListRouteStations(activeRoute?.id ?? 0, { query: { enabled: !!activeRoute } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: stations } = useListRouteStations(activeRoute?.id ?? 0, { query: { enabled: !!activeRoute } as any });
   const { data: driver } = useGetActiveDriver();
 
   const startMutation = useStartJourney();
@@ -61,7 +63,7 @@ export default function RouteScreen() {
         text: "Start",
         onPress: async () => {
           try {
-            await startMutation.mutateAsync({});
+            await startMutation.mutateAsync(undefined as unknown as void);
             await queryClient.invalidateQueries();
           } catch {
             Alert.alert("Error", "Failed to start journey. Please try again.");
@@ -80,7 +82,7 @@ export default function RouteScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await completeMutation.mutateAsync({});
+            await completeMutation.mutateAsync(undefined as unknown as void);
             await queryClient.invalidateQueries();
           } catch {
             Alert.alert("Error", "Failed to complete journey. Please try again.");

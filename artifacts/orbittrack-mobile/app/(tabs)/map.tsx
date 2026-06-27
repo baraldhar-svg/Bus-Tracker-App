@@ -28,14 +28,15 @@ export default function MapScreen() {
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
-  const { data: trip, isLoading, error, refetch } = useGetActiveTrip({
-    query: { refetchInterval: 15_000 },
-  });
-  const { data: timeline } = useGetTripTimeline({ query: { refetchInterval: 30_000 } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: trip, isLoading, error, refetch } = useGetActiveTrip({ query: { refetchInterval: 15_000 } as any });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: timeline } = useGetTripTimeline({ query: { refetchInterval: 30_000 } as any });
   const { data: tenant } = useGetTenantMe();
   const { data: myChildren = [] } = useListPassengers(
     parentPhone ? { phone: parentPhone } : undefined,
-    { query: { enabled: !!parentPhone } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: !!parentPhone } as any },
   );
 
   const busLat = trip?.currentLat ?? KATHMANDU_LAT;

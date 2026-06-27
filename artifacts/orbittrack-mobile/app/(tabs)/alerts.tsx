@@ -30,7 +30,8 @@ export default function AlertsScreen() {
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 80;
 
   const { data: announcements, isLoading, error, refetch, isRefetching } = useListAnnouncements({
-    query: { refetchInterval: 30_000 },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { refetchInterval: 30_000 } as any,
   });
 
   const { data: tenant } = useGetTenantMe();

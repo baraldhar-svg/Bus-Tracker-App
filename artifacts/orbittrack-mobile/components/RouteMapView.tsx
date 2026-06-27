@@ -7,9 +7,9 @@ import { useColors } from "@/hooks/useColors";
 
 interface Station {
   id: number;
-  stationName: string;
-  lat: number;
-  lng: number;
+  stationName?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   eta?: string | null;
 }
 
@@ -22,7 +22,8 @@ interface Props {
 
 export default function RouteMapView({ busLat, busLng, hasTrip, stations }: Props) {
   const colors = useColors();
-  const mapCoords = stations?.map((s) => ({ latitude: s.lat, longitude: s.lng })) ?? [];
+  const validStations = stations?.filter((s) => s.lat != null && s.lng != null) ?? [];
+  const mapCoords = validStations.map((s) => ({ latitude: s.lat!, longitude: s.lng! }));
 
   return (
     <MapView
@@ -37,8 +38,8 @@ export default function RouteMapView({ busLat, busLng, hasTrip, stations }: Prop
           </View>
         </Marker>
       )}
-      {stations?.map((s) => (
-        <Marker key={s.id} coordinate={{ latitude: s.lat, longitude: s.lng }} title={s.stationName}>
+      {validStations.map((s) => (
+        <Marker key={s.id} coordinate={{ latitude: s.lat!, longitude: s.lng! }} title={s.stationName ?? undefined}>
           <View style={[styles.stationMarker, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="location" size={14} color={colors.primary} />
           </View>
