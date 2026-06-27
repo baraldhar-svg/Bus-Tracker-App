@@ -23,7 +23,44 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const QUICK_MESSAGES = [
-  { Icon: User,       label: "I'm on my way",      value: "I'm on my way" },
+  { Iimport { useState } from "react";
+    import { User, Timer, Home, MapPin, HeartPulse, ThumbsUp } from "lucide-react";
+
+    const QUICK_MESSAGES = [
+      { Icon: User,       label: "I'm on my way",      value: "I'm on my way" },
+      { Icon: Timer,      label: "Wait, I'm coming!",  value: "Wait, I'm coming!" },
+      { Icon: Home,       label: "Staying home today", value: "Staying home today" },
+      { Icon: MapPin,     label: "At the stop now",    value: "At the stop now" },
+      { Icon: HeartPulse, label: "Sick, not coming",   value: "Sick, not coming" },
+      { Icon: ThumbsUp,   label: "On the bus",         value: "On the bus" },
+    ];
+
+    export function QuickMessageSelector({ onSelect }: { onSelect: (value: string) => void }) {
+      return (
+        <div className="mt-2">
+          <label className="text-xs font-semibold text-muted-foreground mb-2 block uppercase tracking-wider">
+            Quick Message
+          </label>
+          {/* स्क्रोलिङ कन्टेनर */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
+            <div className="max-h-40 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full">
+              {QUICK_MESSAGES.map((msg, index) => (
+                <button
+                  key={index}
+                  onClick={() => onSelect(msg.value)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-500/10 transition-colors border-b border-border last:border-0 text-left group"
+                >
+                  <msg.Icon size={16} className="text-amber-500 shrink-0" />
+                  <span className="text-sm font-bold text-foreground group-hover:text-amber-600 transition-colors">
+                    {msg.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }con: User,       label: "I'm on my way",      value: "I'm on my way" },
   { Icon: Timer,      label: "Wait, I'm coming!",   value: "Wait, I'm coming!" },
   { Icon: Home,       label: "Staying home today",  value: "Staying home today" },
   { Icon: MapPin,     label: "At the stop now",     value: "At the stop now" },
