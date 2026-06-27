@@ -86,10 +86,6 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useDriverMessages } from "@/lib/driver-messages";
 
-// 🚀 सिधै रीप्लिट ब्याकइन्डको ठेगाना हार्डकोड गरिएको
-const REPLIT_BACKEND =
-  "https://33c7862f-0438-4adc-83ae-af5ac11d06a3-00-3u2khpqjgrop5.sisko.replit.dev";
-
 function tenantHeaders(): Record<string, string> {
   const id = getTenantId();
   return id !== null
@@ -97,9 +93,8 @@ function tenantHeaders(): Record<string, string> {
     : { "Content-Type": "application/json" };
 }
 
-// ── 🛠️ टेम्पलेट लिटरल (Backticks `` ` ``) पूर्ण रूपमा फिक्स गरिएको ──
 async function apiPost(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "POST",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -110,7 +105,7 @@ async function apiPost(path: string, body: unknown) {
 }
 
 async function apiPatch(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "PATCH",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -121,7 +116,7 @@ async function apiPatch(path: string, body: unknown) {
 }
 
 async function apiPut(path: string, body: unknown) {
-  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     method: "PUT",
     headers: tenantHeaders(),
     body: JSON.stringify(body),
@@ -135,7 +130,7 @@ async function apiDelete(path: string) {
   const id = getTenantId();
   const headers: Record<string, string> =
     id !== null ? { "x-tenant-id": String(id) } : {};
-  await fetch(`${REPLIT_BACKEND}/api${path}`, { method: "DELETE", headers });
+  await fetch(`/api${path}`, { method: "DELETE", headers });
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -870,7 +865,7 @@ function PassengerDetailPanel({
       setEditRouteStations([]);
       return;
     }
-    fetch(`${REPLIT_BACKEND}/api/routes/${editRouteId}/stations`, {
+    fetch(`/api/routes/${editRouteId}/stations`, {
       headers: tenantHeaders(),
     })
       .then((r) => r.json())
@@ -911,7 +906,7 @@ function PassengerDetailPanel({
 
   async function handleDelete() {
     if (!confirm(`Remove ${passenger.name}?`)) return;
-    await fetch(`${REPLIT_BACKEND}/api/passengers/${passenger.id}`, {
+    await fetch(`/api/passengers/${passenger.id}`, {
       method: "DELETE",
       headers:
         getTenantId() !== null ? { "x-tenant-id": String(getTenantId()) } : {},
@@ -1075,7 +1070,7 @@ function RouteStationsPanel({
     setRouteStations([]);
     setLoading(true);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/routes/${routeId}/stations`);
+      const r = await fetch(`/api/routes/${routeId}/stations`);
       setRouteStations(await r.json());
     } finally {
       setLoading(false);
@@ -1660,7 +1655,7 @@ function WhatsAppNotificationsPanel() {
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/whatsapp/notifications`, { headers: tenantHeaders() });
+      const r = await fetch(`/api/whatsapp/notifications`, { headers: tenantHeaders() });
       if (r.ok) setRows(await r.json() as WaNotification[]);
     } finally {
       setLoading(false);
@@ -1675,7 +1670,7 @@ function WhatsAppNotificationsPanel() {
     setSending(true);
     setSendResult(null);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/trips/delay`, {
+      const r = await fetch(`/api/trips/delay`, {
         method: "POST",
         headers: tenantHeaders(),
         body: JSON.stringify({ delayMinutes: mins }),
@@ -2055,9 +2050,9 @@ function FleetCostsSummaryCard() {
       setLoading(true);
       try {
         const [fuelRes, maintRes, budgetRes] = await Promise.all([
-          fetch(`${REPLIT_BACKEND}/api/fuel-logs`, { headers: tenantHeaders() }),
-          fetch(`${REPLIT_BACKEND}/api/maintenance-records`, { headers: tenantHeaders() }),
-          fetch(`${REPLIT_BACKEND}/api/budget-settings`, { headers: tenantHeaders() }),
+          fetch(`/api/fuel-logs`, { headers: tenantHeaders() }),
+          fetch(`/api/maintenance-records`, { headers: tenantHeaders() }),
+          fetch(`/api/budget-settings`, { headers: tenantHeaders() }),
         ]);
         setFuelRows(await fuelRes.json() as FuelLogRow[]);
         setMaintRows(await maintRes.json() as MaintenanceRow[]);
@@ -2111,7 +2106,7 @@ function FleetCostsSummaryCard() {
     const maint = parseFloat(budgetForm.maint) || 0;
     setSavingBudget(true);
     try {
-      const res = await fetch(`${REPLIT_BACKEND}/api/budget-settings`, {
+      const res = await fetch(`/api/budget-settings`, {
         method: "PUT",
         headers: tenantHeaders(),
         body: JSON.stringify({ fuelBudgetNpr: fuel, maintBudgetNpr: maint }),
@@ -2302,7 +2297,7 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/fuel-logs`, { headers: tenantHeaders() });
+      const r = await fetch(`/api/fuel-logs`, { headers: tenantHeaders() });
       setRows(await r.json() as FuelLogRow[]);
     } finally {
       setLoading(false);
@@ -2510,7 +2505,7 @@ function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleRow[] | undefine
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/maintenance-records`, { headers: tenantHeaders() });
+      const r = await fetch(`/api/maintenance-records`, { headers: tenantHeaders() });
       setRows(await r.json() as MaintenanceRow[]);
     } finally {
       setLoading(false);
@@ -2700,7 +2695,7 @@ function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleRow[] | undefined 
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(`${REPLIT_BACKEND}/api/vehicle-documents`, { headers: tenantHeaders() });
+      const r = await fetch(`/api/vehicle-documents`, { headers: tenantHeaders() });
       setRows(await r.json() as VehicleDocRow[]);
     } finally {
       setLoading(false);
@@ -2880,7 +2875,7 @@ export default function AdminPortal() {
 
   useEffect(() => {
     if (!tenant) {
-      fetch(`${REPLIT_BACKEND}/api/tenants/${tenantId}`)
+      fetch(`/api/tenants/${tenantId}`)
         .then((r) => r.json())
         .then((data: Tenant) => setTenant(data))
         .catch(() => {});
