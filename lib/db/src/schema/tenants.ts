@@ -39,6 +39,18 @@ export const adminRegistrationsTable = pgTable("admin_registrations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const insertAdminRegistrationSchema = createInsertSchema(adminRegistrationsTable, {
+  email: z.email(),
+}).pick({
+  schoolName: true,
+  contactName: true,
+  landline: true,
+  email: true,
+  adminName: true,
+  position: true,
+  mobile: true,
+});
+export type InsertAdminRegistration = z.infer<typeof insertAdminRegistrationSchema>;
 export type AdminRegistration = typeof adminRegistrationsTable.$inferSelect;
 
 export const announcementsTable = pgTable("announcements", {

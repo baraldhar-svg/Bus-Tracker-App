@@ -9,6 +9,7 @@ import {
   passengersTable,
   driversTable,
   adminRegistrationsTable,
+  insertAdminRegistrationSchema,
 } from "@workspace/db";
 import { eq, and, gt, isNotNull } from "drizzle-orm";
 
@@ -324,35 +325,19 @@ router.post("/register-school", async (req, res) => {
 });
 
 router.post("/register-admin", async (req, res) => {
-  const {
-    schoolName,
-    contactName,
-    landline,
-    email,
-    adminName,
-    position,
-    mobile,
-  } = req.body as {
-    schoolName: string;
-    contactName: string;
-    landline: string;
-    email: string;
-    adminName: string;
-    position: string;
-    mobile: string;
-  };
+  const parsed = insertAdminRegistrationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid registration data",
+      details: parsed.error.issues.map((i) => ({
+        field: i.path.join("."),
+        message: i.message,
+      })),
+    });
+  }
   const [reg] = await db
     .insert(adminRegistrationsTable)
-    .values({
-      schoolName,
-      contactName,
-      landline,
-      email,
-      adminName,
-      position,
-      mobile,
-      status: "verified_active",
-    })
+    .values({ ...parsed.data, status: "verified_active" })
     .returning();
   return res.status(201).json({ id: reg.id, status: reg.status });
 });
