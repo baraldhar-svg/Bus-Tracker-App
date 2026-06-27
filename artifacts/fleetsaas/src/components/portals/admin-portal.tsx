@@ -58,7 +58,7 @@ import {
 import StationMapPicker from "@/components/station-map-picker";
 
 // ── 🛠️ 'type' कीवर्ड हटाएर सिन्ट्याक्स फिक्स गरिएको ──
-import OsmMap, { RouteStop } from "@/components/osm-map";
+import OsmMap, { RouteStop, FleetBus } from "@/components/osm-map";
 
 import { useLiveLocations } from "@/hooks/use-live-locations";
 import {
@@ -810,6 +810,7 @@ type PassengerRow = {
   routeId?: number | null;
 };
 type StationOption = { id: number; name: string };
+type StationRow = StationOption;
 
 function PassengerDetailPanel({
   passenger,
@@ -1234,37 +1235,116 @@ function VehicleTagGrid({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-sm text-primary">Fleet Asset Grid</h2>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Bus size={15} className="text-amber-500" />
+          <h2 className="font-bold text-sm text-primary">Fleet Asset Grid</h2>
+        </div>
         <button
           onClick={() => setAdding(!adding)}
           className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
         >
-          + Add Vehicle
+          {adding ? "Cancel" : "+ Add Vehicle"}
         </button>
       </div>
       {adding && (
-        <div className="space-y-2 mt-3 p-3 bg-muted rounded-xl">
-          <input
-            value={aPlate}
-            onChange={(e) => setAPlate(e.target.value)}
-            placeholder="Plate Number (BA 1 KHA 1234)"
-            className="w-full border p-2 text-xs rounded-lg"
-          />
-          <input
-            value={aModel}
-            onChange={(e) => setAModel(e.target.value)}
-            placeholder="Model"
-            className="w-full border p-2 text-xs rounded-lg"
-          />
+        <div className="space-y-2 p-4 border-b border-border bg-muted/30">
+          {aErr && <p className="text-xs text-red-500">{aErr}</p>}
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={aPlate}
+              onChange={(e) => setAPlate(e.target.value)}
+              placeholder="Plate Number"
+              className="border p-2 text-xs rounded-lg"
+            />
+            <input
+              value={aModel}
+              onChange={(e) => setAModel(e.target.value)}
+              placeholder="Model"
+              className="border p-2 text-xs rounded-lg"
+            />
+            <input
+              type="number"
+              value={aCapacity}
+              onChange={(e) => setACapacity(e.target.value)}
+              placeholder="Capacity"
+              className="border p-2 text-xs rounded-lg"
+            />
+            <input
+              value={aTag}
+              onChange={(e) => setATag(e.target.value)}
+              placeholder="Tag (optional)"
+              className="border p-2 text-xs rounded-lg"
+            />
+          </div>
           <button
             onClick={handleAddVehicle}
-            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900"
+            disabled={aSaving}
+            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900 disabled:opacity-50"
           >
-            Add Vehicle
+            {aSaving ? "Saving…" : "Add Vehicle"}
           </button>
         </div>
+      )}
+      {(vehicles ?? []).length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No vehicles yet. Add the first one above.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {(vehicles ?? []).map((v) => (
+            <VehicleRowItem key={v.id} vehicle={v} onUpdated={onTagUpdated} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VehicleRowItem({ vehicle, onUpdated }: { vehicle: VehicleRow; onUpdated: () => void }) {
+  const [editingTag, setEditingTag] = useState(false);
+  const [tag, setTag] = useState(vehicle.tag ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSaveTag() {
+    setSaving(true);
+    try {
+      await apiPatch(`/vehicles/${vehicle.id}`, { tag: tag.trim() || null });
+      onUpdated();
+      setEditingTag(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="h-9 w-9 rounded-xl bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center shrink-0">
+        <Bus size={16} className="text-amber-600 dark:text-amber-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground">{vehicle.plateNumber}</p>
+        <p className="text-xs text-muted-foreground">{vehicle.model} · {vehicle.capacity} seats</p>
+      </div>
+      {editingTag ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <input
+            autoFocus
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            placeholder="Tag"
+            className="border rounded-lg px-2 py-1 text-xs w-24"
+          />
+          <button onClick={handleSaveTag} disabled={saving} className="text-[10px] bg-amber-500 text-slate-900 font-bold px-2 py-1 rounded-lg">✓</button>
+          <button onClick={() => { setEditingTag(false); setTag(vehicle.tag ?? ""); }} className="text-[10px] text-muted-foreground px-1">✕</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditingTag(true)}
+          className="shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border border-border text-muted-foreground hover:border-amber-400 hover:text-amber-500 transition-colors"
+        >
+          <Pencil size={10} />
+          {vehicle.tag ? vehicle.tag : "Tag"}
+        </button>
       )}
     </div>
   );
@@ -1282,6 +1362,7 @@ function RouteManager({
   const [creating, setCreating] = useState(false);
   const [rName, setRName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [expandedRouteId, setExpandedRouteId] = useState<number | null>(null);
 
   async function handleCreate() {
     if (!rName.trim()) return;
@@ -1299,31 +1380,87 @@ function RouteManager({
     }
   }
 
+  const routeList = (routes ?? []) as RouteRow[];
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-sm text-primary">Route Management</h2>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Route size={15} className="text-amber-500" />
+          <h2 className="font-bold text-sm text-primary">Route Management</h2>
+        </div>
         <button
           onClick={() => setCreating(!creating)}
           className="bg-amber-500 text-xs px-3 py-1 font-bold rounded-xl text-slate-900"
         >
-          New Route
+          {creating ? "Cancel" : "New Route"}
         </button>
       </div>
+
       {creating && (
-        <div className="space-y-2 mt-3">
+        <div className="p-4 border-b border-border bg-muted/30 space-y-2">
           <input
             value={rName}
             onChange={(e) => setRName(e.target.value)}
-            placeholder="Route Name"
+            placeholder="Route Name (e.g. Route #1 — Koteshwor)"
             className="w-full border p-2 text-xs rounded-lg"
           />
           <button
             onClick={handleCreate}
-            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900"
+            disabled={saving}
+            className="w-full bg-amber-500 text-xs py-2 font-bold rounded-xl text-slate-900 disabled:opacity-50"
           >
-            Create
+            {saving ? "Creating…" : "Create Route"}
           </button>
+        </div>
+      )}
+
+      {routeList.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No routes yet. Create the first one above.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {routeList.map((route) => {
+            const isOpen = expandedRouteId === route.id;
+            return (
+              <div key={route.id}>
+                <button
+                  onClick={() => setExpandedRouteId(isOpen ? null : route.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center shrink-0">
+                    <Route size={14} className="text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{route.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {route.driverName ?? "No driver"} · {route.vehiclePlate ?? "No vehicle"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {route.isActive && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    )}
+                    {isOpen ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="px-4 pb-3">
+                    <RouteStationsPanel
+                      routeId={route.id}
+                      route={route}
+                      vehicles={vehicles}
+                      drivers={drivers}
+                      onClose={() => setExpandedRouteId(null)}
+                      onRouteUpdated={() => {
+                        refetch();
+                        queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1380,48 +1517,676 @@ function SmartStationManager({
   );
 }
 
-function BoardingLogPanel() {
+// ── BoardingLogPanel ───────────────────────────────────────────────────────────
+function BoardingLogPanel({
+  passengers,
+  stations,
+  routes,
+  onRefresh,
+}: {
+  passengers: Passenger[] | undefined;
+  stations: StationOption[] | undefined;
+  routes: RouteRow[] | undefined;
+  onRefresh: () => void;
+}) {
+  const [selected, setSelected] = useState<PassengerRow | null>(null);
+  const list = passengers ?? [];
+  const boarded = list.filter((p) => p.status === "boarded");
+  const pending = list.filter((p) => p.status === "pending");
+  const onLeave = list.filter((p) => p.status === "leave" || p.quickMessage === "Staying home today");
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h2 className="font-semibold text-primary text-sm">Live Boarding Log</h2>
-      <p className="text-xs text-muted-foreground mt-1">
-        Real-time board/absent logs active from drivers.
-      </p>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={15} className="text-amber-500" />
+          <h2 className="font-semibold text-primary text-sm">Live Boarding Log</h2>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-bold">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            ✓ {boarded.length} boarded
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            {pending.length} pending
+          </span>
+          {onLeave.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+              {onLeave.length} leave
+            </span>
+          )}
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No passengers registered yet.</p>
+      ) : (
+        <div className="divide-y divide-border max-h-80 overflow-y-auto">
+          {list.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setSelected({
+                id: p.id,
+                name: p.name,
+                phone: p.phone,
+                photoUrl: p.photoUrl,
+                role: p.role,
+                stationId: p.stationId,
+                stationName: p.stationName,
+                routeId: null,
+              })}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+            >
+              <PassengerAvatar name={p.name} photoUrl={p.photoUrl} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                <p className="text-xs text-muted-foreground">{p.stationName ?? "—"}</p>
+              </div>
+              <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLES[p.status] ?? STATUS_STYLES["pending"]}`}>
+                {STATUS_LABELS[p.status] ?? p.status}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {selected && (
+        <PassengerDetailPanel
+          passenger={selected}
+          stations={stations}
+          routes={routes}
+          onClose={() => setSelected(null)}
+          onRefresh={onRefresh}
+        />
+      )}
     </div>
   );
 }
 
-function DriverCommunicationsPanel() {
+// ── DriverCommunicationsPanel ─────────────────────────────────────────────────
+function DriverCommunicationsPanel({
+  drivers,
+  vehicles,
+  routes,
+  onRefresh,
+}: {
+  drivers: DriverRow[] | undefined;
+  vehicles: VehicleRow[] | undefined;
+  routes: RouteRow[] | undefined;
+  onRefresh: () => void;
+}) {
+  const [selected, setSelected] = useState<DriverRow | null>(null);
+  const list = drivers ?? [];
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <h2 className="font-semibold text-primary text-sm">Communications Log</h2>
-      <p className="text-xs text-muted-foreground mt-1">
-        Driver pings and student status log.
-      </p>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Bus size={15} className="text-amber-500" />
+          <h2 className="font-semibold text-primary text-sm">Driver Status</h2>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-bold">
+          <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+            {list.filter((d) => d.isOnline).length} online
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+            {list.filter((d) => d.isActive && !d.isOnline).length} offline
+          </span>
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No drivers registered yet.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {list.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setSelected(d)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+            >
+              <img
+                src={d.photoUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.name)}`}
+                alt={d.name}
+                className="h-9 w-9 rounded-full border-2 border-border object-cover shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{d.name}</p>
+                <p className="text-xs text-muted-foreground">{d.vehicleNumber}</p>
+              </div>
+              <span className={`shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                d.isOnline
+                  ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
+                  : d.isActive
+                    ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                    : "bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${d.isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+                {d.isOnline ? "Online" : d.isActive ? "Active" : "Inactive"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {selected && (
+        <DriverDetailPanel
+          driver={selected}
+          vehicles={vehicles}
+          routes={routes}
+          onClose={() => setSelected(null)}
+          onRefresh={onRefresh}
+        />
+      )}
     </div>
   );
 }
 
-function FleetFuelPanel() {
+// ── FleetFuelPanel ─────────────────────────────────────────────────────────────
+type FuelLogRow = {
+  id: number;
+  vehicleId: number | null;
+  vehiclePlate: string | null;
+  date: string;
+  liters: number;
+  amountNpr: number;
+  odometerKm: number;
+  notes: string | null;
+};
+
+function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
+  const [rows, setRows] = useState<FuelLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    vehicleId: "",
+    date: new Date().toISOString().slice(0, 10),
+    liters: "",
+    amountNpr: "",
+    odometerKm: "",
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${REPLIT_BACKEND}/api/fuel-logs`, { headers: tenantHeaders() });
+      setRows(await r.json() as FuelLogRow[]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function handleAdd() {
+    if (!form.date || !form.liters || !form.amountNpr || !form.odometerKm) {
+      setErr("Date, liters, amount NPR and odometer are required.");
+      return;
+    }
+    setSaving(true); setErr("");
+    try {
+      await apiPost("/fuel-logs", {
+        vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
+        date: form.date,
+        liters: Number(form.liters),
+        amountNpr: Number(form.amountNpr),
+        odometerKm: Number(form.odometerKm),
+        notes: form.notes || null,
+      });
+      setForm({ vehicleId: "", date: new Date().toISOString().slice(0, 10), liters: "", amountNpr: "", odometerKm: "", notes: "" });
+      setAdding(false);
+      void load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Delete this fuel log?")) return;
+    await apiDelete(`/fuel-logs/${id}`);
+    void load();
+  }
+
   return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Fuel Logs</h3>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Droplets size={15} className="text-amber-500" />
+          <h3 className="font-bold text-sm text-primary">Fuel Logs</h3>
+        </div>
+        <button
+          onClick={() => setAdding(!adding)}
+          className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
+        >
+          {adding ? "Cancel" : "+ Add"}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="p-4 border-b border-border bg-muted/30 space-y-2">
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <select
+            value={form.vehicleId}
+            onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
+            className="w-full border rounded-lg p-2 text-xs bg-background"
+          >
+            <option value="">— Select Vehicle —</option>
+            {(vehicles ?? []).map((v) => (
+              <option key={v.id} value={v.id}>{v.plateNumber} ({v.model})</option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="number" placeholder="Liters" value={form.liters} onChange={(e) => setForm((f) => ({ ...f, liters: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="number" placeholder="Amount NPR" value={form.amountNpr} onChange={(e) => setForm((f) => ({ ...f, amountNpr: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="number" placeholder="Odometer (km)" value={form.odometerKm} onChange={(e) => setForm((f) => ({ ...f, odometerKm: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+          </div>
+          <input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full border rounded-lg p-2 text-xs" />
+          <button
+            onClick={handleAdd}
+            disabled={saving}
+            className="w-full bg-amber-500 py-2 text-xs font-bold rounded-xl text-slate-900 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Fuel Log"}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No fuel logs yet. Add the first one above.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 border-b border-border">
+              <tr>
+                {["Date", "Vehicle", "Liters", "NPR", "Odometer", "Notes", ""].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-muted/20">
+                  <td className="px-3 py-2 whitespace-nowrap">{r.date}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{r.vehiclePlate ?? "—"}</td>
+                  <td className="px-3 py-2">{r.liters} L</td>
+                  <td className="px-3 py-2">Rs {r.amountNpr.toLocaleString()}</td>
+                  <td className="px-3 py-2">{r.odometerKm.toLocaleString()} km</td>
+                  <td className="px-3 py-2 text-muted-foreground truncate max-w-[120px]">{r.notes ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <button onClick={() => void handleDelete(r.id)} className="text-red-500 hover:text-red-400">
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-function FleetMaintenancePanel() {
+// ── FleetMaintenancePanel ──────────────────────────────────────────────────────
+type MaintenanceRow = {
+  id: number;
+  vehicleId: number | null;
+  vehiclePlate: string | null;
+  partType: string;
+  description: string | null;
+  costNpr: number;
+  odometerKm: number;
+  serviceDate: string;
+  vendor: string | null;
+};
+
+function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
+  const [rows, setRows] = useState<MaintenanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    vehicleId: "",
+    partType: "",
+    description: "",
+    costNpr: "",
+    odometerKm: "",
+    serviceDate: new Date().toISOString().slice(0, 10),
+    vendor: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${REPLIT_BACKEND}/api/maintenance-records`, { headers: tenantHeaders() });
+      setRows(await r.json() as MaintenanceRow[]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function handleAdd() {
+    if (!form.partType || !form.serviceDate || !form.odometerKm) {
+      setErr("Part type, service date and odometer are required.");
+      return;
+    }
+    setSaving(true); setErr("");
+    try {
+      await apiPost("/maintenance-records", {
+        vehicleId: form.vehicleId ? Number(form.vehicleId) : null,
+        partType: form.partType,
+        description: form.description || null,
+        costNpr: Number(form.costNpr) || 0,
+        odometerKm: Number(form.odometerKm),
+        serviceDate: form.serviceDate,
+        vendor: form.vendor || null,
+      });
+      setForm({ vehicleId: "", partType: "", description: "", costNpr: "", odometerKm: "", serviceDate: new Date().toISOString().slice(0, 10), vendor: "" });
+      setAdding(false);
+      void load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Delete this service record?")) return;
+    await apiDelete(`/maintenance-records/${id}`);
+    void load();
+  }
+
   return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Service Records</h3>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Wrench size={15} className="text-amber-500" />
+          <h3 className="font-bold text-sm text-primary">Service Records</h3>
+        </div>
+        <button
+          onClick={() => setAdding(!adding)}
+          className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
+        >
+          {adding ? "Cancel" : "+ Add"}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="p-4 border-b border-border bg-muted/30 space-y-2">
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <select
+            value={form.vehicleId}
+            onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
+            className="w-full border rounded-lg p-2 text-xs bg-background"
+          >
+            <option value="">— Select Vehicle —</option>
+            {(vehicles ?? []).map((v) => (
+              <option key={v.id} value={v.id}>{v.plateNumber} ({v.model})</option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <input placeholder="Part Type (e.g. Tyre)" value={form.partType} onChange={(e) => setForm((f) => ({ ...f, partType: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="date" value={form.serviceDate} onChange={(e) => setForm((f) => ({ ...f, serviceDate: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="number" placeholder="Cost NPR" value={form.costNpr} onChange={(e) => setForm((f) => ({ ...f, costNpr: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+            <input type="number" placeholder="Odometer (km)" value={form.odometerKm} onChange={(e) => setForm((f) => ({ ...f, odometerKm: e.target.value }))} className="border rounded-lg p-2 text-xs" />
+          </div>
+          <input placeholder="Vendor (optional)" value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} className="w-full border rounded-lg p-2 text-xs" />
+          <input placeholder="Description (optional)" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full border rounded-lg p-2 text-xs" />
+          <button
+            onClick={handleAdd}
+            disabled={saving}
+            className="w-full bg-amber-500 py-2 text-xs font-bold rounded-xl text-slate-900 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Service Record"}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No service records yet. Add the first one above.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 border-b border-border">
+              <tr>
+                {["Date", "Vehicle", "Part", "Cost NPR", "Odometer", "Vendor", ""].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-muted/20">
+                  <td className="px-3 py-2 whitespace-nowrap">{r.serviceDate}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{r.vehiclePlate ?? "—"}</td>
+                  <td className="px-3 py-2 font-medium">{r.partType}</td>
+                  <td className="px-3 py-2">Rs {r.costNpr.toLocaleString()}</td>
+                  <td className="px-3 py-2">{r.odometerKm.toLocaleString()} km</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <button onClick={() => void handleDelete(r.id)} className="text-red-500 hover:text-red-400">
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-function FleetDocumentsPanel() {
+// ── FleetDocumentsPanel ────────────────────────────────────────────────────────
+type VehicleDocRow = {
+  id: number;
+  vehicleId: number;
+  vehiclePlate: string | null;
+  vehicleModel: string | null;
+  bluebookExpiry: string | null;
+  insuranceExpiry: string | null;
+  pollutionExpiry: string | null;
+  daysUntilBluebook: number | null;
+  daysUntilInsurance: number | null;
+  daysUntilPollution: number | null;
+};
+
+function expiryColor(days: number | null): string {
+  if (days === null) return "text-muted-foreground";
+  if (days <= 0) return "text-red-600 dark:text-red-400 font-bold";
+  if (days <= 30) return "text-red-500 dark:text-red-400 font-semibold";
+  if (days <= 60) return "text-amber-600 dark:text-amber-400 font-semibold";
+  return "text-green-600 dark:text-green-400";
+}
+
+function expiryBadge(days: number | null): string {
+  if (days === null) return "—";
+  if (days <= 0) return "Expired";
+  if (days === 1) return "1 day left";
+  return `${days}d left`;
+}
+
+function FleetDocumentsPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
+  const [rows, setRows] = useState<VehicleDocRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ bluebookExpiry: "", insuranceExpiry: "", pollutionExpiry: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${REPLIT_BACKEND}/api/vehicle-documents`, { headers: tenantHeaders() });
+      setRows(await r.json() as VehicleDocRow[]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  function startEdit(row: VehicleDocRow) {
+    setEditing(row.vehicleId);
+    setEditForm({
+      bluebookExpiry: row.bluebookExpiry ?? "",
+      insuranceExpiry: row.insuranceExpiry ?? "",
+      pollutionExpiry: row.pollutionExpiry ?? "",
+    });
+  }
+
+  async function handleSave(vehicleId: number) {
+    setSaving(true);
+    try {
+      await fetch(`${REPLIT_BACKEND}/api/vehicle-documents/${vehicleId}`, {
+        method: "PUT",
+        headers: tenantHeaders(),
+        body: JSON.stringify({
+          bluebookExpiry: editForm.bluebookExpiry || null,
+          insuranceExpiry: editForm.insuranceExpiry || null,
+          pollutionExpiry: editForm.pollutionExpiry || null,
+        }),
+      });
+      setEditing(null);
+      void load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Also show vehicles that don't yet have a document record
+  const vehicleList = vehicles ?? [];
+  const docsByVehicleId = new Map(rows.map((r) => [r.vehicleId, r]));
+
   return (
-    <div className="p-4 bg-card border rounded-2xl">
-      <h3 className="font-bold text-sm text-primary">Statutory Documents</h3>
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <FileText size={15} className="text-amber-500" />
+        <h3 className="font-bold text-sm text-primary">Statutory Documents</h3>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">Loading…</p>
+      ) : vehicleList.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No vehicles registered yet.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {vehicleList.map((v) => {
+            const doc = docsByVehicleId.get(v.id);
+            const isEditing = editing === v.id;
+            return (
+              <div key={v.id} className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{v.plateNumber}</p>
+                    <p className="text-xs text-muted-foreground">{v.model}</p>
+                  </div>
+                  <button
+                    onClick={() => isEditing ? setEditing(null) : startEdit(doc ?? { vehicleId: v.id, id: 0, vehiclePlate: v.plateNumber, vehicleModel: v.model, bluebookExpiry: null, insuranceExpiry: null, pollutionExpiry: null, daysUntilBluebook: null, daysUntilInsurance: null, daysUntilPollution: null })}
+                    className="text-xs text-amber-600 hover:text-amber-500 font-semibold flex items-center gap-1"
+                  >
+                    <Pencil size={11} /> {isEditing ? "Cancel" : "Edit"}
+                  </button>
+                </div>
+
+                {isEditing ? (
+                  <div className="space-y-2 p-3 bg-muted/40 rounded-xl">
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { label: "Bluebook Expiry", key: "bluebookExpiry" as const },
+                        { label: "Insurance Expiry", key: "insuranceExpiry" as const },
+                        { label: "Pollution Expiry", key: "pollutionExpiry" as const },
+                      ].map(({ label, key }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground w-32 shrink-0">{label}</label>
+                          <input
+                            type="date"
+                            value={editForm[key]}
+                            onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                            className="flex-1 border rounded-lg p-1.5 text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => void handleSave(v.id)}
+                      disabled={saving}
+                      className="w-full bg-amber-500 py-1.5 text-xs font-bold rounded-lg text-slate-900 disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Bluebook", days: doc?.daysUntilBluebook ?? null, date: doc?.bluebookExpiry },
+                      { label: "Insurance", days: doc?.daysUntilInsurance ?? null, date: doc?.insuranceExpiry },
+                      { label: "Pollution", days: doc?.daysUntilPollution ?? null, date: doc?.pollutionExpiry },
+                    ].map(({ label, days, date }) => (
+                      <div key={label} className="rounded-lg bg-muted/40 p-2 text-center">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase">{label}</p>
+                        <p className="text-[10px] text-muted-foreground">{date ?? "Not set"}</p>
+                        <p className={`text-[11px] mt-0.5 ${expiryColor(days)}`}>{expiryBadge(days)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Live Fleet Map Panel ───────────────────────────────────────────────────────
+function LiveFleetMapPanel() {
+  const liveLocations = useLiveLocations();
+  const buses: FleetBus[] = liveLocations
+    .filter((loc) => loc.lat !== null && loc.lng !== null)
+    .map((loc) => ({
+      id: loc.id,
+      label: loc.vehicleNumber,
+      driverName: loc.name,
+      lat: loc.lat!,
+      lng: loc.lng!,
+      status: loc.isLive ? "on-route" : "depot",
+    }));
+
+  if (buses.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-card shadow-sm p-4 flex items-center gap-3">
+        <div className="h-9 w-9 rounded-xl bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center shrink-0">
+          <MapPin size={16} className="text-amber-600 dark:text-amber-400" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-primary">Live Fleet Map</p>
+          <p className="text-xs text-muted-foreground">No buses are online right now. Map will appear when drivers start a trip.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <MapPin size={15} className="text-amber-500" />
+        <h2 className="font-semibold text-primary text-sm">Live Fleet Map</h2>
+        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+          {buses.length} online
+        </span>
+      </div>
+      <OsmMap mode="fleet" buses={buses} height={260} />
     </div>
   );
 }
@@ -1451,6 +2216,14 @@ export default function AdminPortal() {
     }
   }, [tenantId, tenant]);
 
+  function refetchAll() {
+    queryClient.invalidateQueries({ queryKey: getListPassengersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListDriversQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListRoutesQueryKey() });
+  }
+
   return (
     <div className="mx-auto w-full max-w-[860px] p-4 sm:p-6 space-y-6">
       <header className="flex items-center justify-between">
@@ -1461,36 +2234,32 @@ export default function AdminPortal() {
       </header>
 
       <nav className="rounded-xl border border-border bg-card shadow-sm flex overflow-x-auto p-1 gap-2 text-xs font-semibold">
-        <button
-          onClick={() => setAdminTab("dashboard")}
-          className={`px-4 py-2 rounded-lg ${adminTab === "dashboard" ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => setAdminTab("fleet-fuel")}
-          className={`px-4 py-2 rounded-lg ${adminTab === "fleet-fuel" ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
-        >
-          Fuel Logs
-        </button>
-        <button
-          onClick={() => setAdminTab("fleet-maintenance")}
-          className={`px-4 py-2 rounded-lg ${adminTab === "fleet-maintenance" ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
-        >
-          Service
-        </button>
-        <button
-          onClick={() => setAdminTab("fleet-documents")}
-          className={`px-4 py-2 rounded-lg ${adminTab === "fleet-documents" ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
-        >
-          Documents
-        </button>
+        {(["dashboard", "fleet-fuel", "fleet-maintenance", "fleet-documents"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setAdminTab(tab)}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${adminTab === tab ? "bg-amber-500 text-slate-900" : "text-muted-foreground"}`}
+          >
+            {tab === "dashboard" ? "Dashboard" : tab === "fleet-fuel" ? "Fuel Logs" : tab === "fleet-maintenance" ? "Service" : "Documents"}
+          </button>
+        ))}
       </nav>
 
       {adminTab === "dashboard" && (
         <>
-          <BoardingLogPanel />
-          <DriverCommunicationsPanel />
+          <LiveFleetMapPanel />
+          <BoardingLogPanel
+            passengers={passengers as Passenger[] | undefined}
+            stations={stations as StationOption[] | undefined}
+            routes={adminRoutes as RouteRow[] | undefined}
+            onRefresh={refetchAll}
+          />
+          <DriverCommunicationsPanel
+            drivers={drivers as DriverRow[] | undefined}
+            vehicles={vehicles as VehicleRow[] | undefined}
+            routes={adminRoutes as RouteRow[] | undefined}
+            onRefresh={refetchAll}
+          />
           <SmartStationManager
             stations={stations as StationRow[] | undefined}
             onChanged={() =>
@@ -1516,9 +2285,9 @@ export default function AdminPortal() {
         </>
       )}
 
-      {adminTab === "fleet-fuel" && <FleetFuelPanel />}
-      {adminTab === "fleet-maintenance" && <FleetMaintenancePanel />}
-      {adminTab === "fleet-documents" && <FleetDocumentsPanel />}
+      {adminTab === "fleet-fuel" && <FleetFuelPanel vehicles={vehicles as VehicleRow[] | undefined} />}
+      {adminTab === "fleet-maintenance" && <FleetMaintenancePanel vehicles={vehicles as VehicleRow[] | undefined} />}
+      {adminTab === "fleet-documents" && <FleetDocumentsPanel vehicles={vehicles as VehicleRow[] | undefined} />}
     </div>
   );
 }
