@@ -57,6 +57,15 @@ import {
   MessageCircle,
 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 // ── 🛠️ 'type' कीवर्ड हटाएर सिन्ट्याक्स फिक्स गरिएको ──
 import OsmMap, { RouteStop, FleetBus } from "@/components/osm-map";
@@ -1877,7 +1886,7 @@ function DriverCommunicationsPanel({
   );
 }
 
-// ── FleetFuelPanel ─────────────────────────────────────────────────────────────
+// ── Shared fleet types ─────────────────────────────────────────────────────────
 type FuelLogRow = {
   id: number;
   vehicleId: number | null;
@@ -1889,6 +1898,134 @@ type FuelLogRow = {
   notes: string | null;
 };
 
+type MaintenanceRow = {
+  id: number;
+  vehicleId: number | null;
+  vehiclePlate: string | null;
+  partType: string;
+  description: string | null;
+  costNpr: number;
+  odometerKm: number;
+  serviceDate: string;
+  vendor: string | null;
+};
+
+// ── FleetCostsSummaryCard ──────────────────────────────────────────────────────
+function FleetCostsSummaryCard() {
+  const [fuelRows, setFuelRows] = useState<FuelLogRow[]>([]);
+  const [maintRows, setMaintRows] = useState<MaintenanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [fuelRes, maintRes] = await Promise.all([
+          fetch(`${REPLIT_BACKEND}/api/fuel-logs`, { headers: tenantHeaders() }),
+          fetch(`${REPLIT_BACKEND}/api/maintenance-records`, { headers: tenantHeaders() }),
+        ]);
+        setFuelRows(await fuelRes.json() as FuelLogRow[]);
+        setMaintRows(await maintRes.json() as MaintenanceRow[]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, []);
+
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const totalFuelThisMonth = fuelRows
+    .filter((r) => r.date.slice(0, 7) === thisMonth)
+    .reduce((sum, r) => sum + r.amountNpr, 0);
+
+  const totalMaintThisMonth = maintRows
+    .filter((r) => r.serviceDate.slice(0, 7) === thisMonth)
+    .reduce((sum, r) => sum + r.costNpr, 0);
+
+  const vehicleStats = useMemo(() => {
+    const map = new Map<string, { plate: string; totalSpend: number; minOdo: number; maxOdo: number }>();
+    for (const r of fuelRows) {
+      const key = r.vehiclePlate ?? "Unknown";
+      const existing = map.get(key) ?? { plate: key, totalSpend: 0, minOdo: Infinity, maxOdo: -Infinity };
+      existing.totalSpend += r.amountNpr;
+      if (r.odometerKm < existing.minOdo) existing.minOdo = r.odometerKm;
+      if (r.odometerKm > existing.maxOdo) existing.maxOdo = r.odometerKm;
+      map.set(key, existing);
+    }
+    return Array.from(map.values()).map((v) => {
+      const kmRange = v.maxOdo !== -Infinity && v.minOdo !== Infinity && v.maxOdo > v.minOdo
+        ? v.maxOdo - v.minOdo
+        : null;
+      return {
+        plate: v.plate,
+        costPerKm: kmRange ? Math.round(v.totalSpend / kmRange) : null,
+      };
+    }).filter((v) => v.costPerKm !== null);
+  }, [fuelRows]);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-border bg-card shadow-sm p-6 text-center text-xs text-muted-foreground">
+        Loading fleet costs…
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <BarChart3 size={15} className="text-amber-500" />
+        <h3 className="font-bold text-sm text-primary">Fleet Costs — This Month</h3>
+      </div>
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Droplets size={14} className="text-amber-500" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Fuel Spend</span>
+          </div>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-300">
+            Rs {totalFuelThisMonth.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">this month</p>
+        </div>
+
+        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Wrench size={14} className="text-blue-500" />
+            <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Maintenance Spend</span>
+          </div>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-300">
+            Rs {totalMaintThisMonth.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">this month</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-border p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Gauge size={14} className="text-slate-500" />
+            <span className="text-xs font-semibold text-muted-foreground">Cost per KM (fuel)</span>
+          </div>
+          {vehicleStats.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No odometer data yet</p>
+          ) : (
+            <div className="space-y-1.5">
+              {vehicleStats.map((v) => (
+                <div key={v.plate} className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{v.plate}</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Rs {v.costPerKm}/km</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FleetFuelPanel ─────────────────────────────────────────────────────────────
 function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
   const [rows, setRows] = useState<FuelLogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1947,6 +2084,21 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
     void load();
   }
 
+  const monthlyChartData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const month = r.date.slice(0, 7);
+      map.set(month, (map.get(month) ?? 0) + r.amountNpr);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([month, total]) => ({
+        month: month.slice(5),
+        total,
+      }));
+  }, [rows]);
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -1992,6 +2144,30 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
         </div>
       )}
 
+      {!loading && monthlyChartData.length > 1 && (
+        <div className="px-4 pt-4 pb-2 border-b border-border">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">Monthly Fuel Spend (NPR)</p>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={monthlyChartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+                width={32}
+              />
+              <Tooltip
+                formatter={(value: number) => [`Rs ${value.toLocaleString()}`, "Fuel"]}
+                contentStyle={{ fontSize: 11, borderRadius: 8 }}
+              />
+              <Bar dataKey="total" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-xs text-muted-foreground p-4 text-center">Loading…</p>
       ) : rows.length === 0 ? (
@@ -2031,18 +2207,6 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
 }
 
 // ── FleetMaintenancePanel ──────────────────────────────────────────────────────
-type MaintenanceRow = {
-  id: number;
-  vehicleId: number | null;
-  vehiclePlate: string | null;
-  partType: string;
-  description: string | null;
-  costNpr: number;
-  odometerKm: number;
-  serviceDate: string;
-  vendor: string | null;
-};
-
 function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
   const [rows, setRows] = useState<MaintenanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2444,6 +2608,7 @@ export default function AdminPortal() {
 
       {adminTab === "dashboard" && (
         <>
+          <FleetCostsSummaryCard />
           <LiveFleetMapPanel />
           <BoardingLogPanel
             passengers={passengers as Passenger[] | undefined}
