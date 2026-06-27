@@ -1797,6 +1797,110 @@ function WhatsAppNotificationsPanel() {
 }
 
 // ── DriverCommunicationsPanel ─────────────────────────────────────────────────
+function AddDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!name.trim() || !phone.trim() || !vehicleNumber.trim()) {
+      setErr("All fields are required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiPost("/drivers", {
+        name: name.trim(),
+        phone: phone.trim(),
+        vehicleNumber: vehicleNumber.trim(),
+      });
+      onCreated();
+      onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to add driver");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl">
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="font-bold text-base text-foreground flex items-center gap-2">
+            <Bus size={16} className="text-amber-500" /> Add New Driver
+          </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Full Name *</label>
+            <input
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="e.g. Ram Bahadur Thapa"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={saving}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Phone Number *</label>
+            <input
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="e.g. 9851012345"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={saving}
+              type="tel"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Vehicle Number *</label>
+            <input
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="e.g. BA 1 KHA 1234"
+              value={vehicleNumber}
+              onChange={(e) => setVehicleNumber(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+          {err && <p className="text-xs text-red-500 font-medium">{err}</p>}
+          <div className="flex gap-2 pt-1 pb-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
+              disabled={saving}
+            >
+              {saving ? "Adding…" : "Add Driver"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DriverCommunicationsPanel({
   drivers,
   vehicles,
@@ -1809,6 +1913,7 @@ function DriverCommunicationsPanel({
   onRefresh: () => void;
 }) {
   const [selected, setSelected] = useState<DriverRow | null>(null);
+  const [showAddDriver, setShowAddDriver] = useState(false);
   const liveLocations = useLiveLocations();
   const list = drivers ?? [];
 
@@ -1832,13 +1937,19 @@ function DriverCommunicationsPanel({
           <Bus size={15} className="text-amber-500" />
           <h2 className="font-semibold text-primary text-sm">Driver Status</h2>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-bold">
-          <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
             {list.filter((d) => d.isOnline).length} online
           </span>
-          <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
             {list.filter((d) => d.isActive && !d.isOnline).length} offline
           </span>
+          <button
+            onClick={() => setShowAddDriver(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition-colors"
+          >
+            <Plus size={12} /> Add Driver
+          </button>
         </div>
       </div>
       {list.length === 0 ? (
@@ -1891,6 +2002,12 @@ function DriverCommunicationsPanel({
           routes={routes}
           onClose={() => setSelected(null)}
           onRefresh={onRefresh}
+        />
+      )}
+      {showAddDriver && (
+        <AddDriverModal
+          onClose={() => setShowAddDriver(false)}
+          onCreated={onRefresh}
         />
       )}
     </div>
