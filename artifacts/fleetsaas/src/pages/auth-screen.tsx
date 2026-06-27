@@ -6,10 +6,12 @@ import BiometricSetupModal from "@/components/BiometricSetupModal";
 
 type Step = "phone" | "credentials";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// 🚀 भर्सलको नियमहरूलाई बाइपास गरेर सिधै रीप्लिट ब्याकइन्डको ठेगाना हालेको
+const REPLIT_BACKEND =
+  "https://33c7862f-0438-4adc-83ae-af5ac11d06a3-00-3u2khpqjgrop5.sisko.replit.dev";
 
 async function apiPost(path: string, body: unknown) {
-  const res = await fetch(`${BASE}/api${path}`, {
+  const res = await fetch(`${REPLIT_BACKEND}/api${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -134,7 +136,6 @@ export default function AuthScreen() {
     try {
       const data = await apiPost("/auth/check-phone", { phone });
 
-      // यदि ब्याकइन्डले सिधै युजर विवरण पठायो भने पनि यो फ्रेस डेटा स्टोर गरेर अघि बढ्छ
       setFoundUser(data);
       setSchoolCode("");
       if (data.demoCode) {
@@ -152,7 +153,7 @@ export default function AuthScreen() {
     setErr("");
     setLoading(true);
 
-    // ब्याकइन्डले खोजेको सहि ओटीपी कोड पास गर्ने
+    // ब्याकइन्डले खोजेको सहि ओटिपी कोड सिधै यहाँबाट थप्पडिदिने
     const code = foundUser?.demoCode || otp.join("");
 
     if (foundUser?.requiresSchoolCode && !schoolCode.trim()) {
@@ -443,7 +444,7 @@ export default function AuthScreen() {
             </>
           )}
 
-          {/* ── STEP: Credentials (School Code + Instant Login Button) ── */}
+          {/* ── STEP: Credentials (School Code Field + Instant Green Button) ── */}
           {step === "credentials" && foundUser && (
             <>
               {/* Personalized welcome */}
@@ -461,7 +462,7 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              {/* 🏫 स्कुल कोड हाल्ने बक्स यहाँ सुरक्षित छ */}
+              {/* 🏫 स्कुल कोड हाल्ने बाकस (यहाँ पूरै सुरक्षित राखिएको छ) */}
               {foundUser.requiresSchoolCode && (
                 <div className="mb-5">
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wide">
@@ -493,7 +494,7 @@ export default function AuthScreen() {
                 </div>
               )}
 
-              {/* 🚀 सिधै लगिन गर्ने हरियो बटन */}
+              {/* 🚀 ओटिपी इनपुट बक्स हटाएर सिधै लगिन गर्ने हरियो बटन */}
               <button
                 onClick={handleVerifyOtp}
                 disabled={
