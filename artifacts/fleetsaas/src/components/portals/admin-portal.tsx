@@ -55,6 +55,7 @@ import {
   AlertCircle,
   Settings2,
   MessageCircle,
+  Download,
 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 import {
@@ -2152,6 +2153,19 @@ function FleetCostsSummaryCard() {
   );
 }
 
+// ── CSV export helper ──────────────────────────────────────────────────────────
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const lines = [headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── FleetFuelPanel ─────────────────────────────────────────────────────────────
 function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
   const [rows, setRows] = useState<FuelLogRow[]>([]);
@@ -2211,6 +2225,21 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
     void load();
   }
 
+  function handleExport() {
+    downloadCsv(
+      "fuel-logs.csv",
+      ["Date", "Vehicle", "Liters", "Amount NPR", "Odometer (km)", "Notes"],
+      rows.map((r) => [
+        r.date,
+        r.vehiclePlate ?? "",
+        String(r.liters),
+        String(r.amountNpr),
+        String(r.odometerKm),
+        r.notes ?? "",
+      ]),
+    );
+  }
+
   const monthlyChartData = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of rows) {
@@ -2233,12 +2262,23 @@ function FleetFuelPanel({ vehicles }: { vehicles: VehicleRow[] | undefined }) {
           <Droplets size={15} className="text-amber-500" />
           <h3 className="font-bold text-sm text-primary">Fuel Logs</h3>
         </div>
-        <button
-          onClick={() => setAdding(!adding)}
-          className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
-        >
-          {adding ? "Cancel" : "+ Add"}
-        </button>
+        <div className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1 border border-border text-xs px-3 py-1 font-semibold rounded-xl text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+            >
+              <Download size={12} />
+              Export CSV
+            </button>
+          )}
+          <button
+            onClick={() => setAdding(!adding)}
+            className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
+          >
+            {adding ? "Cancel" : "+ Add"}
+          </button>
+        </div>
       </div>
 
       {adding && (
@@ -2394,6 +2434,21 @@ function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleRow[] | undefine
     void load();
   }
 
+  function handleExport() {
+    downloadCsv(
+      "service-records.csv",
+      ["Date", "Vehicle", "Part", "Cost NPR", "Odometer (km)", "Vendor"],
+      rows.map((r) => [
+        r.serviceDate,
+        r.vehiclePlate ?? "",
+        r.partType,
+        String(r.costNpr),
+        String(r.odometerKm),
+        r.vendor ?? "",
+      ]),
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -2401,12 +2456,23 @@ function FleetMaintenancePanel({ vehicles }: { vehicles: VehicleRow[] | undefine
           <Wrench size={15} className="text-amber-500" />
           <h3 className="font-bold text-sm text-primary">Service Records</h3>
         </div>
-        <button
-          onClick={() => setAdding(!adding)}
-          className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
-        >
-          {adding ? "Cancel" : "+ Add"}
-        </button>
+        <div className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1 border border-border text-xs px-3 py-1 font-semibold rounded-xl text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+            >
+              <Download size={12} />
+              Export CSV
+            </button>
+          )}
+          <button
+            onClick={() => setAdding(!adding)}
+            className="bg-amber-500 text-xs px-3 py-1 font-bold text-slate-900 rounded-xl"
+          >
+            {adding ? "Cancel" : "+ Add"}
+          </button>
+        </div>
       </div>
 
       {adding && (
