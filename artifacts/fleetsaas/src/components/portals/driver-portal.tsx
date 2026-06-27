@@ -144,6 +144,11 @@ export default function DriverPortal() {
   const [customMsg, setCustomMsg] = useState("");
   const [lastSent, setLastSent] = useState<string | null>(null);
 
+  const [delayAlertOpen, setDelayAlertOpen] = useState(false);
+  const [selectedDelay, setSelectedDelay] = useState<number>(10);
+  const [delayPending, setDelayPending] = useState(false);
+  const [delayToast, setDelayToast] = useState<string | null>(null);
+
   // GPS tracking — driver's phone as the live tracker
   const watchIdRef = useRef<number | null>(null);
   const [gpsActive, setGpsActive] = useState(false);
@@ -338,6 +343,31 @@ export default function DriverPortal() {
       setNotifiedIds((prev) => new Set([...prev, passengerId]));
     } catch { /* non-blocking */ }
     finally { setNotifyingId(null); }
+  };
+
+  const handleSendDelayAlert = async () => {
+    setDelayPending(true);
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tenantId !== null) headers["x-tenant-id"] = String(tenantId);
+    try {
+      const res = await fetch(`${BASE}/api/trips/delay`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ delayMinutes: selectedDelay }),
+      });
+      const data = (await res.json()) as { message?: string; notified?: number };
+      setDelayAlertOpen(false);
+      const toastMsg = data.message ?? `Delay alert sent (${selectedDelay} min)`;
+      setDelayToast(toastMsg);
+      setTimeout(() => setDelayToast(null), 4000);
+    } catch {
+      setDelayToast("Failed to send delay alert — try again");
+      setTimeout(() => setDelayToast(null), 3000);
+    } finally {
+      setDelayPending(false);
+    }
   };
 
   // Auto-refresh passengers every 8s so boarding changes from admin show up
@@ -965,6 +995,15 @@ export default function DriverPortal() {
       {/* Quick Message + SOS footer */}
       <div className="p-4 border-t border-slate-700 bg-slate-900/50 space-y-2">
 
+        {/* Delay alert toast */}
+        {delayToast && (
+          <div className="flex items-center gap-2 rounded-xl bg-amber-900/40 border border-amber-700/50 px-3 py-2">
+            <Clock size={15} className="shrink-0 text-amber-300" />
+            <p className="text-xs text-amber-200 flex-1">{delayToast}</p>
+            <button onClick={() => setDelayToast(null)} className="text-slate-500 text-xs hover:text-slate-400">✕</button>
+          </div>
+        )}
+
         {/* Last sent confirmation */}
         {lastSent && (
           <div className="flex items-center gap-2 rounded-xl bg-blue-900/30 border border-blue-700/30 px-3 py-2">
@@ -981,6 +1020,15 @@ export default function DriverPortal() {
           Report to Admin
         </button>
 
+        {/* Delay Alert button */}
+        <button
+          onClick={() => setDelayAlertOpen(true)}
+          className="w-full rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 py-3.5 text-center font-bold text-white shadow-lg shadow-amber-900/30 transition-all active:scale-[0.98]"
+        >
+          <Clock size={18} className="inline mr-2" />
+          Delay Alert
+        </button>
+
         <button onClick={() => setSosActive((v) => !v)}
           className={`w-full rounded-2xl py-4 text-center font-bold text-white transition-all ${
             sosActive ? "bg-red-800 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
@@ -990,6 +1038,67 @@ export default function DriverPortal() {
           {sosActive ? "SOS SENT — Admin & Parents Alerted" : "SOS EMERGENCY"}
         </button>
       </div>
+
+      {/* Delay Alert Sheet */}
+      {delayAlertOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setDelayAlertOpen(false); }}>
+          <div className="w-full max-w-md rounded-t-3xl bg-[#1e293b] border-t border-slate-700 shadow-2xl">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-slate-600" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
+              <div>
+                <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <Clock size={16} className="text-amber-400" /> Delay Alert
+                </h2>
+                <p className="text-xs text-slate-400">Notify all parents that the bus is running late</p>
+              </div>
+              <button onClick={() => setDelayAlertOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-slate-400 hover:bg-slate-600 text-sm">
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-5 space-y-5">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">How many minutes late?</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {[5, 10, 15, 20, 30].map((min) => (
+                    <button
+                      key={min}
+                      onClick={() => setSelectedDelay(min)}
+                      className={`rounded-xl py-3 text-sm font-bold transition-all border ${
+                        selectedDelay === min
+                          ? "bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-900/40"
+                          : "bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600"
+                      }`}
+                    >
+                      {min}
+                      <span className="block text-[9px] font-normal opacity-70">min</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-amber-900/20 border border-amber-700/30 px-4 py-3">
+                <p className="text-xs text-amber-300 font-medium">
+                  ⏰ Parents will receive a WhatsApp alert: <span className="font-bold">"{myDriver?.vehicleNumber ? `Bus ${myDriver.vehicleNumber}` : "The school bus"} is running {selectedDelay} minutes late."</span>
+                </p>
+              </div>
+
+              <button
+                onClick={handleSendDelayAlert}
+                disabled={delayPending}
+                className="w-full rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 py-4 text-center font-bold text-white shadow-lg shadow-amber-900/30 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {delayPending ? "Sending…" : `Send ${selectedDelay}-min Delay Alert`}
+              </button>
+            </div>
+            <div className="pb-6" />
+          </div>
+        </div>
+      )}
 
       {/* Quick Message Sheet */}
       {quickMsgOpen && (
