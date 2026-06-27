@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { db } from "@workspace/db";
+import { whatsappNotificationsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -44,6 +47,18 @@ router.post("/send", async (req, res) => {
     req.log.error({ err }, "WhatsApp fetch failed");
     return res.status(500).json({ error: "Failed to send WhatsApp message" });
   }
+});
+
+// GET /api/whatsapp/notifications — log of all outbound WhatsApp alerts for this tenant
+router.get("/notifications", async (req, res) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 50), 200);
+  const rows = await db
+    .select()
+    .from(whatsappNotificationsTable)
+    .where(eq(whatsappNotificationsTable.tenantId, req.tenantId))
+    .orderBy(desc(whatsappNotificationsTable.sentAt))
+    .limit(limit);
+  return res.json(rows);
 });
 
 export default router;

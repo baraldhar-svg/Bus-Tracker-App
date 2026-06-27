@@ -54,6 +54,7 @@ import {
   Gauge,
   AlertCircle,
   Settings2,
+  MessageCircle,
 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 
@@ -1624,6 +1625,157 @@ function BoardingLogPanel({
   );
 }
 
+// ── WhatsApp Notifications Panel ──────────────────────────────────────────────
+type WaNotification = {
+  id: number;
+  type: string;
+  recipientName: string;
+  to: string;
+  passengerName: string | null;
+  stationName: string | null;
+  messageBody: string;
+  status: string;
+  sentAt: string | Date;
+};
+
+function WhatsAppNotificationsPanel() {
+  const [rows, setRows] = useState<WaNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [delayMin, setDelayMin] = useState("10");
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${REPLIT_BACKEND}/api/whatsapp/notifications`, { headers: tenantHeaders() });
+      if (r.ok) setRows(await r.json() as WaNotification[]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function handleSendDelay() {
+    const mins = Number(delayMin);
+    if (!mins || mins < 1) return;
+    setSending(true);
+    setSendResult(null);
+    try {
+      const r = await fetch(`${REPLIT_BACKEND}/api/trips/delay`, {
+        method: "POST",
+        headers: tenantHeaders(),
+        body: JSON.stringify({ delayMinutes: mins }),
+      });
+      const data = await r.json() as { message?: string; error?: string };
+      setSendResult(data.message ?? data.error ?? "Done");
+      void load();
+    } catch {
+      setSendResult("Failed to send delay alert");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function formatTime(ts: string | Date) {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <MessageCircle size={15} className="text-green-500" />
+          <h2 className="font-semibold text-primary text-sm">WhatsApp Alerts</h2>
+        </div>
+        <button
+          onClick={() => void load()}
+          className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw size={13} />
+        </button>
+      </div>
+
+      {/* Delay alert trigger */}
+      <div className="px-4 py-3 border-b border-border bg-amber-50 dark:bg-amber-950/20 flex items-center gap-2 flex-wrap">
+        <Bell size={13} className="text-amber-600 shrink-0" />
+        <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Send delay alert to all parents:</span>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <input
+            type="number"
+            min={1}
+            max={120}
+            value={delayMin}
+            onChange={(e) => setDelayMin(e.target.value)}
+            className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-xs text-center"
+          />
+          <span className="text-xs text-muted-foreground">min late</span>
+          <button
+            onClick={() => void handleSendDelay()}
+            disabled={sending}
+            className="flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1 text-xs font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-60 transition-colors"
+          >
+            <Send size={11} />
+            {sending ? "Sending…" : "Notify"}
+          </button>
+        </div>
+        {sendResult && (
+          <p className="w-full text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">{sendResult}</p>
+        )}
+      </div>
+
+      {/* Notifications log */}
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No WhatsApp alerts sent yet. They appear here when a student is marked absent or a delay is broadcast.</p>
+      ) : (
+        <div className="max-h-80 overflow-y-auto divide-y divide-border">
+          {rows.map((row) => (
+            <button
+              key={row.id}
+              onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+              className="w-full text-left px-4 py-2.5 hover:bg-muted/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  row.type === "absent"
+                    ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
+                    : "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                }`}>
+                  {row.type === "absent" ? "Absent" : "Delay"}
+                </span>
+                <span className="flex-1 text-sm font-medium text-foreground truncate">
+                  {row.passengerName ?? row.recipientName}
+                  {row.stationName ? <span className="text-muted-foreground font-normal"> · {row.stationName}</span> : null}
+                </span>
+                <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                  row.status === "sent"
+                    ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                    : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+                }`}>
+                  {row.status}
+                </span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{formatTime(row.sentAt)}</span>
+              </div>
+              {expanded === row.id && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground whitespace-pre-wrap pl-1 border-l-2 border-muted">
+                  {row.messageBody}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── DriverCommunicationsPanel ─────────────────────────────────────────────────
 function DriverCommunicationsPanel({
   drivers,
@@ -2299,6 +2451,7 @@ export default function AdminPortal() {
             routes={adminRoutes as RouteRow[] | undefined}
             onRefresh={refetchAll}
           />
+          <WhatsAppNotificationsPanel />
           <DriverCommunicationsPanel
             drivers={drivers as DriverRow[] | undefined}
             vehicles={vehicles as VehicleRow[] | undefined}

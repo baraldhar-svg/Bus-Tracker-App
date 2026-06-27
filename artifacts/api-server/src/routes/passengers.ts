@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { passengersTable, stationsTable, usersTable, tenantsTable, boardingLogsTable, driversTable, driverNotificationsTable } from "@workspace/db";
 import { eq, desc, and, isNotNull } from "drizzle-orm";
 import { broadcast } from "../lib/sse";
+import { sendWhatsAppAlert } from "../lib/whatsapp";
 import {
   CreatePassengerBody,
   GetPassengerParams,
@@ -314,6 +315,23 @@ router.post("/:id/absent", async (req, res) => {
       driverName: activeDriver?.name ?? null,
       action: "absent",
     });
+
+    // Send WhatsApp alert to parent if they have a phone number
+    if (row.phone) {
+      const stationLabel = row.stationName ?? "their stop";
+      const busLabel = activeDriver?.vehicleNumber ? `Bus ${activeDriver.vehicleNumber}` : "the school bus";
+      const message =
+        `🚌 *FleetSaaS Alert*\n\nYour child *${row.name}* was marked *absent* at *${stationLabel}* by the driver.\n\n${busLabel} has passed this stop. Please arrange alternative transport or contact the school if this is unexpected.`;
+      void sendWhatsAppAlert({
+        tenantId: req.tenantId,
+        to: row.phone,
+        recipientName: row.name,
+        type: "absent",
+        passengerName: row.name,
+        stationName: row.stationName ?? undefined,
+        messageBody: message,
+      });
+    }
   }
   broadcast(req.tenantId, "passengers_updated", { tenantId: req.tenantId, passengerId: parsed.data.id, action: "absent" });
   return res.json({ ...row, ...computeSubStatus(row ?? { routeId: null, routeSubscribedAt: null }) });

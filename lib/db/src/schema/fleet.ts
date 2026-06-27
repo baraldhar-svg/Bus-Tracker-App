@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, real, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -16,6 +16,9 @@ export const driversTable = pgTable("drivers", {
   currentLat: real("current_lat"),
   currentLng: real("current_lng"),
   locationUpdatedAt: text("location_updated_at"),
+  // Trip lifecycle timestamps — used by the delay watchdog
+  tripStartedAt: timestamp("trip_started_at"),
+  delayAlertSentAt: timestamp("delay_alert_sent_at"),
 });
 
 export const insertDriverSchema = createInsertSchema(driversTable).omit({ id: true });

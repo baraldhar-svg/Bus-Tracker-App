@@ -62,3 +62,20 @@ export const driverNotificationsTable = pgTable("driver_notifications", {
 });
 
 export type DriverNotification = typeof driverNotificationsTable.$inferSelect;
+
+// WhatsApp alert log — one row per outbound message attempt
+export const whatsappNotificationsTable = pgTable("whatsapp_notifications", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id),
+  to: text("to").notNull(),
+  recipientName: text("recipient_name").notNull(),
+  type: text("type").notNull(), // "absent" | "delay"
+  passengerName: text("passenger_name"),
+  stationName: text("station_name"),
+  messageBody: text("message_body").notNull(),
+  status: text("status").notNull().default("sent"), // "sent" | "failed"
+  errorDetail: text("error_detail"),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type WhatsappNotification = typeof whatsappNotificationsTable.$inferSelect;
