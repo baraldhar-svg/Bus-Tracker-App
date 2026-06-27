@@ -72,6 +72,7 @@ export const whatsappNotificationsTable = pgTable("whatsapp_notifications", {
   type: text("type").notNull(), // "absent" | "delay"
   passengerName: text("passenger_name"),
   stationName: text("station_name"),
+  templateName: text("template_name"), // e.g. "absent_alert", "delay_alert"
   messageBody: text("message_body").notNull(),
   status: text("status").notNull().default("sent"), // "sent" | "failed"
   errorDetail: text("error_detail"),
