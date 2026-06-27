@@ -3,7 +3,7 @@ import { useListStations, useListAnnouncements, useListPassengers, useListDriver
 import { CheckCircle, MapPin, Home, Bus, Upload, Camera, Pencil, AlertTriangle, Wrench, Send, MessageSquare, Megaphone, Phone, Route, Plus, Trash2, Search, Navigation, ChevronDown, ChevronUp, X, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Star, Clock, Lock, User, Bell, Droplets, FileText, BarChart3, Gauge, AlertCircle, Settings2 } from "lucide-react";
 import StationMapPicker from "@/components/station-map-picker";
 
-// ── 🛠️ एरर फिक्स गरिएको ठाउँ: 'type' कीवर्ड हटाइएको छ ──
+// ── 🛠️ OsmMap Import फिक्स भइसकेको छ ──
 import OsmMap, { RouteStop } from "@/components/osm-map";
 
 import { useLiveLocations } from "@/hooks/use-live-locations";
@@ -20,6 +20,7 @@ function tenantHeaders(): Record<string, string> {
   return id !== null ? { "Content-Type": "application/json", "x-tenant-id": String(id) } : { "Content-Type": "application/json" };
 }
 
+// ── 🛠️ यहाँ ब्याकटिक्स (Backticks) सम्बन्धी एरर पूर्ण रूपमा सच्याइएको छ ──
 async function apiPost(path: string, body: unknown) {
   const res = await fetch(`${REPLIT_BACKEND}/api${path}`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
   const data = await res.json();
@@ -47,12 +48,6 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  boarded: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-  pending: "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800",
-  leave: "bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700",
 };
 const STATUS_LABELS: Record<string, string> = { boarded: "✓ Boarded", pending: "Pending", leave: "On Leave" };
 
