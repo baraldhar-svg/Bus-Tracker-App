@@ -1041,12 +1041,10 @@ export default function DriverPortal() {
 
       {/* Delay Alert Sheet */}
       {delayAlertOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setDelayAlertOpen(false); }}>
-          <div className="w-full max-w-md rounded-t-3xl bg-[#1e293b] border-t border-slate-700 shadow-2xl">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full bg-slate-600" />
-            </div>
+          <div className="w-full max-w-md rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl">
+            <div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
               <div>
                 <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
@@ -1102,13 +1100,10 @@ export default function DriverPortal() {
 
       {/* Quick Message Sheet */}
       {quickMsgOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setQuickMsgOpen(false); }}>
-          <div className="w-full max-w-md rounded-t-3xl bg-[#1e293b] border-t border-slate-700 shadow-2xl">
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full bg-slate-600" />
-            </div>
+          <div className="w-full max-w-md rounded-2xl bg-[#1e293b] border border-slate-700 shadow-2xl">
+            <div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
               <div>
                 <h2 className="text-base font-bold text-slate-100 flex items-center gap-2"><Megaphone size={16} /> Report to Admin</h2>

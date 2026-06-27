@@ -757,14 +757,13 @@ function DriverDetailPanel({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-border" />
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="shrink-0">
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
@@ -917,12 +916,12 @@ function PassengerDetailPanel({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border shadow-2xl flex flex-col p-5 space-y-3">
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl flex flex-col p-5 space-y-3">
         <input
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
@@ -961,12 +960,12 @@ function BusDetailPanel({
   const bboxLat = 0.008;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-t-3xl bg-card border-t border-border p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-foreground">
           {vehicle.plate} ({vehicle.driver})
         </h2>
