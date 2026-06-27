@@ -20,7 +20,6 @@ function tenantHeaders(): Record<string, string> {
   return id !== null ? { "Content-Type": "application/json", "x-tenant-id": String(id) } : { "Content-Type": "application/json" };
 }
 
-// ── 🛠️ यहाँ ब्याकटिक्स (Backticks) सम्बन्धी एरर पूर्ण रूपमा सच्याइएको छ ──
 async function apiPost(path: string, body: unknown) {
   const res = await fetch(`${REPLIT_BACKEND}/api${path}`, { method: "POST", headers: tenantHeaders(), body: JSON.stringify(body) });
   const data = await res.json();
@@ -39,6 +38,7 @@ async function apiDelete(path: string) {
   const id = getTenantId();
   const headers: Record<string, string> = id !== null ? { "x-tenant-id": String(id) } : {};
   await fetch(`${REPLIT_BACKEND}/api${path}`, { method: "DELETE", headers });
+}
 }
 
 function fileToDataUrl(file: File): Promise<string> {
