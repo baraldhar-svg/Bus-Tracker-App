@@ -14,6 +14,14 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
+
+// In-memory boarding OTP store: passengerId → { code, expiresAt }
+// OTPs expire after 5 minutes. In production, the code would be sent via SMS.
+const boardingOtps = new Map<number, { code: string; expiresAt: Date }>();
+
+function generateBoardingOtp(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
 const PASSENGER_SELECT = {
   id: passengersTable.id,
   name: passengersTable.name,
@@ -258,9 +266,35 @@ router.post("/:id/renew", async (req, res) => {
   return res.json({ ok: true, renewedAt: renewedAt.toISOString() });
 });
 
+router.post("/:id/send-boarding-otp", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid passenger id" });
+  const code = generateBoardingOtp();
+  boardingOtps.set(id, { code, expiresAt: new Date(Date.now() + 5 * 60_000) });
+  // In production, send code via SMS to the parent's phone number.
+  // In demo/simulation mode, we return the code so the driver can relay it.
+  req.log.info({ passengerId: id }, "boarding OTP generated");
+  return res.json({ success: true, demoCode: code });
+});
+
 router.post("/:id/board", async (req, res) => {
   const parsed = BoardPassengerParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
+
+  const { otp } = req.body as { otp?: string };
+  if (!otp) return res.status(400).json({ error: "OTP is required" });
+
+  const stored = boardingOtps.get(parsed.data.id);
+  if (!stored) return res.status(401).json({ error: "No OTP found for this passenger. Please send a new OTP." });
+  if (new Date() > stored.expiresAt) {
+    boardingOtps.delete(parsed.data.id);
+    return res.status(401).json({ error: "OTP has expired. Please send a new one." });
+  }
+  if (stored.code !== otp.trim()) {
+    return res.status(401).json({ error: "Incorrect OTP. Please try again." });
+  }
+  boardingOtps.delete(parsed.data.id);
+
   await db
     .update(passengersTable)
     .set({ status: "boarded", boardedAt: new Date() })

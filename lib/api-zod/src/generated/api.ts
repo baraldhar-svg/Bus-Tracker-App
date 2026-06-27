@@ -347,10 +347,27 @@ export const UpdatePassengerResponse = zod.object({
 
 
 /**
- * @summary Mark passenger as boarded (driver action)
+ * @summary Generate a server-side boarding OTP for a passenger (driver action)
+ */
+export const SendBoardingOtpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendBoardingOtpResponse = zod.object({
+  "success": zod.boolean(),
+  "demoCode": zod.string().optional().describe('Demo only — the generated OTP for testing (not shown in production UI)')
+})
+
+
+/**
+ * @summary Mark passenger as boarded (driver action) — requires valid OTP
  */
 export const BoardPassengerParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const BoardPassengerBody = zod.object({
+  "otp": zod.string().describe('The OTP entered by the driver, validated server-side')
 })
 
 export const BoardPassengerResponse = zod.object({

@@ -478,6 +478,17 @@ export interface DashboardStats {
   subscriptionBreakdown?: DashboardStatsSubscriptionBreakdown;
 }
 
+export type SendBoardingOtp200 = {
+  success: boolean;
+  /** Demo only — the generated OTP for testing (not shown in production UI) */
+  demoCode?: string;
+};
+
+export type BoardPassengerBody = {
+  /** The OTP entered by the driver, validated server-side */
+  otp: string;
+};
+
 export type GeocodeAddressParams = {
 q: string;
 };

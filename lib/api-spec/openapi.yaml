@@ -421,11 +421,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Passenger"
 
-  /passengers/{id}/board:
+  /passengers/{id}/send-boarding-otp:
     post:
-      operationId: boardPassenger
+      operationId: sendBoardingOtp
       tags: [passengers]
-      summary: Mark passenger as boarded (driver action)
+      summary: Generate a server-side boarding OTP for a passenger (driver action)
       parameters:
         - name: id
           in: path
@@ -434,11 +434,50 @@ paths:
             type: integer
       responses:
         "200":
+          description: OTP generated (sent to parent via SMS in production; returned as demoCode in simulation)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                  demoCode:
+                    type: string
+                    description: Demo only — the generated OTP for testing (not shown in production UI)
+
+  /passengers/{id}/board:
+    post:
+      operationId: boardPassenger
+      tags: [passengers]
+      summary: Mark passenger as boarded (driver action) — requires valid OTP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+                  description: The OTP entered by the driver, validated server-side
+      responses:
+        "200":
           description: Updated passenger with boarding status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Passenger"
+        "401":
+          description: Invalid or expired OTP
 
   /passengers/{id}/unboard:
     post:

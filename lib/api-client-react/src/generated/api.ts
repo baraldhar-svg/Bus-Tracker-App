@@ -23,6 +23,7 @@ import type {
   ActiveTrip,
   Announcement,
   AnnouncementInput,
+  BoardPassengerBody,
   CalendarEvent,
   CalendarEventList,
   CreateCalendarEventBody,
@@ -44,6 +45,7 @@ import type {
   RouteStation,
   RouteStationInput,
   RouteUpdate,
+  SendBoardingOtp200,
   SosResponse,
   Station,
   StationInput,
@@ -1755,20 +1757,20 @@ export const useUpdatePassenger = <TError = ErrorType<unknown>,
       return useMutation(getUpdatePassengerMutationOptions(options));
     }
 
-export const getBoardPassengerUrl = (id: number,) => {
+export const getSendBoardingOtpUrl = (id: number,) => {
 
 
 
 
-  return `/api/passengers/${id}/board`
+  return `/api/passengers/${id}/send-boarding-otp`
 }
 
 /**
- * @summary Mark passenger as boarded (driver action)
+ * @summary Generate a server-side boarding OTP for a passenger (driver action)
  */
-export const boardPassenger = async (id: number, options?: RequestInit): Promise<Passenger> => {
+export const sendBoardingOtp = async (id: number, options?: RequestInit): Promise<SendBoardingOtp200> => {
 
-  return customFetch<Passenger>(getBoardPassengerUrl(id),
+  return customFetch<SendBoardingOtp200>(getSendBoardingOtpUrl(id),
   {
     ...options,
     method: 'POST'
@@ -1780,9 +1782,81 @@ export const boardPassenger = async (id: number, options?: RequestInit): Promise
 
 
 
-export const getBoardPassengerMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number}, TContext> => {
+export const getSendBoardingOtpMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendBoardingOtp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendBoardingOtp>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['sendBoardingOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendBoardingOtp>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  sendBoardingOtp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendBoardingOtpMutationResult = NonNullable<Awaited<ReturnType<typeof sendBoardingOtp>>>
+
+    export type SendBoardingOtpMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Generate a server-side boarding OTP for a passenger (driver action)
+ */
+export const useSendBoardingOtp = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendBoardingOtp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendBoardingOtp>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSendBoardingOtpMutationOptions(options));
+    }
+
+export const getBoardPassengerUrl = (id: number,) => {
+
+
+
+
+  return `/api/passengers/${id}/board`
+}
+
+/**
+ * @summary Mark passenger as boarded (driver action) — requires valid OTP
+ */
+export const boardPassenger = async (id: number,
+    boardPassengerBody: BoardPassengerBody, options?: RequestInit): Promise<Passenger> => {
+
+  return customFetch<Passenger>(getBoardPassengerUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      boardPassengerBody,)
+  }
+);}
+
+
+
+
+export const getBoardPassengerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number;data: BodyType<BoardPassengerBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number;data: BodyType<BoardPassengerBody>}, TContext> => {
 
 const mutationKey = ['boardPassenger'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1794,10 +1868,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof boardPassenger>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof boardPassenger>>, {id: number;data: BodyType<BoardPassengerBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  boardPassenger(id,requestOptions)
+          return  boardPassenger(id,data,requestOptions)
         }
 
 
@@ -1808,18 +1882,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type BoardPassengerMutationResult = NonNullable<Awaited<ReturnType<typeof boardPassenger>>>
-
-    export type BoardPassengerMutationError = ErrorType<unknown>
+    export type BoardPassengerMutationBody = BodyType<BoardPassengerBody>
+    export type BoardPassengerMutationError = ErrorType<void>
 
     /**
- * @summary Mark passenger as boarded (driver action)
+ * @summary Mark passenger as boarded (driver action) — requires valid OTP
  */
-export const useBoardPassenger = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useBoardPassenger = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof boardPassenger>>, TError,{id: number;data: BodyType<BoardPassengerBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof boardPassenger>>,
         TError,
-        {id: number},
+        {id: number;data: BodyType<BoardPassengerBody>},
         TContext
       > => {
       return useMutation(getBoardPassengerMutationOptions(options));

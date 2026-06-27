@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "UBZw7PwWM9AwVtcwvRipV"
+uri = "file://artifacts/orbittrack-mobile/assets/images/icon.png"
+type = "image"
+title = "orbittrack mobile app icon"
